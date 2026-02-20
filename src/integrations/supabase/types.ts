@@ -14,7 +14,263 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      charge_points: {
+        Row: {
+          created_at: string
+          energy_delivered: number | null
+          firmware_version: string | null
+          id: string
+          last_heartbeat: string | null
+          location: string | null
+          max_power: number | null
+          model: string | null
+          name: string
+          serial_number: string | null
+          status: string
+          updated_at: string
+          vendor: string | null
+        }
+        Insert: {
+          created_at?: string
+          energy_delivered?: number | null
+          firmware_version?: string | null
+          id: string
+          last_heartbeat?: string | null
+          location?: string | null
+          max_power?: number | null
+          model?: string | null
+          name: string
+          serial_number?: string | null
+          status?: string
+          updated_at?: string
+          vendor?: string | null
+        }
+        Update: {
+          created_at?: string
+          energy_delivered?: number | null
+          firmware_version?: string | null
+          id?: string
+          last_heartbeat?: string | null
+          location?: string | null
+          max_power?: number | null
+          model?: string | null
+          name?: string
+          serial_number?: string | null
+          status?: string
+          updated_at?: string
+          vendor?: string | null
+        }
+        Relationships: []
+      }
+      connectors: {
+        Row: {
+          charge_point_id: string
+          connector_id: number
+          created_at: string
+          current_power: number | null
+          id: number
+          meter_value: number | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          charge_point_id: string
+          connector_id: number
+          created_at?: string
+          current_power?: number | null
+          id?: number
+          meter_value?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          charge_point_id?: string
+          connector_id?: number
+          created_at?: string
+          current_power?: number | null
+          id?: number
+          meter_value?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "connectors_charge_point_id_fkey"
+            columns: ["charge_point_id"]
+            isOneToOne: false
+            referencedRelation: "charge_points"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      heartbeats: {
+        Row: {
+          charge_point_id: string
+          id: number
+          received_at: string
+        }
+        Insert: {
+          charge_point_id: string
+          id?: number
+          received_at?: string
+        }
+        Update: {
+          charge_point_id?: string
+          id?: number
+          received_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "heartbeats_charge_point_id_fkey"
+            columns: ["charge_point_id"]
+            isOneToOne: false
+            referencedRelation: "charge_points"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meter_values: {
+        Row: {
+          charge_point_id: string
+          connector_id: number
+          id: number
+          measurand: string
+          timestamp: string
+          transaction_id: number | null
+          unit: string
+          value: number
+        }
+        Insert: {
+          charge_point_id: string
+          connector_id: number
+          id?: number
+          measurand?: string
+          timestamp?: string
+          transaction_id?: number | null
+          unit?: string
+          value: number
+        }
+        Update: {
+          charge_point_id?: string
+          connector_id?: number
+          id?: number
+          measurand?: string
+          timestamp?: string
+          transaction_id?: number | null
+          unit?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meter_values_charge_point_id_fkey"
+            columns: ["charge_point_id"]
+            isOneToOne: false
+            referencedRelation: "charge_points"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meter_values_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      status_notifications: {
+        Row: {
+          charge_point_id: string
+          connector_id: number
+          error_code: string | null
+          id: number
+          info: string | null
+          status: string
+          timestamp: string
+          vendor_error_code: string | null
+        }
+        Insert: {
+          charge_point_id: string
+          connector_id?: number
+          error_code?: string | null
+          id?: number
+          info?: string | null
+          status: string
+          timestamp?: string
+          vendor_error_code?: string | null
+        }
+        Update: {
+          charge_point_id?: string
+          connector_id?: number
+          error_code?: string | null
+          id?: number
+          info?: string | null
+          status?: string
+          timestamp?: string
+          vendor_error_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "status_notifications_charge_point_id_fkey"
+            columns: ["charge_point_id"]
+            isOneToOne: false
+            referencedRelation: "charge_points"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transactions: {
+        Row: {
+          charge_point_id: string
+          connector_id: number
+          cost: number | null
+          created_at: string
+          energy_delivered: number | null
+          id: number
+          id_tag: string
+          meter_start: number
+          meter_stop: number | null
+          start_time: string
+          status: string
+          stop_time: string | null
+        }
+        Insert: {
+          charge_point_id: string
+          connector_id: number
+          cost?: number | null
+          created_at?: string
+          energy_delivered?: number | null
+          id?: number
+          id_tag: string
+          meter_start?: number
+          meter_stop?: number | null
+          start_time?: string
+          status?: string
+          stop_time?: string | null
+        }
+        Update: {
+          charge_point_id?: string
+          connector_id?: number
+          cost?: number | null
+          created_at?: string
+          energy_delivered?: number | null
+          id?: number
+          id_tag?: string
+          meter_start?: number
+          meter_stop?: number | null
+          start_time?: string
+          status?: string
+          stop_time?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_charge_point_id_fkey"
+            columns: ["charge_point_id"]
+            isOneToOne: false
+            referencedRelation: "charge_points"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

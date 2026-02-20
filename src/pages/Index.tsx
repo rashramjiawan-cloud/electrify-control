@@ -1,46 +1,39 @@
 import AppLayout from '@/components/AppLayout';
 import StatCard from '@/components/StatCard';
 import StatusBadge from '@/components/StatusBadge';
+import { useChargePoints } from '@/hooks/useChargePoints';
+import { useTransactions } from '@/hooks/useTransactions';
 import { mockChargePoints, mockBatteries, mockEMS, mockTransactions } from '@/data/mockData';
-import { Zap, BatteryCharging, Sun, Activity, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Zap, BatteryCharging, Sun, Activity, AlertTriangle } from 'lucide-react';
 
 const Dashboard = () => {
-  const chargingCount = mockChargePoints.filter(cp => cp.status === 'Charging').length;
-  const faultedCount = mockChargePoints.filter(cp => cp.status === 'Faulted').length;
-  const totalPower = mockChargePoints.reduce((acc, cp) => acc + cp.connectors.reduce((a, c) => a + c.currentPower, 0), 0);
+  const { data: dbChargePoints } = useChargePoints();
+  const { data: dbTransactions } = useTransactions(5);
+
+  const hasDbCp = dbChargePoints && dbChargePoints.length > 0;
+  const hasDbTx = dbTransactions && dbTransactions.length > 0;
+
+  // Charge points data
+  const cpList = hasDbCp
+    ? dbChargePoints.map(cp => ({ id: cp.id, name: cp.name, vendor: cp.vendor || '', status: cp.status, power: 0 }))
+    : mockChargePoints.map(cp => ({ id: cp.id, name: cp.name, vendor: cp.vendor, status: cp.status, power: cp.connectors.reduce((a, c) => a + c.currentPower, 0) }));
+
+  const chargingCount = cpList.filter(cp => cp.status === 'Charging').length;
+  const faultedCount = cpList.filter(cp => cp.status === 'Faulted').length;
+  const totalPower = hasDbCp ? 0 : mockChargePoints.reduce((acc, cp) => acc + cp.connectors.reduce((a, c) => a + c.currentPower, 0), 0);
+
+  // Transactions
+  const txList = hasDbTx
+    ? dbTransactions.map(tx => ({ id: tx.id, idTag: tx.id_tag, startTime: tx.start_time, energyDelivered: tx.energy_delivered, cost: tx.cost, status: tx.status }))
+    : mockTransactions;
 
   return (
     <AppLayout title="Dashboard" subtitle="Overzicht van je energiesysteem">
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard
-          title="Actief laden"
-          value={chargingCount}
-          unit={`/ ${mockChargePoints.length}`}
-          icon={Zap}
-          variant="primary"
-          trend={{ value: 12, label: 'vs vorige week' }}
-        />
-        <StatCard
-          title="Huidig vermogen"
-          value={totalPower.toFixed(1)}
-          unit="kW"
-          icon={Activity}
-          variant="primary"
-        />
-        <StatCard
-          title="Zonne-energie"
-          value={mockEMS.solarPower}
-          unit="kW"
-          icon={Sun}
-          trend={{ value: 8, label: 'vandaag' }}
-        />
-        <StatCard
-          title="Storingen"
-          value={faultedCount}
-          icon={AlertTriangle}
-          variant={faultedCount > 0 ? 'destructive' : 'default'}
-        />
+        <StatCard title="Actief laden" value={chargingCount} unit={`/ ${cpList.length}`} icon={Zap} variant="primary" />
+        <StatCard title="Huidig vermogen" value={totalPower.toFixed(1)} unit="kW" icon={Activity} variant="primary" />
+        <StatCard title="Zonne-energie" value={mockEMS.solarPower} unit="kW" icon={Sun} trend={{ value: 8, label: 'vandaag' }} />
+        <StatCard title="Storingen" value={faultedCount} icon={AlertTriangle} variant={faultedCount > 0 ? 'destructive' : 'default'} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -50,7 +43,7 @@ const Dashboard = () => {
             <h2 className="text-sm font-semibold text-foreground">Laadpalen Status</h2>
           </div>
           <div className="divide-y divide-border">
-            {mockChargePoints.map((cp) => (
+            {cpList.map((cp) => (
               <div key={cp.id} className="flex items-center justify-between px-5 py-3.5 hover:bg-muted/30 transition-colors">
                 <div className="flex items-center gap-4">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
@@ -62,12 +55,10 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  {cp.connectors.some(c => c.currentPower > 0) && (
-                    <span className="font-mono text-sm text-primary font-medium">
-                      {cp.connectors.reduce((a, c) => a + c.currentPower, 0).toFixed(1)} kW
-                    </span>
+                  {cp.power > 0 && (
+                    <span className="font-mono text-sm text-primary font-medium">{cp.power.toFixed(1)} kW</span>
                   )}
-                  <StatusBadge status={cp.status} />
+                  <StatusBadge status={cp.status as any} />
                 </div>
               </div>
             ))}
@@ -89,16 +80,11 @@ const Dashboard = () => {
                     <span className="font-mono text-xs text-muted-foreground">{bat.soc}%</span>
                   </div>
                   <div className="h-2 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-primary transition-all duration-500"
-                      style={{ width: `${bat.soc}%` }}
-                    />
+                    <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${bat.soc}%` }} />
                   </div>
                   <div className="flex items-center justify-between">
                     <StatusBadge status={bat.status} />
-                    <span className="font-mono text-xs text-muted-foreground">
-                      {bat.power > 0 ? '+' : ''}{bat.power} kW
-                    </span>
+                    <span className="font-mono text-xs text-muted-foreground">{bat.power > 0 ? '+' : ''}{bat.power} kW</span>
                   </div>
                 </div>
               ))}
@@ -152,7 +138,7 @@ const Dashboard = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {mockTransactions.map((tx) => (
+              {txList.map((tx) => (
                 <tr key={tx.id} className="hover:bg-muted/30 transition-colors">
                   <td className="px-5 py-3 font-mono text-sm text-foreground">#{tx.id}</td>
                   <td className="px-5 py-3 font-mono text-xs text-muted-foreground">{tx.idTag}</td>
@@ -160,8 +146,8 @@ const Dashboard = () => {
                     {new Date(tx.startTime).toLocaleString('nl-NL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                   </td>
                   <td className="px-5 py-3 font-mono text-sm text-foreground">{tx.energyDelivered} kWh</td>
-                  <td className="px-5 py-3 font-mono text-sm text-foreground">{tx.cost ? `€${tx.cost.toFixed(2)}` : '—'}</td>
-                  <td className="px-5 py-3"><StatusBadge status={tx.status} /></td>
+                  <td className="px-5 py-3 font-mono text-sm text-foreground">{tx.cost ? `€${Number(tx.cost).toFixed(2)}` : '—'}</td>
+                  <td className="px-5 py-3"><StatusBadge status={tx.status as any} /></td>
                 </tr>
               ))}
             </tbody>
