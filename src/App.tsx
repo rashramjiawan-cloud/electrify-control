@@ -15,8 +15,8 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading } = useAuth();
+const ProtectedRoute = ({ children, adminOnly = false }: { children: React.ReactNode; adminOnly?: boolean }) => {
+  const { user, loading, isAdmin } = useAuth();
 
   if (loading) {
     return (
@@ -27,6 +27,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   if (!user) return <Navigate to="/auth" replace />;
+  if (adminOnly && !isAdmin) return <Navigate to="/" replace />;
   return <>{children}</>;
 };
 
@@ -44,7 +45,7 @@ const AppRoutes = () => (
     <Route path="/laadpalen" element={<ProtectedRoute><Laadpalen /></ProtectedRoute>} />
     <Route path="/batterij" element={<ProtectedRoute><Batterij /></ProtectedRoute>} />
     <Route path="/ems" element={<ProtectedRoute><EMS /></ProtectedRoute>} />
-    <Route path="/simulator" element={<ProtectedRoute><Simulator /></ProtectedRoute>} />
+    <Route path="/simulator" element={<ProtectedRoute adminOnly><Simulator /></ProtectedRoute>} />
     <Route path="/reset-password" element={<ResetPassword />} />
     <Route path="*" element={<NotFound />} />
   </Routes>
