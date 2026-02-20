@@ -160,9 +160,19 @@ async function handleStopTransaction(cpId: string, payload: Record<string, unkno
     .eq("id", transactionId);
 
   // Update charge point energy delivered
-  await supabase.rpc("increment_energy", undefined).catch(() => {
-    // Fallback: direct update
-  });
+  if (energyDelivered > 0) {
+    const { data: cpData } = await supabase
+      .from("charge_points")
+      .select("energy_delivered")
+      .eq("id", cpId)
+      .single();
+    if (cpData) {
+      await supabase
+        .from("charge_points")
+        .update({ energy_delivered: (cpData.energy_delivered as number) + energyDelivered })
+        .eq("id", cpId);
+    }
+  }
 
   return { idTagInfo: { status: "Accepted" } };
 }
