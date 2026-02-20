@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { useChargePoints, useConnectors } from '@/hooks/useChargePoints';
 import { useTransactions } from '@/hooks/useTransactions';
 import { mockChargePoints } from '@/data/mockData';
-import { Zap, Plug, AlertTriangle, CheckCircle, Play, Square, Settings, Lock, Unlock, Loader2, RotateCcw } from 'lucide-react';
+import { Zap, Plug, AlertTriangle, CheckCircle, Play, Square, Settings, Lock, Unlock, Loader2, RotateCcw, Radio } from 'lucide-react';
 import { toast } from 'sonner';
 import type { ChargePointStatus } from '@/types/energy';
 
@@ -56,6 +56,9 @@ const Laadpalen = () => {
   const [savingConfig, setSavingConfig] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [resetType, setResetType] = useState<'Soft' | 'Hard'>('Soft');
+  const [triggerDialogOpen, setTriggerDialogOpen] = useState(false);
+  const [triggerMessage, setTriggerMessage] = useState('StatusNotification');
+  const [triggerConnector, setTriggerConnector] = useState('0');
 
   const hasDbData = dbChargePoints && dbChargePoints.length > 0;
 
@@ -214,6 +217,34 @@ const Laadpalen = () => {
     }
   };
 
+  const openTriggerDialog = (cpId: string) => {
+    setSelectedCpId(cpId);
+    setTriggerMessage('StatusNotification');
+    setTriggerConnector('0');
+    setTriggerDialogOpen(true);
+  };
+
+  const handleTriggerMessage = async () => {
+    setSending(true);
+    try {
+      const data = await sendOcppCommand(selectedCpId, 'TriggerMessage', {
+        requestedMessage: triggerMessage,
+        connectorId: Number(triggerConnector),
+      });
+      const status = data[2]?.status;
+      if (status === 'Accepted') {
+        toast.success(`${triggerMessage} getriggerd op ${selectedCpId}`);
+        setTriggerDialogOpen(false);
+      } else {
+        toast.error(`TriggerMessage: ${status}`);
+      }
+    } catch (err) {
+      toast.error(`Fout: ${(err as Error).message}`);
+    } finally {
+      setSending(false);
+    }
+  };
+
   return (
     <AppLayout title="Laadpalen" subtitle="OCPP 1.6J Charge Point Management">
       {!hasDbData && (
@@ -269,6 +300,15 @@ const Laadpalen = () => {
                         >
                           <RotateCcw className="h-3 w-3" />
                           Reset
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5 text-xs"
+                          onClick={() => openTriggerDialog(cp.id)}
+                        >
+                          <Radio className="h-3 w-3" />
+                          Trigger
                         </Button>
                         {!isCharging && (
                           <Button
@@ -615,6 +655,63 @@ const Laadpalen = () => {
             >
               <RotateCcw className="h-4 w-4" />
               {sending ? 'Bezig...' : `${resetType} Reset`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* TriggerMessage Dialog */}
+      <Dialog open={triggerDialogOpen} onOpenChange={setTriggerDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-foreground flex items-center gap-2">
+              <Radio className="h-5 w-5" />
+              TriggerMessage
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Trigger een bericht op <span className="font-mono font-semibold text-foreground">{selectedCpId}</span>
+            </p>
+            <div className="space-y-3">
+              {[
+                { value: 'StatusNotification', label: 'StatusNotification', desc: 'Huidige status van de laadpaal/connector opvragen' },
+                { value: 'MeterValues', label: 'MeterValues', desc: 'Actuele meterwaarden en vermogen opvragen' },
+                { value: 'Heartbeat', label: 'Heartbeat', desc: 'Heartbeat forceren en tijdstempel bijwerken' },
+                { value: 'BootNotification', label: 'BootNotification', desc: 'Herregistratie van de laadpaal simuleren' },
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => setTriggerMessage(opt.value)}
+                  className={`w-full rounded-lg border px-4 py-3 text-left transition-colors ${
+                    triggerMessage === opt.value
+                      ? 'border-primary/50 bg-primary/5'
+                      : 'border-border hover:bg-muted/50'
+                  }`}
+                >
+                  <p className="font-mono text-sm font-semibold text-foreground">{opt.label}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{opt.desc}</p>
+                </button>
+              ))}
+            </div>
+            {(triggerMessage === 'StatusNotification' || triggerMessage === 'MeterValues') && (
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Connector ID (0 = hele laadpaal)</Label>
+                <Input
+                  value={triggerConnector}
+                  onChange={e => setTriggerConnector(e.target.value)}
+                  className="font-mono text-sm"
+                  type="number"
+                  min="0"
+                />
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTriggerDialogOpen(false)}>Annuleren</Button>
+            <Button onClick={handleTriggerMessage} disabled={sending} className="gap-2">
+              <Radio className="h-4 w-4" />
+              {sending ? 'Bezig...' : 'Trigger'}
             </Button>
           </DialogFooter>
         </DialogContent>
