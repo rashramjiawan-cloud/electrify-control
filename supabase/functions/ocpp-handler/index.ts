@@ -438,6 +438,66 @@ async function handleTriggerMessage(cpId: string, payload: Record<string, unknow
   return { status: "Accepted" };
 }
 
+async function handleUnlockConnector(cpId: string, payload: Record<string, unknown>) {
+  const connectorId = (payload.connectorId as number) || 1;
+
+  if (connectorId <= 0) {
+    return { status: "Rejected" };
+  }
+
+  // Check if connector exists
+  const { data: conn } = await supabase
+    .from("connectors")
+    .select("status")
+    .eq("charge_point_id", cpId)
+    .eq("connector_id", connectorId)
+    .maybeSingle();
+
+  if (!conn) {
+    return { status: "NotSupported" };
+  }
+
+  // Stop any active transaction on this connector
+  const { data: activeTxs } = await supabase
+    .from("transactions")
+    .select("id")
+    .eq("charge_point_id", cpId)
+    .eq("connector_id", connectorId)
+    .eq("status", "Active");
+
+  if (activeTxs && activeTxs.length > 0) {
+    for (const tx of activeTxs) {
+      await supabase
+        .from("transactions")
+        .update({ stop_time: new Date().toISOString(), status: "Completed" })
+        .eq("id", tx.id);
+    }
+  }
+
+  // Set connector to Available
+  await supabase
+    .from("connectors")
+    .update({ status: "Available", current_power: 0 })
+    .eq("charge_point_id", cpId)
+    .eq("connector_id", connectorId);
+
+  // Check if CP should go back to Available
+  const { data: chargingConns } = await supabase
+    .from("connectors")
+    .select("connector_id")
+    .eq("charge_point_id", cpId)
+    .eq("status", "Charging");
+
+  if (!chargingConns || chargingConns.length === 0) {
+    await supabase
+      .from("charge_points")
+      .update({ status: "Available" })
+      .eq("id", cpId);
+  }
+
+  return { status: "Unlocked" };
+}
+
 async function handleRemoteStartTransaction(cpId: string, payload: Record<string, unknown>) {
   const connectorId = (payload.connectorId as number) || 1;
   const idTag = payload.idTag as string;
@@ -556,6 +616,7 @@ Deno.serve(async (req) => {
     const auditedActions = new Set([
       "RemoteStartTransaction", "RemoteStopTransaction",
       "ChangeConfiguration", "Reset", "TriggerMessage", "GetConfiguration",
+      "UnlockConnector",
     ]);
 
     switch (action) {
@@ -597,6 +658,9 @@ Deno.serve(async (req) => {
         break;
       case "TriggerMessage":
         response = await handleTriggerMessage(chargePointId, payload);
+        break;
+      case "UnlockConnector":
+        response = await handleUnlockConnector(chargePointId, payload);
         break;
       default:
         response = { error: `Unknown action: ${action}` };

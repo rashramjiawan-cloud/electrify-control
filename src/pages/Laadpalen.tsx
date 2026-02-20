@@ -61,6 +61,8 @@ const Laadpalen = () => {
   const [triggerDialogOpen, setTriggerDialogOpen] = useState(false);
   const [triggerMessage, setTriggerMessage] = useState('StatusNotification');
   const [triggerConnector, setTriggerConnector] = useState('0');
+  const [unlockDialogOpen, setUnlockDialogOpen] = useState(false);
+  const [unlockConnector, setUnlockConnector] = useState('1');
 
   const hasDbData = dbChargePoints && dbChargePoints.length > 0;
 
@@ -226,6 +228,32 @@ const Laadpalen = () => {
     setTriggerDialogOpen(true);
   };
 
+  const openUnlockDialog = (cpId: string) => {
+    setSelectedCpId(cpId);
+    setUnlockConnector('1');
+    setUnlockDialogOpen(true);
+  };
+
+  const handleUnlockConnector = async () => {
+    setSending(true);
+    try {
+      const data = await sendOcppCommand(selectedCpId, 'UnlockConnector', {
+        connectorId: Number(unlockConnector),
+      });
+      const status = data[2]?.status;
+      if (status === 'Unlocked') {
+        toast.success(`Connector ${unlockConnector} ontgrendeld op ${selectedCpId}`);
+        setUnlockDialogOpen(false);
+      } else {
+        toast.error(`UnlockConnector: ${status}`);
+      }
+    } catch (err) {
+      toast.error(`Fout: ${(err as Error).message}`);
+    } finally {
+      setSending(false);
+    }
+  };
+
   const handleTriggerMessage = async () => {
     setSending(true);
     try {
@@ -311,6 +339,15 @@ const Laadpalen = () => {
                         >
                           <Radio className="h-3 w-3" />
                           Trigger
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5 text-xs"
+                          onClick={() => openUnlockDialog(cp.id)}
+                        >
+                          <Unlock className="h-3 w-3" />
+                          Unlock
                         </Button>
                         {!isCharging && (
                           <Button
@@ -774,6 +811,40 @@ const Laadpalen = () => {
             <Button onClick={handleTriggerMessage} disabled={sending} className="gap-2">
               <Radio className="h-4 w-4" />
               {sending ? 'Bezig...' : 'Trigger'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* UnlockConnector Dialog */}
+      <Dialog open={unlockDialogOpen} onOpenChange={setUnlockDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Unlock className="h-5 w-5" />
+              Unlock Connector — {selectedCpId}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label className="text-xs text-muted-foreground">Connector ID</Label>
+              <Input
+                type="number"
+                min={1}
+                value={unlockConnector}
+                onChange={e => setUnlockConnector(e.target.value)}
+                className="font-mono mt-1"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Ontgrendelt de connector en stopt eventuele actieve transacties.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUnlockDialogOpen(false)}>Annuleren</Button>
+            <Button onClick={handleUnlockConnector} disabled={sending} className="gap-2">
+              <Unlock className="h-4 w-4" />
+              {sending ? 'Bezig...' : 'Ontgrendelen'}
             </Button>
           </DialogFooter>
         </DialogContent>
