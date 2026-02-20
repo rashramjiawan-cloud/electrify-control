@@ -8,12 +8,14 @@ const navItems = [
   { to: '/laadpalen', label: 'Laadpalen', icon: Zap },
   { to: '/batterij', label: 'Batterij', icon: BatteryCharging },
   { to: '/ems', label: 'EMS', icon: Cpu },
-  { to: '/simulator', label: 'Simulator', icon: Play },
+  { to: '/simulator', label: 'Simulator', icon: Play, adminOnly: true },
 ];
 
 const AppSidebar = () => {
   const location = useLocation();
-  const { user, signOut } = useAuth();
+  const { user, isAdmin, signOut } = useAuth();
+
+  const visibleNavItems = navItems.filter(item => !item.adminOnly || isAdmin);
 
   return (
     <aside className="fixed left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-border bg-sidebar">
@@ -30,7 +32,7 @@ const AppSidebar = () => {
 
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-3 py-4">
-        {navItems.map((item) => {
+        {visibleNavItems.map((item) => {
           const isActive = location.pathname === item.to;
           return (
             <NavLink
