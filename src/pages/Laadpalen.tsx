@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { useChargePoints, useConnectors } from '@/hooks/useChargePoints';
 import { useTransactions } from '@/hooks/useTransactions';
 import { mockChargePoints } from '@/data/mockData';
-import { Zap, Plug, AlertTriangle, CheckCircle, Play, Square } from 'lucide-react';
+import { Zap, Plug, AlertTriangle, CheckCircle, Play, Square, Settings, Lock, Unlock, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { ChargePointStatus } from '@/types/energy';
 
@@ -42,11 +42,15 @@ const Laadpalen = () => {
 
   const [startDialogOpen, setStartDialogOpen] = useState(false);
   const [stopDialogOpen, setStopDialogOpen] = useState(false);
+  const [configDialogOpen, setConfigDialogOpen] = useState(false);
   const [selectedCpId, setSelectedCpId] = useState('');
   const [startIdTag, setStartIdTag] = useState('RFID-REMOTE-001');
   const [startConnector, setStartConnector] = useState('1');
   const [selectedTxId, setSelectedTxId] = useState<number | null>(null);
   const [sending, setSending] = useState(false);
+  const [configLoading, setConfigLoading] = useState(false);
+  const [configKeys, setConfigKeys] = useState<Array<{ key: string; value: string | null; readonly: boolean }>>([]);
+  const [unknownKeys, setUnknownKeys] = useState<string[]>([]);
 
   const hasDbData = dbChargePoints && dbChargePoints.length > 0;
 
@@ -139,6 +143,24 @@ const Laadpalen = () => {
     setStopDialogOpen(true);
   };
 
+  const openConfigDialog = async (cpId: string) => {
+    setSelectedCpId(cpId);
+    setConfigDialogOpen(true);
+    setConfigLoading(true);
+    setConfigKeys([]);
+    setUnknownKeys([]);
+    try {
+      const data = await sendOcppCommand(cpId, 'GetConfiguration', {});
+      const result = data[2] || {};
+      setConfigKeys(result.configurationKey || []);
+      setUnknownKeys(result.unknownKey || []);
+    } catch (err) {
+      toast.error(`Fout bij ophalen configuratie: ${(err as Error).message}`);
+    } finally {
+      setConfigLoading(false);
+    }
+  };
+
   return (
     <AppLayout title="Laadpalen" subtitle="OCPP 1.6J Charge Point Management">
       {!hasDbData && (
@@ -177,6 +199,15 @@ const Laadpalen = () => {
                     {/* Remote Start/Stop buttons */}
                     {hasDbData && (
                       <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5 text-xs"
+                          onClick={() => openConfigDialog(cp.id)}
+                        >
+                          <Settings className="h-3 w-3" />
+                          Config
+                        </Button>
                         {!isCharging && (
                           <Button
                             size="sm"
@@ -351,6 +382,70 @@ const Laadpalen = () => {
               <Square className="h-4 w-4" />
               {sending ? 'Bezig...' : 'Stop laden'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* GetConfiguration Dialog */}
+      <Dialog open={configDialogOpen} onOpenChange={setConfigDialogOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-foreground flex items-center gap-2">
+              <Settings className="h-5 w-5" />
+              GetConfiguration
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground font-mono">{selectedCpId}</p>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto space-y-1 py-2">
+            {configLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : configKeys.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground text-sm">
+                Geen configuratiesleutels gevonden
+              </div>
+            ) : (
+              <div className="rounded-lg border border-border overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/50">
+                      <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Sleutel</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Waarde</th>
+                      <th className="text-center px-4 py-2.5 text-xs font-medium text-muted-foreground w-20">Modus</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {configKeys.map((cfg, i) => (
+                      <tr key={cfg.key} className={`border-b border-border last:border-0 ${i % 2 === 0 ? '' : 'bg-muted/20'}`}>
+                        <td className="px-4 py-2 font-mono text-xs text-foreground font-medium">{cfg.key}</td>
+                        <td className="px-4 py-2 font-mono text-xs text-muted-foreground">{cfg.value ?? '—'}</td>
+                        <td className="px-4 py-2 text-center">
+                          {cfg.readonly ? (
+                            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                              <Lock className="h-3 w-3" /> RO
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-xs text-primary">
+                              <Unlock className="h-3 w-3" /> RW
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {unknownKeys.length > 0 && (
+              <div className="mt-3 rounded-lg bg-muted/30 border border-border px-4 py-3">
+                <p className="text-xs text-muted-foreground mb-1 font-medium">Onbekende sleutels:</p>
+                <p className="font-mono text-xs text-destructive">{unknownKeys.join(', ')}</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfigDialogOpen(false)}>Sluiten</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

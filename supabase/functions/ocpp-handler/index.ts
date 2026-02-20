@@ -231,6 +231,45 @@ async function handleAuthorize(_cpId: string, payload: Record<string, unknown>) 
   return { idTagInfo: { status: "Accepted" } };
 }
 
+async function handleGetConfiguration(cpId: string, payload: Record<string, unknown>) {
+  const requestedKeys = payload.key as string[] | undefined;
+
+  let query = supabase
+    .from("charge_point_config")
+    .select("key, value, readonly")
+    .eq("charge_point_id", cpId);
+
+  if (requestedKeys && requestedKeys.length > 0) {
+    query = query.in("key", requestedKeys);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("GetConfiguration error:", error);
+    return { configurationKey: [], unknownKey: [] };
+  }
+
+  const knownKeys = data || [];
+  const unknownKey: string[] = [];
+
+  if (requestedKeys && requestedKeys.length > 0) {
+    const foundKeys = new Set(knownKeys.map(k => k.key));
+    for (const rk of requestedKeys) {
+      if (!foundKeys.has(rk)) unknownKey.push(rk);
+    }
+  }
+
+  return {
+    configurationKey: knownKeys.map(k => ({
+      key: k.key,
+      readonly: k.readonly,
+      value: k.value,
+    })),
+    unknownKey,
+  };
+}
+
 // CSMS → CP commands
 async function handleRemoteStartTransaction(cpId: string, payload: Record<string, unknown>) {
   const connectorId = (payload.connectorId as number) || 1;
@@ -367,6 +406,9 @@ Deno.serve(async (req) => {
         break;
       case "Authorize":
         response = await handleAuthorize(chargePointId, payload);
+        break;
+      case "GetConfiguration":
+        response = await handleGetConfiguration(chargePointId, payload);
         break;
       case "RemoteStartTransaction":
         response = await handleRemoteStartTransaction(chargePointId, payload);
