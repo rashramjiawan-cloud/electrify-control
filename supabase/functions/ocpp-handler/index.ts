@@ -354,6 +354,90 @@ async function handleReset(cpId: string, payload: Record<string, unknown>) {
   return { status: "Accepted" };
 }
 
+async function handleTriggerMessage(cpId: string, payload: Record<string, unknown>) {
+  const requestedMessage = payload.requestedMessage as string;
+  const connectorId = (payload.connectorId as number) || 0;
+
+  const supportedMessages = [
+    "BootNotification",
+    "DiagnosticsStatusNotification",
+    "FirmwareStatusNotification",
+    "Heartbeat",
+    "MeterValues",
+    "StatusNotification",
+  ];
+
+  if (!supportedMessages.includes(requestedMessage)) {
+    return { status: "NotImplemented" };
+  }
+
+  switch (requestedMessage) {
+    case "Heartbeat":
+      await handleHeartbeat(cpId);
+      break;
+    case "StatusNotification": {
+      const { data: connector } = connectorId > 0
+        ? await supabase.from("connectors").select("status").eq("charge_point_id", cpId).eq("connector_id", connectorId).maybeSingle()
+        : await supabase.from("charge_points").select("status").eq("id", cpId).maybeSingle();
+      const currentStatus = connector?.status || "Available";
+      await supabase.from("status_notifications").insert({
+        charge_point_id: cpId,
+        connector_id: connectorId,
+        status: currentStatus,
+        error_code: "NoError",
+        info: "Triggered via TriggerMessage",
+      });
+      break;
+    }
+    case "MeterValues": {
+      const targetConnector = connectorId > 0 ? connectorId : 1;
+      const { data: conn } = await supabase
+        .from("connectors")
+        .select("current_power, meter_value")
+        .eq("charge_point_id", cpId)
+        .eq("connector_id", targetConnector)
+        .maybeSingle();
+      if (conn) {
+        await supabase.from("meter_values").insert({
+          charge_point_id: cpId,
+          connector_id: targetConnector,
+          measurand: "Energy.Active.Import.Register",
+          value: conn.meter_value || 0,
+          unit: "Wh",
+          timestamp: new Date().toISOString(),
+        });
+        if (conn.current_power) {
+          await supabase.from("meter_values").insert({
+            charge_point_id: cpId,
+            connector_id: targetConnector,
+            measurand: "Power.Active.Import",
+            value: conn.current_power * 1000,
+            unit: "W",
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
+      break;
+    }
+    case "BootNotification": {
+      const { data: cp } = await supabase.from("charge_points").select("model, vendor, serial_number, firmware_version").eq("id", cpId).maybeSingle();
+      if (cp) {
+        await handleBootNotification(cpId, {
+          chargePointModel: cp.model,
+          chargePointVendor: cp.vendor,
+          chargePointSerialNumber: cp.serial_number,
+          firmwareVersion: cp.firmware_version,
+        });
+      }
+      break;
+    }
+    default:
+      break;
+  }
+
+  return { status: "Accepted" };
+}
+
 async function handleRemoteStartTransaction(cpId: string, payload: Record<string, unknown>) {
   const connectorId = (payload.connectorId as number) || 1;
   const idTag = payload.idTag as string;
@@ -504,6 +588,9 @@ Deno.serve(async (req) => {
         break;
       case "Reset":
         response = await handleReset(chargePointId, payload);
+        break;
+      case "TriggerMessage":
+        response = await handleTriggerMessage(chargePointId, payload);
         break;
       default:
         response = { error: `Unknown action: ${action}` };
