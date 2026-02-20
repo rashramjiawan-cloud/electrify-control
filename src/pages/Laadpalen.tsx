@@ -4,17 +4,19 @@ import StatusBadge from '@/components/StatusBadge';
 import StatCard from '@/components/StatCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { useChargePoints, useConnectors } from '@/hooks/useChargePoints';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useAuditLog } from '@/hooks/useAuditLog';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 import { mockChargePoints } from '@/data/mockData';
-import { Zap, Plug, AlertTriangle, CheckCircle, Play, Square, Settings, Lock, Unlock, Loader2, RotateCcw, Radio } from 'lucide-react';
+import { Zap, Plug, AlertTriangle, CheckCircle, Play, Square, Settings, Lock, Unlock, Loader2, RotateCcw, Radio, Trash2 } from 'lucide-react';
 import AuditLogTable from '@/components/AuditLogTable';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import type { ChargePointStatus } from '@/types/energy';
 
 const OCPP_ENDPOINT = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ocpp-handler`;
@@ -67,6 +69,32 @@ const Laadpalen = () => {
   const [triggerConnector, setTriggerConnector] = useState('0');
   const [unlockDialogOpen, setUnlockDialogOpen] = useState(false);
   const [unlockConnector, setUnlockConnector] = useState('1');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteCpId, setDeleteCpId] = useState('');
+  const [deleteCpName, setDeleteCpName] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handleDeleteChargePoint = async () => {
+    setDeleting(true);
+    try {
+      // Delete related data first, then the charge point
+      const tables = ['connectors', 'heartbeats', 'meter_values', 'status_notifications', 'transactions', 'ocpp_audit_log', 'charge_point_config'] as const;
+      for (const table of tables) {
+        await supabase.from(table).delete().eq('charge_point_id', deleteCpId);
+      }
+      const { error } = await supabase.from('charge_points').delete().eq('id', deleteCpId);
+      if (error) throw error;
+      toast.success(`Laadpaal ${deleteCpId} verwijderd`);
+      setDeleteDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['charge-points'] });
+      queryClient.invalidateQueries({ queryKey: ['connectors'] });
+    } catch (err) {
+      toast.error(`Fout bij verwijderen: ${(err as Error).message}`);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const hasDbData = dbChargePoints && dbChargePoints.length > 0;
 
@@ -382,8 +410,21 @@ const Laadpalen = () => {
                           className="gap-1.5 text-xs"
                           onClick={() => openUnlockDialog(cp.id)}
                         >
-                          <Unlock className="h-3 w-3" />
+                        <Unlock className="h-3 w-3" />
                           Unlock
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5 text-xs border-destructive/30 text-destructive hover:bg-destructive/10"
+                          onClick={() => {
+                            setDeleteCpId(cp.id);
+                            setDeleteCpName(cp.name);
+                            setDeleteDialogOpen(true);
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          Verwijder
                         </Button>
                         {!isCharging && (
                           <Button
@@ -829,6 +870,25 @@ const Laadpalen = () => {
             <Button onClick={handleUnlockConnector} disabled={sending} className="gap-2">
               <Unlock className="h-4 w-4" />
               {sending ? 'Bezig...' : 'Ontgrendelen'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Laadpaal verwijderen</DialogTitle>
+            <DialogDescription>
+              Weet je zeker dat je <strong>{deleteCpName}</strong> ({deleteCpId}) wilt verwijderen? Alle bijbehorende data (transacties, meterwaarden, logs) wordt permanent verwijderd.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Annuleren</Button>
+            <Button variant="destructive" onClick={handleDeleteChargePoint} disabled={deleting} className="gap-2">
+              <Trash2 className="h-4 w-4" />
+              {deleting ? 'Verwijderen...' : 'Definitief verwijderen'}
             </Button>
           </DialogFooter>
         </DialogContent>
