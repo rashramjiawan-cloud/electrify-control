@@ -11,7 +11,8 @@ import { useTransactions } from '@/hooks/useTransactions';
 import { useAuditLog } from '@/hooks/useAuditLog';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 import { mockChargePoints } from '@/data/mockData';
-import { Zap, Plug, AlertTriangle, CheckCircle, Play, Square, Settings, Lock, Unlock, Loader2, RotateCcw, Radio, ScrollText } from 'lucide-react';
+import { Zap, Plug, AlertTriangle, CheckCircle, Play, Square, Settings, Lock, Unlock, Loader2, RotateCcw, Radio } from 'lucide-react';
+import AuditLogTable from '@/components/AuditLogTable';
 import { toast } from 'sonner';
 import type { ChargePointStatus } from '@/types/energy';
 
@@ -41,7 +42,7 @@ const Laadpalen = () => {
   const { data: dbChargePoints, isLoading: cpLoading } = useChargePoints();
   const { data: dbConnectors } = useConnectors();
   const { data: dbTransactions } = useTransactions(100);
-  const { data: auditLogs } = useAuditLog(50);
+  const { data: auditLogs } = useAuditLog(200);
   useRealtimeSubscription();
 
   const [startDialogOpen, setStartDialogOpen] = useState(false);
@@ -459,62 +460,10 @@ const Laadpalen = () => {
 
       {/* Audit Log Section */}
       {hasDbData && auditLogs && auditLogs.length > 0 && (
-        <div className="mt-8">
-          <div className="flex items-center gap-2 mb-4">
-            <ScrollText className="h-5 w-5 text-muted-foreground" />
-            <h2 className="text-sm font-semibold text-foreground">OCPP Audit Log</h2>
-            <span className="text-xs text-muted-foreground">({auditLogs.length} recente commando's)</span>
-          </div>
-          <div className="rounded-xl border border-border bg-card overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/50">
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Tijdstip</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Laadpaal</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Actie</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Details</th>
-                  <th className="text-center px-4 py-2.5 text-xs font-medium text-muted-foreground">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {auditLogs.map((log: any) => {
-                  const payload = typeof log.payload === 'object' ? log.payload : {};
-                  const details = Object.entries(payload)
-                    .filter(([k]) => k !== 'type')
-                    .map(([k, v]) => `${k}: ${v}`)
-                    .join(', ');
-                  return (
-                    <tr key={log.id} className="border-b border-border last:border-0 hover:bg-muted/30">
-                      <td className="px-4 py-2 font-mono text-xs text-muted-foreground">
-                        {new Date(log.created_at).toLocaleString('nl-NL', {
-                          day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
-                        })}
-                      </td>
-                      <td className="px-4 py-2 font-mono text-xs text-foreground">{log.charge_point_id}</td>
-                      <td className="px-4 py-2">
-                        <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 font-mono text-xs font-medium text-primary">
-                          {log.action}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2 font-mono text-xs text-muted-foreground max-w-[300px] truncate">
-                        {details || '—'}
-                      </td>
-                      <td className="px-4 py-2 text-center">
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                          log.status === 'Accepted' ? 'bg-primary/10 text-primary' :
-                          log.status === 'Rejected' ? 'bg-destructive/10 text-destructive' :
-                          'bg-muted text-muted-foreground'
-                        }`}>
-                          {log.status}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <AuditLogTable
+          logs={auditLogs as any}
+          chargePointIds={chargePoints.map(cp => cp.id)}
+        />
       )}
 
       {/* Remote Start Dialog */}
