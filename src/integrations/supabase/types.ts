@@ -14,6 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      charge_point_config: {
+        Row: {
+          charge_point_id: string
+          created_at: string
+          id: number
+          key: string
+          readonly: boolean
+          updated_at: string
+          value: string | null
+        }
+        Insert: {
+          charge_point_id: string
+          created_at?: string
+          id?: number
+          key: string
+          readonly?: boolean
+          updated_at?: string
+          value?: string | null
+        }
+        Update: {
+          charge_point_id?: string
+          created_at?: string
+          id?: number
+          key?: string
+          readonly?: boolean
+          updated_at?: string
+          value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "charge_point_config_charge_point_id_fkey"
+            columns: ["charge_point_id"]
+            isOneToOne: false
+            referencedRelation: "charge_points"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       charge_points: {
         Row: {
           created_at: string
