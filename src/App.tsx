@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import Laadpalen from "./pages/Laadpalen";
 import Batterij from "./pages/Batterij";
 import EMS from "./pages/EMS";
+import Simulator from "./pages/Simulator";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
           <Route path="/laadpalen" element={<Laadpalen />} />
           <Route path="/batterij" element={<Batterij />} />
           <Route path="/ems" element={<EMS />} />
+          <Route path="/simulator" element={<Simulator />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
