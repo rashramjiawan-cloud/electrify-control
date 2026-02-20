@@ -552,6 +552,12 @@ Deno.serve(async (req) => {
 
     let response: Record<string, unknown>;
 
+    // Actions that should be audit-logged (CSMS commands)
+    const auditedActions = new Set([
+      "RemoteStartTransaction", "RemoteStopTransaction",
+      "ChangeConfiguration", "Reset", "TriggerMessage", "GetConfiguration",
+    ]);
+
     switch (action) {
       case "BootNotification":
         response = await handleBootNotification(chargePointId, payload);
@@ -594,6 +600,18 @@ Deno.serve(async (req) => {
         break;
       default:
         response = { error: `Unknown action: ${action}` };
+    }
+
+    // Write audit log for CSMS commands
+    if (auditedActions.has(action)) {
+      const resultStatus = (response as Record<string, unknown>).status as string || "Unknown";
+      await supabase.from("ocpp_audit_log").insert({
+        charge_point_id: chargePointId,
+        action,
+        payload: payload || {},
+        result: response,
+        status: resultStatus,
+      });
     }
 
     // Return OCPP CallResult format
