@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { useChargePoints, useConnectors } from '@/hooks/useChargePoints';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useAuditLog } from '@/hooks/useAuditLog';
+import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 import { mockChargePoints } from '@/data/mockData';
 import { Zap, Plug, AlertTriangle, CheckCircle, Play, Square, Settings, Lock, Unlock, Loader2, RotateCcw, Radio, ScrollText } from 'lucide-react';
 import { toast } from 'sonner';
@@ -41,6 +42,7 @@ const Laadpalen = () => {
   const { data: dbConnectors } = useConnectors();
   const { data: dbTransactions } = useTransactions(100);
   const { data: auditLogs } = useAuditLog(50);
+  useRealtimeSubscription();
 
   const [startDialogOpen, setStartDialogOpen] = useState(false);
   const [stopDialogOpen, setStopDialogOpen] = useState(false);
