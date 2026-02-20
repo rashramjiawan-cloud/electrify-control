@@ -314,6 +314,46 @@ async function handleChangeConfiguration(cpId: string, payload: Record<string, u
 }
 
 // CSMS → CP commands
+async function handleReset(cpId: string, payload: Record<string, unknown>) {
+  const type = payload.type as string;
+
+  if (type !== "Hard" && type !== "Soft") {
+    return { status: "Rejected" };
+  }
+
+  if (type === "Hard") {
+    // Hard reset: stop all active transactions, reset all connectors
+    const { data: activeTxs } = await supabase
+      .from("transactions")
+      .select("id")
+      .eq("charge_point_id", cpId)
+      .eq("status", "Active");
+
+    if (activeTxs && activeTxs.length > 0) {
+      for (const tx of activeTxs) {
+        await supabase
+          .from("transactions")
+          .update({ stop_time: new Date().toISOString(), status: "Completed" })
+          .eq("id", tx.id);
+      }
+    }
+
+    // Reset all connectors
+    await supabase
+      .from("connectors")
+      .update({ status: "Available", current_power: 0 })
+      .eq("charge_point_id", cpId);
+  }
+
+  // Update charge point status
+  await supabase
+    .from("charge_points")
+    .update({ status: "Available", last_heartbeat: new Date().toISOString() })
+    .eq("id", cpId);
+
+  return { status: "Accepted" };
+}
+
 async function handleRemoteStartTransaction(cpId: string, payload: Record<string, unknown>) {
   const connectorId = (payload.connectorId as number) || 1;
   const idTag = payload.idTag as string;
@@ -461,6 +501,9 @@ Deno.serve(async (req) => {
         break;
       case "ChangeConfiguration":
         response = await handleChangeConfiguration(chargePointId, payload);
+        break;
+      case "Reset":
+        response = await handleReset(chargePointId, payload);
         break;
       default:
         response = { error: `Unknown action: ${action}` };
