@@ -10,6 +10,7 @@ import Batterij from "./pages/Batterij";
 import EMS from "./pages/EMS";
 import Simulator from "./pages/Simulator";
 import Auth from "./pages/Auth";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -44,6 +45,7 @@ const AppRoutes = () => (
     <Route path="/batterij" element={<ProtectedRoute><Batterij /></ProtectedRoute>} />
     <Route path="/ems" element={<ProtectedRoute><EMS /></ProtectedRoute>} />
     <Route path="/simulator" element={<ProtectedRoute><Simulator /></ProtectedRoute>} />
+    <Route path="/reset-password" element={<ResetPassword />} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
