@@ -13,6 +13,7 @@ import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 import { mockChargePoints } from '@/data/mockData';
 import { Zap, Plug, AlertTriangle, CheckCircle, Play, Square, Settings, Lock, Unlock, Loader2, RotateCcw, Radio } from 'lucide-react';
 import AuditLogTable from '@/components/AuditLogTable';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
 import type { ChargePointStatus } from '@/types/energy';
 
@@ -285,6 +286,38 @@ const Laadpalen = () => {
           📡 Demo modus — verbind een laadpaal via de OCPP endpoint of gebruik de Simulator om live data te zien
         </div>
       )}
+
+      {/* OCPP Connection Info */}
+      <Collapsible>
+        <CollapsibleTrigger asChild>
+          <Button variant="outline" size="sm" className="mb-4 gap-2 text-xs">
+            <Plug className="h-3.5 w-3.5" />
+            Laadpaal verbinden (OCPP 1.6J)
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="mb-6 rounded-xl border border-border bg-card p-5 space-y-3">
+            <h3 className="text-sm font-semibold text-foreground">Verbind een laadpaal via OCPP 1.6J WebSocket</h3>
+            <div className="space-y-2">
+              <div>
+                <span className="text-xs text-muted-foreground block mb-1">WebSocket URL (configureer in je laadpaal)</span>
+                <code className="block rounded-lg bg-muted px-3 py-2 font-mono text-xs text-primary select-all break-all">
+                  wss://{import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/ocpp-ws/<span className="text-muted-foreground">JOUW_CHARGE_POINT_ID</span>
+                </code>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground block mb-1">Subprotocol</span>
+                <code className="block rounded-lg bg-muted px-3 py-2 font-mono text-xs text-foreground">ocpp1.6</code>
+              </div>
+            </div>
+            <div className="text-xs text-muted-foreground space-y-1 pt-1">
+              <p>📌 Vervang <code className="text-foreground">JOUW_CHARGE_POINT_ID</code> door een uniek ID voor je laadpaal (bijv. <code className="text-foreground">CP-KANTOOR-01</code>)</p>
+              <p>📌 De laadpaal wordt automatisch aangemaakt bij de eerste <code className="text-foreground">BootNotification</code></p>
+              <p>📌 Ondersteunde berichten: BootNotification, Heartbeat, StatusNotification, Start/StopTransaction, MeterValues, Authorize</p>
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <StatCard title="Beschikbaar" value={available} icon={CheckCircle} variant="primary" />
