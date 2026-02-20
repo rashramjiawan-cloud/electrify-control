@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      authorized_tags: {
+        Row: {
+          charge_point_ids: string[] | null
+          created_at: string
+          enabled: boolean
+          expiry_date: string | null
+          id: string
+          id_tag: string
+          label: string | null
+          updated_at: string
+        }
+        Insert: {
+          charge_point_ids?: string[] | null
+          created_at?: string
+          enabled?: boolean
+          expiry_date?: string | null
+          id?: string
+          id_tag: string
+          label?: string | null
+          updated_at?: string
+        }
+        Update: {
+          charge_point_ids?: string[] | null
+          created_at?: string
+          enabled?: boolean
+          expiry_date?: string | null
+          id?: string
+          id_tag?: string
+          label?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       charge_point_config: {
         Row: {
           charge_point_id: string

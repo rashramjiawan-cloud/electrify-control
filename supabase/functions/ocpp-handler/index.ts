@@ -100,6 +100,15 @@ async function handleStartTransaction(cpId: string, payload: Record<string, unkn
   const meterStart = payload.meterStart as number;
   const timestamp = payload.timestamp as string;
 
+  // Check authorization
+  const authResult = await checkTagAuthorized(idTag, cpId);
+  if (authResult.status !== "Accepted") {
+    return {
+      transactionId: 0,
+      idTagInfo: authResult,
+    };
+  }
+
   const { data, error } = await supabase
     .from("transactions")
     .insert({
@@ -226,9 +235,55 @@ async function handleMeterValues(cpId: string, payload: Record<string, unknown>)
   return {};
 }
 
-async function handleAuthorize(_cpId: string, payload: Record<string, unknown>) {
-  const _idTag = payload.idTag as string;
-  return { idTagInfo: { status: "Accepted" } };
+async function checkTagAuthorized(idTag: string, cpId: string): Promise<{ status: string }> {
+  // Look up the tag in authorized_tags table
+  const { data: tag, error } = await supabase
+    .from("authorized_tags")
+    .select("*")
+    .eq("id_tag", idTag)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Authorization lookup error:", error);
+    return { status: "Accepted" }; // Fail-open if DB error
+  }
+
+  // If no tags exist in the table at all, allow all (authorization not configured yet)
+  const { count } = await supabase
+    .from("authorized_tags")
+    .select("*", { count: "exact", head: true });
+
+  if (count === 0) {
+    return { status: "Accepted" };
+  }
+
+  if (!tag) {
+    return { status: "Invalid" };
+  }
+
+  if (!tag.enabled) {
+    return { status: "Blocked" };
+  }
+
+  // Check expiry
+  if (tag.expiry_date && new Date(tag.expiry_date) < new Date()) {
+    return { status: "Expired" };
+  }
+
+  // Check charge point restriction
+  if (tag.charge_point_ids && tag.charge_point_ids.length > 0) {
+    if (!tag.charge_point_ids.includes(cpId)) {
+      return { status: "Invalid" };
+    }
+  }
+
+  return { status: "Accepted" };
+}
+
+async function handleAuthorize(cpId: string, payload: Record<string, unknown>) {
+  const idTag = payload.idTag as string;
+  const authResult = await checkTagAuthorized(idTag, cpId);
+  return { idTagInfo: authResult };
 }
 
 async function handleGetConfiguration(cpId: string, payload: Record<string, unknown>) {
@@ -504,6 +559,12 @@ async function handleRemoteStartTransaction(cpId: string, payload: Record<string
 
   if (!idTag) {
     return { status: "Rejected", reason: "idTag is required" };
+  }
+
+  // Check authorization
+  const authResult = await checkTagAuthorized(idTag, cpId);
+  if (authResult.status !== "Accepted") {
+    return { status: "Rejected", reason: `Tag ${authResult.status}` };
   }
 
   // Create transaction
