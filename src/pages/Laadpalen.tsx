@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { useChargePoints, useConnectors } from '@/hooks/useChargePoints';
 import { useTransactions } from '@/hooks/useTransactions';
 import { mockChargePoints } from '@/data/mockData';
-import { Zap, Plug, AlertTriangle, CheckCircle, Play, Square, Settings, Lock, Unlock, Loader2 } from 'lucide-react';
+import { Zap, Plug, AlertTriangle, CheckCircle, Play, Square, Settings, Lock, Unlock, Loader2, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import type { ChargePointStatus } from '@/types/energy';
 
@@ -54,6 +54,8 @@ const Laadpalen = () => {
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [savingConfig, setSavingConfig] = useState(false);
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [resetType, setResetType] = useState<'Soft' | 'Hard'>('Soft');
 
   const hasDbData = dbChargePoints && dbChargePoints.length > 0;
 
@@ -189,6 +191,29 @@ const Laadpalen = () => {
     }
   };
 
+  const openResetDialog = (cpId: string) => {
+    setSelectedCpId(cpId);
+    setResetType('Soft');
+    setResetDialogOpen(true);
+  };
+
+  const handleReset = async () => {
+    setSending(true);
+    try {
+      const data = await sendOcppCommand(selectedCpId, 'Reset', { type: resetType });
+      if (data[2]?.status === 'Accepted') {
+        toast.success(`${resetType} Reset uitgevoerd op ${selectedCpId}`);
+        setResetDialogOpen(false);
+      } else {
+        toast.error(`Reset geweigerd: ${data[2]?.status || 'unknown'}`);
+      }
+    } catch (err) {
+      toast.error(`Fout: ${(err as Error).message}`);
+    } finally {
+      setSending(false);
+    }
+  };
+
   return (
     <AppLayout title="Laadpalen" subtitle="OCPP 1.6J Charge Point Management">
       {!hasDbData && (
@@ -235,6 +260,15 @@ const Laadpalen = () => {
                         >
                           <Settings className="h-3 w-3" />
                           Config
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5 text-xs"
+                          onClick={() => openResetDialog(cp.id)}
+                        >
+                          <RotateCcw className="h-3 w-3" />
+                          Reset
                         </Button>
                         {!isCharging && (
                           <Button
@@ -525,6 +559,63 @@ const Laadpalen = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfigDialogOpen(false)}>Sluiten</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Dialog */}
+      <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-foreground flex items-center gap-2">
+              <RotateCcw className="h-5 w-5" />
+              Reset Laadpaal
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Reset <span className="font-mono font-semibold text-foreground">{selectedCpId}</span>
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setResetType('Soft')}
+                className={`rounded-lg border px-4 py-3 text-left transition-colors ${
+                  resetType === 'Soft'
+                    ? 'border-primary/50 bg-primary/5'
+                    : 'border-border hover:bg-muted/50'
+                }`}
+              >
+                <p className="text-sm font-semibold text-foreground">Soft Reset</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Herstart firmware, actieve sessies worden netjes afgerond
+                </p>
+              </button>
+              <button
+                onClick={() => setResetType('Hard')}
+                className={`rounded-lg border px-4 py-3 text-left transition-colors ${
+                  resetType === 'Hard'
+                    ? 'border-destructive/50 bg-destructive/5'
+                    : 'border-border hover:bg-muted/50'
+                }`}
+              >
+                <p className="text-sm font-semibold text-foreground">Hard Reset</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Volledige herstart, actieve sessies worden direct gestopt
+                </p>
+              </button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetDialogOpen(false)}>Annuleren</Button>
+            <Button
+              variant={resetType === 'Hard' ? 'destructive' : 'default'}
+              onClick={handleReset}
+              disabled={sending}
+              className="gap-2"
+            >
+              <RotateCcw className="h-4 w-4" />
+              {sending ? 'Bezig...' : `${resetType} Reset`}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
