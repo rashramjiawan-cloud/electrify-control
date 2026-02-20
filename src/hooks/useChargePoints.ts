@@ -1,7 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 
 export interface DbChargePoint {
   id: string;
@@ -31,9 +29,7 @@ export interface DbConnector {
 }
 
 export function useChargePoints() {
-  const queryClient = useQueryClient();
-
-  const query = useQuery({
+  return useQuery({
     queryKey: ['charge-points'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -44,25 +40,10 @@ export function useChargePoints() {
       return data as DbChargePoint[];
     },
   });
-
-  // Realtime subscription
-  useEffect(() => {
-    const channel = supabase
-      .channel('charge-points-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'charge_points' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['charge-points'] });
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [queryClient]);
-
-  return query;
 }
 
 export function useConnectors(chargePointId?: string) {
-  const queryClient = useQueryClient();
-
-  const query = useQuery({
+  return useQuery({
     queryKey: ['connectors', chargePointId],
     queryFn: async () => {
       let q = supabase.from('connectors').select('*').order('connector_id');
@@ -72,16 +53,4 @@ export function useConnectors(chargePointId?: string) {
       return data as DbConnector[];
     },
   });
-
-  useEffect(() => {
-    const channel = supabase
-      .channel('connectors-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'connectors' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['connectors'] });
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [queryClient]);
-
-  return query;
 }

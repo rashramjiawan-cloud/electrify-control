@@ -13,6 +13,5 @@ export const useAuditLog = (limit = 50) => {
       if (error) throw error;
       return data;
     },
-    refetchInterval: 10000,
   });
 };
