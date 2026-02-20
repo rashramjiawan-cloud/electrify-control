@@ -51,6 +51,9 @@ const Laadpalen = () => {
   const [configLoading, setConfigLoading] = useState(false);
   const [configKeys, setConfigKeys] = useState<Array<{ key: string; value: string | null; readonly: boolean }>>([]);
   const [unknownKeys, setUnknownKeys] = useState<string[]>([]);
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [savingConfig, setSavingConfig] = useState(false);
 
   const hasDbData = dbChargePoints && dbChargePoints.length > 0;
 
@@ -158,6 +161,31 @@ const Laadpalen = () => {
       toast.error(`Fout bij ophalen configuratie: ${(err as Error).message}`);
     } finally {
       setConfigLoading(false);
+    }
+  };
+
+  const handleChangeConfig = async (key: string, value: string) => {
+    if (!key.trim() || value.length > 500) {
+      toast.error('Ongeldige waarde');
+      return;
+    }
+    setSavingConfig(true);
+    try {
+      const data = await sendOcppCommand(selectedCpId, 'ChangeConfiguration', { key, value });
+      const status = data[2]?.status;
+      if (status === 'Accepted') {
+        toast.success(`${key} gewijzigd`);
+        setConfigKeys(prev => prev.map(c => c.key === key ? { ...c, value } : c));
+        setEditingKey(null);
+      } else if (status === 'NotSupported') {
+        toast.error(`Sleutel "${key}" wordt niet ondersteund`);
+      } else {
+        toast.error(`ChangeConfiguration geweigerd: ${status}`);
+      }
+    } catch (err) {
+      toast.error(`Fout: ${(err as Error).message}`);
+    } finally {
+      setSavingConfig(false);
     }
   };
 
@@ -412,14 +440,31 @@ const Laadpalen = () => {
                     <tr className="border-b border-border bg-muted/50">
                       <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Sleutel</th>
                       <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Waarde</th>
-                      <th className="text-center px-4 py-2.5 text-xs font-medium text-muted-foreground w-20">Modus</th>
+                      <th className="text-center px-4 py-2.5 text-xs font-medium text-muted-foreground w-24">Modus</th>
+                      <th className="text-center px-4 py-2.5 text-xs font-medium text-muted-foreground w-24">Actie</th>
                     </tr>
                   </thead>
                   <tbody>
                     {configKeys.map((cfg, i) => (
                       <tr key={cfg.key} className={`border-b border-border last:border-0 ${i % 2 === 0 ? '' : 'bg-muted/20'}`}>
                         <td className="px-4 py-2 font-mono text-xs text-foreground font-medium">{cfg.key}</td>
-                        <td className="px-4 py-2 font-mono text-xs text-muted-foreground">{cfg.value ?? '—'}</td>
+                        <td className="px-4 py-2 font-mono text-xs text-muted-foreground">
+                          {editingKey === cfg.key ? (
+                            <Input
+                              value={editValue}
+                              onChange={e => setEditValue(e.target.value)}
+                              className="h-7 font-mono text-xs"
+                              maxLength={500}
+                              autoFocus
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') handleChangeConfig(cfg.key, editValue);
+                                if (e.key === 'Escape') setEditingKey(null);
+                              }}
+                            />
+                          ) : (
+                            cfg.value ?? '—'
+                          )}
+                        </td>
                         <td className="px-4 py-2 text-center">
                           {cfg.readonly ? (
                             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
@@ -429,6 +474,40 @@ const Laadpalen = () => {
                             <span className="inline-flex items-center gap-1 text-xs text-primary">
                               <Unlock className="h-3 w-3" /> RW
                             </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-center">
+                          {!cfg.readonly && (
+                            editingKey === cfg.key ? (
+                              <div className="flex items-center justify-center gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 px-2 text-xs text-primary"
+                                  onClick={() => handleChangeConfig(cfg.key, editValue)}
+                                  disabled={savingConfig}
+                                >
+                                  {savingConfig ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Opslaan'}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 px-2 text-xs text-muted-foreground"
+                                  onClick={() => setEditingKey(null)}
+                                >
+                                  Annuleer
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 px-2 text-xs text-muted-foreground hover:text-primary"
+                                onClick={() => { setEditingKey(cfg.key); setEditValue(cfg.value ?? ''); }}
+                              >
+                                Wijzigen
+                              </Button>
+                            )
                           )}
                         </td>
                       </tr>

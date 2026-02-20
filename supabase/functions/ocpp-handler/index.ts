@@ -270,6 +270,49 @@ async function handleGetConfiguration(cpId: string, payload: Record<string, unkn
   };
 }
 
+async function handleChangeConfiguration(cpId: string, payload: Record<string, unknown>) {
+  const key = payload.key as string;
+  const value = payload.value as string;
+
+  if (!key) {
+    return { status: "Rejected" };
+  }
+
+  // Check if key exists and is not readonly
+  const { data: existing, error: fetchErr } = await supabase
+    .from("charge_point_config")
+    .select("key, readonly")
+    .eq("charge_point_id", cpId)
+    .eq("key", key)
+    .maybeSingle();
+
+  if (fetchErr) {
+    console.error("ChangeConfiguration fetch error:", fetchErr);
+    return { status: "Rejected" };
+  }
+
+  if (!existing) {
+    return { status: "NotSupported" };
+  }
+
+  if (existing.readonly) {
+    return { status: "Rejected" };
+  }
+
+  const { error: updateErr } = await supabase
+    .from("charge_point_config")
+    .update({ value, updated_at: new Date().toISOString() })
+    .eq("charge_point_id", cpId)
+    .eq("key", key);
+
+  if (updateErr) {
+    console.error("ChangeConfiguration update error:", updateErr);
+    return { status: "Rejected" };
+  }
+
+  return { status: "Accepted" };
+}
+
 // CSMS → CP commands
 async function handleRemoteStartTransaction(cpId: string, payload: Record<string, unknown>) {
   const connectorId = (payload.connectorId as number) || 1;
@@ -415,6 +458,9 @@ Deno.serve(async (req) => {
         break;
       case "RemoteStopTransaction":
         response = await handleRemoteStopTransaction(chargePointId, payload);
+        break;
+      case "ChangeConfiguration":
+        response = await handleChangeConfiguration(chargePointId, payload);
         break;
       default:
         response = { error: `Unknown action: ${action}` };
