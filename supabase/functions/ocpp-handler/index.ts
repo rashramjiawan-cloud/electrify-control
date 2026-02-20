@@ -228,8 +228,104 @@ async function handleMeterValues(cpId: string, payload: Record<string, unknown>)
 
 async function handleAuthorize(_cpId: string, payload: Record<string, unknown>) {
   const _idTag = payload.idTag as string;
-  // In production: validate against an RFID/idTag database
   return { idTagInfo: { status: "Accepted" } };
+}
+
+// CSMS → CP commands
+async function handleRemoteStartTransaction(cpId: string, payload: Record<string, unknown>) {
+  const connectorId = (payload.connectorId as number) || 1;
+  const idTag = payload.idTag as string;
+
+  if (!idTag) {
+    return { status: "Rejected", reason: "idTag is required" };
+  }
+
+  // Create transaction
+  const { data, error } = await supabase
+    .from("transactions")
+    .insert({
+      charge_point_id: cpId,
+      connector_id: connectorId,
+      id_tag: idTag,
+      meter_start: 0,
+      start_time: new Date().toISOString(),
+      status: "Active",
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    console.error("RemoteStartTransaction error:", error);
+    return { status: "Rejected", reason: error.message };
+  }
+
+  // Update connector & charge point status
+  await supabase
+    .from("connectors")
+    .upsert(
+      { charge_point_id: cpId, connector_id: connectorId, status: "Charging", current_power: 0 },
+      { onConflict: "charge_point_id,connector_id" }
+    );
+
+  await supabase
+    .from("charge_points")
+    .update({ status: "Charging" })
+    .eq("id", cpId);
+
+  return { status: "Accepted", transactionId: data?.id };
+}
+
+async function handleRemoteStopTransaction(cpId: string, payload: Record<string, unknown>) {
+  const transactionId = payload.transactionId as number;
+
+  if (!transactionId) {
+    return { status: "Rejected", reason: "transactionId is required" };
+  }
+
+  // Get transaction
+  const { data: tx, error: txError } = await supabase
+    .from("transactions")
+    .select("*")
+    .eq("id", transactionId)
+    .eq("status", "Active")
+    .single();
+
+  if (txError || !tx) {
+    return { status: "Rejected", reason: "Active transaction not found" };
+  }
+
+  // Stop the transaction
+  await supabase
+    .from("transactions")
+    .update({
+      stop_time: new Date().toISOString(),
+      status: "Completed",
+    })
+    .eq("id", transactionId);
+
+  // Update connector status
+  await supabase
+    .from("connectors")
+    .upsert(
+      { charge_point_id: cpId, connector_id: tx.connector_id as number, status: "Available", current_power: 0 },
+      { onConflict: "charge_point_id,connector_id" }
+    );
+
+  // Check if any other active transactions on this CP
+  const { data: activeTx } = await supabase
+    .from("transactions")
+    .select("id")
+    .eq("charge_point_id", cpId)
+    .eq("status", "Active");
+
+  if (!activeTx || activeTx.length === 0) {
+    await supabase
+      .from("charge_points")
+      .update({ status: "Available" })
+      .eq("id", cpId);
+  }
+
+  return { status: "Accepted" };
 }
 
 Deno.serve(async (req) => {
@@ -271,6 +367,12 @@ Deno.serve(async (req) => {
         break;
       case "Authorize":
         response = await handleAuthorize(chargePointId, payload);
+        break;
+      case "RemoteStartTransaction":
+        response = await handleRemoteStartTransaction(chargePointId, payload);
+        break;
+      case "RemoteStopTransaction":
+        response = await handleRemoteStopTransaction(chargePointId, payload);
         break;
       default:
         response = { error: `Unknown action: ${action}` };
