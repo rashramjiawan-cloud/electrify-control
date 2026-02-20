@@ -1,11 +1,12 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Zap, LayoutDashboard, BatteryCharging, Cpu, Activity } from 'lucide-react';
+import { Zap, LayoutDashboard, BatteryCharging, Cpu, Activity, Play } from 'lucide-react';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/laadpalen', label: 'Laadpalen', icon: Zap },
   { to: '/batterij', label: 'Batterij', icon: BatteryCharging },
   { to: '/ems', label: 'EMS', icon: Cpu },
+  { to: '/simulator', label: 'Simulator', icon: Play },
 ];
 
 const AppSidebar = () => {
