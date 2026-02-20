@@ -215,6 +215,36 @@ export type Database = {
           },
         ]
       }
+      ocpp_audit_log: {
+        Row: {
+          action: string
+          charge_point_id: string
+          created_at: string
+          id: number
+          payload: Json | null
+          result: Json | null
+          status: string
+        }
+        Insert: {
+          action: string
+          charge_point_id: string
+          created_at?: string
+          id?: never
+          payload?: Json | null
+          result?: Json | null
+          status?: string
+        }
+        Update: {
+          action?: string
+          charge_point_id?: string
+          created_at?: string
+          id?: never
+          payload?: Json | null
+          result?: Json | null
+          status?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
