@@ -1,5 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Zap, LayoutDashboard, BatteryCharging, Cpu, Activity, Play } from 'lucide-react';
+import { Zap, LayoutDashboard, BatteryCharging, Cpu, Activity, Play, LogOut } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -11,6 +13,7 @@ const navItems = [
 
 const AppSidebar = () => {
   const location = useLocation();
+  const { user, signOut } = useAuth();
 
   return (
     <aside className="fixed left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-border bg-sidebar">
@@ -46,17 +49,28 @@ const AppSidebar = () => {
         })}
       </nav>
 
-      {/* System Status */}
-      <div className="border-t border-border px-4 py-4">
+      {/* User + System Status */}
+      <div className="border-t border-border px-4 py-4 space-y-3">
         <div className="rounded-lg bg-muted/50 p-3">
           <div className="flex items-center gap-2 mb-2">
             <span className="status-dot-online" />
             <span className="font-mono text-xs text-muted-foreground">OCPP 1.6J</span>
           </div>
           <p className="font-mono text-[10px] text-muted-foreground">
-            5 charge points verbonden
+            System online
           </p>
         </div>
+
+        {user && (
+          <div className="flex items-center justify-between">
+            <span className="font-mono text-xs text-muted-foreground truncate max-w-[140px]" title={user.email}>
+              {user.email}
+            </span>
+            <Button variant="ghost" size="sm" onClick={signOut} className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive">
+              <LogOut className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )}
       </div>
     </aside>
   );
