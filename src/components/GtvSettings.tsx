@@ -11,6 +11,7 @@ const GTV_KEYS = [
   { key: 'gtv_import_kw', label: 'Afname (import)', unit: 'kW', type: 'number' as const },
   { key: 'gtv_export_kw', label: 'Teruglevering (export)', unit: 'kW', type: 'number' as const },
   { key: 'gtv_warning_pct', label: 'Waarschuwingsdrempel', unit: '%', type: 'number' as const },
+  { key: 'gtv_notification_cooldown_min', label: 'Notificatie cooldown', unit: 'min', type: 'number' as const },
   { key: 'gtv_grid_operator', label: 'Netbeheerder', unit: '', type: 'select' as const },
 ];
 
