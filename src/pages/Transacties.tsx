@@ -129,14 +129,14 @@ const Transacties = () => {
           </p>
           <p className="text-[10px] text-muted-foreground mt-1">per sessie</p>
         </div>
-        <Button variant="outline" size="sm" className="gap-2" onClick={exportCsv} disabled={filtered.length === 0}>
-          <Download className="h-3.5 w-3.5" />
-          Export CSV
-        </Button>
       </div>
 
       {/* Filters */}
       <div className="flex items-center gap-3 mb-4">
+        <Button variant="outline" size="sm" className="gap-2 ml-auto" onClick={exportCsv} disabled={filtered.length === 0}>
+          <Download className="h-3.5 w-3.5" />
+          Export CSV
+        </Button>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[160px]">
             <ArrowUpDown className="h-3.5 w-3.5 mr-2" />
