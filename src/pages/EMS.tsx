@@ -14,22 +14,44 @@ const EMS = () => {
 
   const { data: meters } = useEnergyMeters();
   const enabledMeter = meters?.find(m => m.enabled);
-  const { data: readings } = useMeterReadings(enabledMeter?.id, 1);
+  // Fetch latest readings for both channels
+  const { data: readings } = useMeterReadings(enabledMeter?.id, 10);
 
-  // Derive grid power and current from latest Shelly reading
-  const { liveGridPower, liveCurrent, liveVoltage, livePF, liveFreq } = useMemo(() => {
-    if (!readings?.length) return { liveGridPower: null, liveCurrent: null, liveVoltage: null, livePF: null, liveFreq: null };
-    const r = readings[0];
-    const power = r?.active_power != null ? +(r.active_power / 1000).toFixed(2) : null;
-    const current = r?.current != null ? +Number(r.current).toFixed(1) : null;
-    const voltage = r?.voltage != null ? +Number(r.voltage).toFixed(1) : null;
-    const pf = r?.power_factor != null ? +Number(r.power_factor).toFixed(2) : null;
-    const freq = r?.frequency != null ? +Number(r.frequency).toFixed(1) : null;
-    return { liveGridPower: power, liveCurrent: current, liveVoltage: voltage, livePF: pf, liveFreq: freq };
+  // Derive per-phase live data from latest Shelly readings
+  const { liveGridPower, phases, isLive } = useMemo(() => {
+    if (!readings?.length) return { liveGridPower: null, phases: [] as any[], isLive: false };
+
+    // Group latest reading per channel
+    const latestByChannel = new Map<number, typeof readings[0]>();
+    for (const r of readings) {
+      const ch = r.channel ?? 0;
+      if (!latestByChannel.has(ch)) latestByChannel.set(ch, r);
+    }
+
+    let totalPower = 0;
+    const phases = Array.from(latestByChannel.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([ch, r]) => {
+        const power = r.active_power != null ? +(r.active_power / 1000).toFixed(2) : null;
+        if (power != null) totalPower += power;
+        return {
+          channel: ch,
+          power,
+          current: r.current != null ? +Number(r.current).toFixed(1) : null,
+          voltage: r.voltage != null ? +Number(r.voltage).toFixed(1) : null,
+          pf: r.power_factor != null ? +Number(r.power_factor).toFixed(2) : null,
+          freq: r.frequency != null ? +Number(r.frequency).toFixed(1) : null,
+        };
+      });
+
+    return {
+      liveGridPower: phases.length ? +totalPower.toFixed(2) : null,
+      phases,
+      isLive: phases.length > 0,
+    };
   }, [readings]);
 
   const gridPower = liveGridPower ?? mockEMS.gridPower;
-  const isLive = liveGridPower !== null;
 
   // Recalculate totals when live data available
   const solarPower = mockEMS.solarPower;
@@ -39,19 +61,20 @@ const EMS = () => {
   const selfConsumption = totalConsumption > 0 ? Math.round(((solarPower + Math.abs(batteryPower)) / totalConsumption) * 100) : 0;
 
   const flowItems = [
-    { label: 'Grid Import', value: gridPower, unit: 'kW', icon: ArrowDownUp, color: 'text-foreground', live: isLive, ampere: liveCurrent, volt: liveVoltage, pf: livePF, freq: liveFreq },
-    { label: 'Zonne-energie', value: solarPower, unit: 'kW', icon: Sun, color: 'text-primary', live: false },
-    { label: 'Batterij', value: batteryPower, unit: 'kW', icon: BatteryCharging, color: batteryPower < 0 ? 'text-warning' : 'text-primary', live: false },
-    { label: 'EV Laden', value: evPower, unit: 'kW', icon: Zap, color: 'text-foreground', live: false },
+    { label: 'Grid Import', value: gridPower, unit: 'kW', icon: ArrowDownUp, color: 'text-foreground', live: isLive, phases },
+    { label: 'Zonne-energie', value: solarPower, unit: 'kW', icon: Sun, color: 'text-primary', live: false, phases: [] as any[] },
+    { label: 'Batterij', value: batteryPower, unit: 'kW', icon: BatteryCharging, color: batteryPower < 0 ? 'text-warning' : 'text-primary', live: false, phases: [] as any[] },
+    { label: 'EV Laden', value: evPower, unit: 'kW', icon: Zap, color: 'text-foreground', live: false, phases: [] as any[] },
   ];
 
   return (
     <AppLayout title="Energy Management System" subtitle="Realtime energiebalans en optimalisatie">
+      {/* Per-phase Grid Import cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard
           title="Grid Import"
           value={gridPower}
-          unit={liveCurrent != null ? `kW · ${liveCurrent} A · ${liveVoltage ?? '—'} V` : 'kW'}
+          unit="kW"
           icon={ArrowDownUp}
           variant={isLive ? 'primary' : 'default'}
         />
@@ -59,6 +82,24 @@ const EMS = () => {
         <StatCard title="Totaal verbruik" value={totalConsumption.toFixed(1)} unit="kW" icon={Cpu} />
         <StatCard title="Eigen verbruik" value={selfConsumption} unit="%" icon={Cpu} variant="primary" trend={{ value: 5, label: 'vs gisteren' }} />
       </div>
+
+      {/* Per-phase detail strip */}
+      {isLive && phases.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+          {phases.map((p) => (
+            <div key={p.channel} className="flex items-center gap-4 rounded-lg border border-border bg-muted/30 px-4 py-2.5">
+              <span className="text-xs font-semibold text-foreground whitespace-nowrap">Fase {p.channel + 1}</span>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 font-mono text-xs text-muted-foreground">
+                {p.voltage != null && <span>{p.voltage} V</span>}
+                {p.current != null && <span>{p.current} A</span>}
+                {p.power != null && <span>{p.power} kW</span>}
+                {p.pf != null && <span>PF {p.pf}</span>}
+                {p.freq != null && <span>{p.freq} Hz</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Live indicator */}
       {isLive && (
@@ -93,20 +134,15 @@ const EMS = () => {
                 {item.value > 0 && item.label === 'Batterij' ? '+' : ''}{item.value}
               </span>
               <span className="font-mono text-xs text-muted-foreground">{item.unit}</span>
-              {'ampere' in item && item.ampere != null && (
-                <span className="font-mono text-sm text-muted-foreground mt-1">{item.ampere} A</span>
-              )}
-              {'volt' in item && item.volt != null && (
-                <span className="font-mono text-sm text-muted-foreground">{item.volt} V</span>
-              )}
-              {('pf' in item && item.pf != null || 'freq' in item && item.freq != null) && (
-                <div className="flex items-center gap-2 mt-1">
-                  {'pf' in item && item.pf != null && (
-                    <span className="font-mono text-xs text-muted-foreground">PF {item.pf}</span>
-                  )}
-                  {'freq' in item && item.freq != null && (
-                    <span className="font-mono text-xs text-muted-foreground">{item.freq} Hz</span>
-                  )}
+              {item.phases.length > 0 && (
+                <div className="flex flex-col gap-0.5 mt-2 text-left w-full">
+                  {item.phases.map((p: any) => (
+                    <div key={p.channel} className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
+                      <span className="font-semibold text-foreground">F{p.channel + 1}</span>
+                      {p.current != null && <span>{p.current}A</span>}
+                      {p.voltage != null && <span>{p.voltage}V</span>}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
