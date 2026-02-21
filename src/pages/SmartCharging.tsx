@@ -40,12 +40,21 @@ const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit }: { meter: EnergyMet
   return (
     <div className="px-5 py-4 space-y-3">
       <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-foreground">{meter.name}</p>
-          <p className="font-mono text-xs text-muted-foreground">
-            {meter.connection_type === 'tcp_ip' ? `TCP/IP ${meter.host}:${meter.port}` : `RS485 addr ${meter.modbus_address}`}
-            {meter.last_poll_at && ` · Laatste poll: ${new Date(meter.last_poll_at).toLocaleTimeString('nl-NL')}`}
-          </p>
+        <div className="flex items-center gap-3">
+          <div>
+            <p className="text-sm font-medium text-foreground">{meter.name}</p>
+            <p className="font-mono text-xs text-muted-foreground">
+              {meter.connection_type === 'tcp_ip' ? `TCP/IP ${meter.host}:${meter.port}` : `RS485 addr ${meter.modbus_address}`}
+              {meter.last_poll_at && ` · Laatste poll: ${new Date(meter.last_poll_at).toLocaleTimeString('nl-NL')}`}
+            </p>
+          </div>
+          <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded shrink-0 ${
+            meter.meter_type === 'pv' ? 'bg-primary/10 text-primary' :
+            meter.meter_type === 'battery' ? 'bg-warning/10 text-warning' :
+            'bg-muted text-muted-foreground'
+          }`}>
+            {meter.meter_type === 'pv' ? 'PV' : meter.meter_type === 'battery' ? 'BAT' : 'GRID'}
+          </span>
         </div>
         <div className="flex items-center gap-2">
           {/* Local auto-poll toggle */}
@@ -203,6 +212,7 @@ const SmartCharging = () => {
   const [meterConnType, setMeterConnType] = useState('tcp_ip');
   const [meterAuthUser, setMeterAuthUser] = useState('');
   const [meterAuthPass, setMeterAuthPass] = useState('');
+  const [meterType, setMeterType] = useState('grid');
   const [simDialogOpen, setSimDialogOpen] = useState(false);
   const [simView, setSimView] = useState<'list' | 'advanced'>('list');
   const [selectedCp, setSelectedCp] = useState('');
@@ -715,6 +725,7 @@ const SmartCharging = () => {
                       setMeterPort('80');
                       setMeterAuthUser('');
                       setMeterAuthPass('');
+                      setMeterType('grid');
                       setMeterDialogOpen(true);
                     }}>
                       <Plus className="h-3 w-3" />
@@ -742,6 +753,7 @@ const SmartCharging = () => {
                           setMeterPort(String(m.port || 80));
                           setMeterAuthUser(m.auth_user || '');
                           setMeterAuthPass(m.auth_pass || '');
+                          setMeterType(m.meter_type || 'grid');
                           setMeterDialogOpen(true);
                         }}
                       />
@@ -883,15 +895,28 @@ const SmartCharging = () => {
               <Label className="text-xs">Naam</Label>
               <Input value={meterName} onChange={e => setMeterName(e.target.value)} className="font-mono text-sm" />
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Verbinding</Label>
-              <Select value={meterConnType} onValueChange={setMeterConnType}>
-                <SelectTrigger className="text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="tcp_ip">TCP/IP (WiFi / Ethernet)</SelectItem>
-                  <SelectItem value="rs485">RS485 (Modbus RTU)</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Verbinding</Label>
+                <Select value={meterConnType} onValueChange={setMeterConnType}>
+                  <SelectTrigger className="text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="tcp_ip">TCP/IP (WiFi / Ethernet)</SelectItem>
+                    <SelectItem value="rs485">RS485 (Modbus RTU)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Meter type</Label>
+                <Select value={meterType} onValueChange={setMeterType}>
+                  <SelectTrigger className="text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="grid">Grid (net)</SelectItem>
+                    <SelectItem value="pv">PV (zonne-energie)</SelectItem>
+                    <SelectItem value="battery">Batterij</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             {meterConnType === 'tcp_ip' ? (
               <div className="grid grid-cols-3 gap-3">
@@ -966,7 +991,7 @@ const SmartCharging = () => {
             <Button
               disabled={!meterHost || createMeter.isPending || updateMeter.isPending}
               onClick={() => {
-                const meterData = {
+                const meterData: any = {
                   name: meterName,
                   device_type: 'shelly_pro_em_50',
                   connection_type: meterConnType,
@@ -974,6 +999,7 @@ const SmartCharging = () => {
                   port: Number(meterPort),
                   auth_user: meterAuthUser || null,
                   auth_pass: meterAuthPass || null,
+                  meter_type: meterType,
                 };
                 if (editingMeter) {
                   updateMeter.mutate(
