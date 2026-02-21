@@ -14,6 +14,7 @@ import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 import { mockChargePoints } from '@/data/mockData';
 import { Zap, Plug, AlertTriangle, CheckCircle, Play, Square, Settings, Lock, Unlock, Loader2, RotateCcw, Radio, Trash2, Wifi, WifiOff } from 'lucide-react';
 import AuditLogTable from '@/components/AuditLogTable';
+import ChargePointDonutCharts from '@/components/ChargePointDonutCharts';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
@@ -363,6 +364,8 @@ const Laadpalen = () => {
           </div>
         </CollapsibleContent>
       </Collapsible>
+
+      <ChargePointDonutCharts chargePoints={chargePoints as any} />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <StatCard title="Online" value={onlineCount} icon={Wifi} variant="primary" />
