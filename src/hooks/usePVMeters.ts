@@ -39,7 +39,35 @@ export function usePVReadings(meterId: string | undefined) {
         .order('timestamp', { ascending: false })
         .limit(30);
       if (error) throw error;
-      return data as MeterReading[];
+
+      // If we have real readings, use them
+      if (data && data.length > 0) return data as MeterReading[];
+
+      // Fallback: synthesize readings from energy_meters.last_reading
+      const { data: meter } = await supabase
+        .from('energy_meters')
+        .select('last_reading, last_poll_at')
+        .eq('id', meterId!)
+        .single();
+
+      if (meter?.last_reading && (meter.last_reading as any)?.channels) {
+        const channels = (meter.last_reading as any).channels as any[];
+        return channels.map((ch: any, i: number) => ({
+          id: -(i + 1),
+          meter_id: meterId!,
+          channel: i,
+          voltage: ch.voltage ?? null,
+          current: ch.current ?? null,
+          active_power: ch.active_power ?? ch.apower ?? null,
+          apparent_power: ch.apparent_power ?? ch.aprtpower ?? null,
+          power_factor: ch.power_factor ?? ch.pf ?? null,
+          frequency: ch.frequency ?? ch.freq ?? null,
+          total_energy: ch.total_energy ?? ch.total ?? null,
+          timestamp: meter.last_poll_at || new Date().toISOString(),
+        })) as MeterReading[];
+      }
+
+      return [];
     },
   });
 }
