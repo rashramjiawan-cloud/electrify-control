@@ -1,24 +1,72 @@
 import AppLayout from '@/components/AppLayout';
 import StatCard from '@/components/StatCard';
 import { mockEMS } from '@/data/mockData';
-import { Cpu, Sun, Zap, BatteryCharging, ArrowDownUp } from 'lucide-react';
-
-const flowItems = [
-  { label: 'Grid Import', value: mockEMS.gridPower, unit: 'kW', icon: ArrowDownUp, color: 'text-foreground' },
-  { label: 'Zonne-energie', value: mockEMS.solarPower, unit: 'kW', icon: Sun, color: 'text-primary' },
-  { label: 'Batterij', value: mockEMS.batteryPower, unit: 'kW', icon: BatteryCharging, color: mockEMS.batteryPower < 0 ? 'text-warning' : 'text-primary' },
-  { label: 'EV Laden', value: mockEMS.evPower, unit: 'kW', icon: Zap, color: 'text-foreground' },
-];
+import { useEnergyMeters, useMeterReadings } from '@/hooks/useEnergyMeters';
+import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
+import { Cpu, Sun, Zap, BatteryCharging, ArrowDownUp, Radio } from 'lucide-react';
+import { useMemo } from 'react';
 
 const EMS = () => {
+  // Realtime subscription (includes meter_readings)
+  useRealtimeSubscription();
+
+  const { data: meters } = useEnergyMeters();
+  const enabledMeter = meters?.find(m => m.enabled);
+  const { data: readings } = useMeterReadings(enabledMeter?.id, 1);
+
+  // Derive grid power from latest Shelly reading (sum of all channels active_power in W → kW)
+  const liveGridPower = useMemo(() => {
+    if (!readings?.length) return null;
+    // Latest reading – active_power is in Watts
+    const latestPower = readings[0]?.active_power;
+    if (latestPower == null) return null;
+    return +(latestPower / 1000).toFixed(2);
+  }, [readings]);
+
+  const gridPower = liveGridPower ?? mockEMS.gridPower;
+  const isLive = liveGridPower !== null;
+
+  // Recalculate totals when live data available
+  const solarPower = mockEMS.solarPower;
+  const batteryPower = mockEMS.batteryPower;
+  const evPower = mockEMS.evPower;
+  const totalConsumption = solarPower + Math.abs(batteryPower) + gridPower;
+  const selfConsumption = totalConsumption > 0 ? Math.round(((solarPower + Math.abs(batteryPower)) / totalConsumption) * 100) : 0;
+
+  const flowItems = [
+    { label: 'Grid Import', value: gridPower, unit: 'kW', icon: ArrowDownUp, color: 'text-foreground', live: isLive },
+    { label: 'Zonne-energie', value: solarPower, unit: 'kW', icon: Sun, color: 'text-primary', live: false },
+    { label: 'Batterij', value: batteryPower, unit: 'kW', icon: BatteryCharging, color: batteryPower < 0 ? 'text-warning' : 'text-primary', live: false },
+    { label: 'EV Laden', value: evPower, unit: 'kW', icon: Zap, color: 'text-foreground', live: false },
+  ];
+
   return (
     <AppLayout title="Energy Management System" subtitle="Realtime energiebalans en optimalisatie">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard title="Grid Import" value={mockEMS.gridPower} unit="kW" icon={ArrowDownUp} />
-        <StatCard title="Zonne-energie" value={mockEMS.solarPower} unit="kW" icon={Sun} variant="primary" />
-        <StatCard title="Totaal verbruik" value={mockEMS.totalConsumption} unit="kW" icon={Cpu} />
-        <StatCard title="Eigen verbruik" value={mockEMS.selfConsumption} unit="%" icon={Cpu} variant="primary" trend={{ value: 5, label: 'vs gisteren' }} />
+        <StatCard
+          title="Grid Import"
+          value={gridPower}
+          unit="kW"
+          icon={ArrowDownUp}
+          variant={isLive ? 'primary' : 'default'}
+        />
+        <StatCard title="Zonne-energie" value={solarPower} unit="kW" icon={Sun} variant="primary" />
+        <StatCard title="Totaal verbruik" value={totalConsumption.toFixed(1)} unit="kW" icon={Cpu} />
+        <StatCard title="Eigen verbruik" value={selfConsumption} unit="%" icon={Cpu} variant="primary" trend={{ value: 5, label: 'vs gisteren' }} />
       </div>
+
+      {/* Live indicator */}
+      {isLive && (
+        <div className="flex items-center gap-2 mb-4 px-1">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary" />
+          </span>
+          <span className="text-xs text-muted-foreground">
+            Live data via <span className="font-medium text-foreground">{enabledMeter?.name || 'Shelly PRO EM-50'}</span>
+          </span>
+        </div>
+      )}
 
       {/* Energy Flow Diagram */}
       <div className="rounded-xl border border-border bg-card p-8">
@@ -26,7 +74,12 @@ const EMS = () => {
         
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
           {flowItems.map((item) => (
-            <div key={item.label} className="flex flex-col items-center text-center p-6 rounded-xl bg-muted/50 border border-border">
+            <div key={item.label} className="flex flex-col items-center text-center p-6 rounded-xl bg-muted/50 border border-border relative">
+              {item.live && (
+                <div className="absolute top-3 right-3">
+                  <Radio className="h-3.5 w-3.5 text-primary animate-pulse" />
+                </div>
+              )}
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 mb-4">
                 <item.icon className="h-7 w-7 text-primary" />
               </div>
@@ -43,22 +96,22 @@ const EMS = () => {
         <div className="mt-8">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs text-muted-foreground">Energiebalans</span>
-            <span className="font-mono text-xs text-primary">{mockEMS.selfConsumption}% eigen verbruik</span>
+            <span className="font-mono text-xs text-primary">{selfConsumption}% eigen verbruik</span>
           </div>
           <div className="h-4 rounded-full bg-muted overflow-hidden flex">
             <div
               className="bg-primary h-full transition-all duration-700"
-              style={{ width: `${(mockEMS.solarPower / mockEMS.totalConsumption) * 100}%` }}
+              style={{ width: `${totalConsumption > 0 ? (solarPower / totalConsumption) * 100 : 0}%` }}
               title="Zon"
             />
             <div
               className="bg-warning h-full transition-all duration-700"
-              style={{ width: `${(Math.abs(mockEMS.batteryPower) / mockEMS.totalConsumption) * 100}%` }}
+              style={{ width: `${totalConsumption > 0 ? (Math.abs(batteryPower) / totalConsumption) * 100 : 0}%` }}
               title="Batterij"
             />
             <div
               className="bg-muted-foreground/30 h-full transition-all duration-700"
-              style={{ width: `${(mockEMS.gridPower / mockEMS.totalConsumption) * 100}%` }}
+              style={{ width: `${totalConsumption > 0 ? (gridPower / totalConsumption) * 100 : 0}%` }}
               title="Grid"
             />
           </div>
