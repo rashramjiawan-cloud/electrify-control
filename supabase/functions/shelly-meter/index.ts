@@ -54,6 +54,36 @@ Deno.serve(async (req) => {
         const totalPowerW = channels.reduce((sum: number, ch: any) => sum + (ch.active_power ?? 0), 0);
         const totalPowerKw = Math.abs(totalPowerW) / 1000;
 
+        // Helper to send notification for GTV exceedance
+        const sendGtvNotification = async (direction: string, powerKw: number, limitKw: number) => {
+          const dirLabel = direction === 'import' ? 'Afname' : 'Teruglevering';
+          const overshoot = powerKw - limitKw;
+          try {
+            await fetch(`${supabaseUrl}/functions/v1/send-alert-notification`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${serviceKey}`,
+              },
+              body: JSON.stringify({
+                metric: `gtv_${direction}`,
+                label: `GTV ${dirLabel}`,
+                value: parseFloat(powerKw.toFixed(2)),
+                unit: 'kW',
+                direction: 'high',
+                channel: 0,
+                meter_id: meterId,
+                threshold_min: 0,
+                threshold_max: limitKw,
+              }),
+              signal: AbortSignal.timeout(10000),
+            });
+            console.log(`GTV notification sent: ${dirLabel} ${powerKw.toFixed(2)} kW (limiet ${limitKw} kW, overschrijding +${overshoot.toFixed(2)} kW)`);
+          } catch (notifErr) {
+            console.error('GTV notification failed:', notifErr);
+          }
+        };
+
         // Positive power = import (afname), negative = export (teruglevering)
         if (totalPowerW > 0 && importLimit) {
           const limitKw = parseFloat(importLimit.value);
@@ -65,6 +95,7 @@ Deno.serve(async (req) => {
               limit_kw: limitKw,
               meter_id: meterId,
             });
+            await sendGtvNotification('import', totalPowerKw, limitKw);
           }
         } else if (totalPowerW < 0 && exportLimit) {
           const limitKw = parseFloat(exportLimit.value);
@@ -76,6 +107,7 @@ Deno.serve(async (req) => {
               limit_kw: limitKw,
               meter_id: meterId,
             });
+            await sendGtvNotification('export', totalPowerKw, limitKw);
           }
         }
       } catch (err) {
