@@ -54,8 +54,23 @@ Deno.serve(async (req) => {
         const totalPowerW = channels.reduce((sum: number, ch: any) => sum + (ch.active_power ?? 0), 0);
         const totalPowerKw = Math.abs(totalPowerW) / 1000;
 
-        // Helper to send notification for GTV exceedance
+        // Helper to send notification for GTV exceedance (rate-limited: max once per 15 min per direction)
         const sendGtvNotification = async (direction: string, powerKw: number, limitKw: number) => {
+          // Check if a notification was sent in the last 15 minutes for this direction
+          const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+          const { data: recent } = await supabase
+            .from('gtv_exceedances')
+            .select('id')
+            .eq('direction', direction)
+            .gte('created_at', fifteenMinAgo)
+            .order('created_at', { ascending: false })
+            .limit(2); // current insert + possible previous
+
+          // If there's more than 1 record (the one we just inserted + older), skip notification
+          if (recent && recent.length > 1) {
+            console.log(`GTV ${direction} notification skipped (rate limit: already sent within 15 min)`);
+            return;
+          }
           const dirLabel = direction === 'import' ? 'Afname' : 'Teruglevering';
           const overshoot = powerKw - limitKw;
           try {
