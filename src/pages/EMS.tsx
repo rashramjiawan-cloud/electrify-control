@@ -15,13 +15,13 @@ const EMS = () => {
   const enabledMeter = meters?.find(m => m.enabled);
   const { data: readings } = useMeterReadings(enabledMeter?.id, 1);
 
-  // Derive grid power from latest Shelly reading (sum of all channels active_power in W → kW)
-  const liveGridPower = useMemo(() => {
-    if (!readings?.length) return null;
-    // Latest reading – active_power is in Watts
-    const latestPower = readings[0]?.active_power;
-    if (latestPower == null) return null;
-    return +(latestPower / 1000).toFixed(2);
+  // Derive grid power and current from latest Shelly reading
+  const { liveGridPower, liveCurrent } = useMemo(() => {
+    if (!readings?.length) return { liveGridPower: null, liveCurrent: null };
+    const r = readings[0];
+    const power = r?.active_power != null ? +(r.active_power / 1000).toFixed(2) : null;
+    const current = r?.current != null ? +Number(r.current).toFixed(1) : null;
+    return { liveGridPower: power, liveCurrent: current };
   }, [readings]);
 
   const gridPower = liveGridPower ?? mockEMS.gridPower;
@@ -35,7 +35,7 @@ const EMS = () => {
   const selfConsumption = totalConsumption > 0 ? Math.round(((solarPower + Math.abs(batteryPower)) / totalConsumption) * 100) : 0;
 
   const flowItems = [
-    { label: 'Grid Import', value: gridPower, unit: 'kW', icon: ArrowDownUp, color: 'text-foreground', live: isLive },
+    { label: 'Grid Import', value: gridPower, unit: 'kW', icon: ArrowDownUp, color: 'text-foreground', live: isLive, ampere: liveCurrent },
     { label: 'Zonne-energie', value: solarPower, unit: 'kW', icon: Sun, color: 'text-primary', live: false },
     { label: 'Batterij', value: batteryPower, unit: 'kW', icon: BatteryCharging, color: batteryPower < 0 ? 'text-warning' : 'text-primary', live: false },
     { label: 'EV Laden', value: evPower, unit: 'kW', icon: Zap, color: 'text-foreground', live: false },
@@ -47,7 +47,7 @@ const EMS = () => {
         <StatCard
           title="Grid Import"
           value={gridPower}
-          unit="kW"
+          unit={liveCurrent != null ? `kW · ${liveCurrent} A` : 'kW'}
           icon={ArrowDownUp}
           variant={isLive ? 'primary' : 'default'}
         />
@@ -89,6 +89,9 @@ const EMS = () => {
                 {item.value > 0 && item.label === 'Batterij' ? '+' : ''}{item.value}
               </span>
               <span className="font-mono text-xs text-muted-foreground">{item.unit}</span>
+              {'ampere' in item && item.ampere != null && (
+                <span className="font-mono text-sm text-muted-foreground mt-1">{item.ampere} A</span>
+              )}
             </div>
           ))}
         </div>
