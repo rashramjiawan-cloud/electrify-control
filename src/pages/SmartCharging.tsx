@@ -17,6 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useEnergyMeters, useCreateMeter, useUpdateMeter, useDeleteMeter, usePollMeter, useTestMeterConnection, type EnergyMeter } from '@/hooks/useEnergyMeters';
 import { useLocalAutoPoll } from '@/hooks/useLocalPoll';
 import EnergyFlowWidget from '@/components/EnergyFlowWidget';
+import { useSystemSettings } from '@/hooks/useSystemSettings';
 
 type ModuleId = 'energy-flow' | 'power-chart' | 'profiles' | 'shelly-meter' | 'ems-auto';
 
@@ -199,6 +200,7 @@ const SmartCharging = () => {
   const setProfile = useSetChargingProfile();
   const clearProfile = useClearChargingProfile();
   const { data: meters } = useEnergyMeters();
+  const { getSetting } = useSystemSettings();
   const createMeter = useCreateMeter();
   const updateMeter = useUpdateMeter();
   const deleteMeter = useDeleteMeter();
@@ -479,7 +481,7 @@ const SmartCharging = () => {
     }
 
     const adjustCharging = async () => {
-      const enabledMeter = meters?.find(m => m.enabled);
+      const enabledMeter = meters?.find(m => m.enabled && m.meter_type === 'grid');
       if (!enabledMeter?.last_reading?.channels) return;
 
       const channels = enabledMeter.last_reading.channels as any[];
@@ -488,11 +490,17 @@ const SmartCharging = () => {
       const cpId = selectedCp || chargePoints?.[0]?.id;
       if (!cpId) return;
 
-      // If grid import is high, reduce charging. If exporting, increase.
+      // GTV-aware: cap total grid import to stay under GTV limit
+      const gtvImportW = Number(getSetting('gtv_import_kw')?.value ?? 150) * 1000;
+      const gtvWarningPct = Number(getSetting('gtv_warning_pct')?.value ?? 80) / 100;
+      const gtvSafeW = gtvImportW * gtvWarningPct; // Stay under warning threshold
+
       let targetPower = emsMaxPower;
       if (totalGridPower > 0) {
-        // Importing from grid — reduce charging to stay under limit
-        targetPower = Math.max(emsMinPower, emsMaxPower - totalGridPower);
+        // Calculate how much headroom remains under GTV
+        const headroom = gtvSafeW - totalGridPower;
+        // Reduce charging to stay within GTV safe zone
+        targetPower = Math.max(emsMinPower, Math.min(emsMaxPower, emsMaxPower + headroom));
       } else {
         // Exporting to grid — can charge at max
         targetPower = emsMaxPower;
@@ -521,7 +529,7 @@ const SmartCharging = () => {
     adjustCharging();
     emsIntervalRef.current = setInterval(adjustCharging, 30000);
     return () => { if (emsIntervalRef.current) clearInterval(emsIntervalRef.current); };
-  }, [emsActive, emsMaxPower, emsMinPower, meters, chargePoints, selectedCp, setProfile]);
+  }, [emsActive, emsMaxPower, emsMinPower, meters, chargePoints, selectedCp, setProfile, getSetting]);
 
   const formatLimit = (limit: number, scheduleUnit: string) =>
     scheduleUnit === 'A' ? `${limit} A` : `${(limit / 1000).toFixed(1)} kW`;

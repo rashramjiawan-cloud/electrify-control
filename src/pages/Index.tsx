@@ -7,6 +7,7 @@ import { mockChargePoints, mockBatteries, mockEMS, mockTransactions } from '@/da
 import { Zap, BatteryCharging, Sun, Activity, AlertTriangle } from 'lucide-react';
 import EnergyHistoryChart from '@/components/EnergyHistoryChart';
 import DataRetentionWidget from '@/components/DataRetentionWidget';
+import GtvMonitorWidget from '@/components/GtvMonitorWidget';
 
 const Dashboard = () => {
   const { data: dbChargePoints } = useChargePoints();
@@ -122,6 +123,9 @@ const Dashboard = () => {
                 <span className="font-mono text-sm font-bold text-primary">{mockEMS.selfConsumption}%</span>
               </div>
           </div>
+
+          {/* GTV Monitor */}
+          <GtvMonitorWidget />
 
           {/* Data Retention Widget */}
           <DataRetentionWidget />

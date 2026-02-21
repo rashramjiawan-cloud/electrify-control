@@ -8,6 +8,7 @@ import { Copy, Check, Wifi, Server, Shield, Info } from 'lucide-react';
 import AlertThresholdsSettings from '@/components/AlertThresholdsSettings';
 import DataRetentionSettings from '@/components/DataRetentionSettings';
 import NotificationChannelsSettings from '@/components/NotificationChannelsSettings';
+import GtvSettings from '@/components/GtvSettings';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const WS_URL = SUPABASE_URL?.replace('https://', 'wss://') + '/functions/v1/ocpp-ws';
@@ -205,6 +206,9 @@ const Instellingen = () => {
             </div>
           </div>
         </div>
+
+        {/* GTV Settings */}
+        <GtvSettings />
 
         {/* Alert Thresholds */}
         <AlertThresholdsSettings />
