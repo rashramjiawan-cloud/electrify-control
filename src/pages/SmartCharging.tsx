@@ -18,9 +18,10 @@ import { useEnergyMeters, useCreateMeter, useUpdateMeter, useDeleteMeter, usePol
 import { useLocalAutoPoll } from '@/hooks/useLocalPoll';
 import EnergyFlowWidget from '@/components/EnergyFlowWidget';
 import SmartChargingVisualization from '@/components/SmartChargingVisualization';
+import ChargingBehaviorModels from '@/components/ChargingBehaviorModels';
 import { useSystemSettings } from '@/hooks/useSystemSettings';
 
-type ModuleId = 'energy-flow' | 'power-chart' | 'profiles' | 'shelly-meter' | 'ems-auto' | 'sc-visualization';
+type ModuleId = 'energy-flow' | 'power-chart' | 'profiles' | 'shelly-meter' | 'ems-auto' | 'sc-visualization' | 'behavior-models';
 
 interface ModuleConfig {
   id: ModuleId;
@@ -35,6 +36,7 @@ const DEFAULT_MODULES: ModuleConfig[] = [
   { id: 'profiles', label: 'Laadprofielen', visible: true },
   { id: 'shelly-meter', label: 'Shelly Energiemeter', visible: true },
   { id: 'ems-auto', label: 'EMS Auto-sturing', visible: true },
+  { id: 'behavior-models', label: 'Gedragsmodellen (AI)', visible: true },
 ];
 
 // Extracted meter item with local poll hook (hooks must be at top level)
@@ -609,6 +611,8 @@ const SmartCharging = () => {
               </div>
 
               {mod.id === 'sc-visualization' && <SmartChargingVisualization />}
+
+              {mod.id === 'behavior-models' && <ChargingBehaviorModels />}
 
               {mod.id === 'energy-flow' && <EnergyFlowWidget />}
 
