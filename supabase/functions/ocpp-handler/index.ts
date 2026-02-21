@@ -611,6 +611,126 @@ async function handleUnlockConnector(cpId: string, payload: Record<string, unkno
   return { status: "Unlocked" };
 }
 
+// ── Smart Charging ──────────────────────────────────────────────────
+
+async function handleSetChargingProfile(cpId: string, payload: Record<string, unknown>) {
+  const connectorId = (payload.connectorId as number) ?? 0;
+  const csChargingProfiles = payload.csChargingProfiles as Record<string, unknown> | undefined;
+
+  if (!csChargingProfiles) {
+    return { status: "Rejected" };
+  }
+
+  const purpose = (csChargingProfiles.chargingProfilePurpose as string) || "TxDefaultProfile";
+  const kind = (csChargingProfiles.chargingProfileKind as string) || "Relative";
+  const stackLevel = (csChargingProfiles.stackLevel as number) || 0;
+  const recurrencyKind = csChargingProfiles.recurrencyKind as string | undefined;
+  const validFrom = csChargingProfiles.validFrom as string | undefined;
+  const validTo = csChargingProfiles.validTo as string | undefined;
+
+  const schedule = csChargingProfiles.chargingSchedule as Record<string, unknown> | undefined;
+  const unit = (schedule?.chargingRateUnit as string) || "W";
+  const duration = schedule?.duration as number | undefined;
+  const startSchedule = schedule?.startSchedule as string | undefined;
+  const minRate = schedule?.minChargingRate as number | undefined;
+  const periods = (schedule?.chargingSchedulePeriod as unknown[]) || [];
+
+  // Deactivate existing profile at same stack level / connector
+  await supabase
+    .from("charging_profiles")
+    .update({ active: false })
+    .eq("charge_point_id", cpId)
+    .eq("connector_id", connectorId)
+    .eq("stack_level", stackLevel)
+    .eq("active", true);
+
+  const { error } = await supabase.from("charging_profiles").insert({
+    charge_point_id: cpId,
+    connector_id: connectorId,
+    stack_level: stackLevel,
+    charging_profile_purpose: purpose,
+    charging_profile_kind: kind,
+    recurrency_kind: recurrencyKind,
+    valid_from: validFrom,
+    valid_to: validTo,
+    charging_schedule_unit: unit,
+    duration,
+    start_schedule: startSchedule,
+    min_charging_rate: minRate,
+    schedule_periods: periods,
+    active: true,
+  });
+
+  if (error) {
+    console.error("SetChargingProfile error:", error);
+    return { status: "Rejected" };
+  }
+
+  return { status: "Accepted" };
+}
+
+async function handleGetCompositeSchedule(cpId: string, payload: Record<string, unknown>) {
+  const connectorId = (payload.connectorId as number) ?? 0;
+  const duration = (payload.duration as number) || 86400;
+  const chargingRateUnit = (payload.chargingRateUnit as string) || "W";
+
+  // Get all active profiles for this connector, ordered by stack level (highest priority first)
+  const { data: profiles, error } = await supabase
+    .from("charging_profiles")
+    .select("*")
+    .eq("charge_point_id", cpId)
+    .eq("active", true)
+    .or(`connector_id.eq.${connectorId},connector_id.eq.0`)
+    .order("stack_level", { ascending: false });
+
+  if (error || !profiles || profiles.length === 0) {
+    return { status: "Rejected" };
+  }
+
+  // Use highest-priority profile to compose schedule
+  const topProfile = profiles[0];
+  const periods = topProfile.schedule_periods as Array<{ startPeriod: number; limit: number; numberPhases?: number }>;
+
+  return {
+    status: "Accepted",
+    connectorId,
+    scheduleStart: topProfile.start_schedule || new Date().toISOString(),
+    chargingSchedule: {
+      duration,
+      chargingRateUnit: topProfile.charging_schedule_unit || chargingRateUnit,
+      chargingSchedulePeriod: periods,
+      minChargingRate: topProfile.min_charging_rate,
+    },
+  };
+}
+
+async function handleClearChargingProfile(cpId: string, payload: Record<string, unknown>) {
+  const id = payload.id as number | undefined;
+  const connectorId = payload.connectorId as number | undefined;
+  const purpose = payload.chargingProfilePurpose as string | undefined;
+  const stackLevel = payload.stackLevel as number | undefined;
+
+  let query = supabase
+    .from("charging_profiles")
+    .update({ active: false })
+    .eq("charge_point_id", cpId)
+    .eq("active", true);
+
+  if (id != null) query = query.eq("id", id);
+  if (connectorId != null) query = query.eq("connector_id", connectorId);
+  if (purpose) query = query.eq("charging_profile_purpose", purpose);
+  if (stackLevel != null) query = query.eq("stack_level", stackLevel);
+
+  const { error, count } = await query;
+
+  if (error) {
+    console.error("ClearChargingProfile error:", error);
+    return { status: "Unknown" };
+  }
+
+  return { status: count && count > 0 ? "Accepted" : "Unknown" };
+}
+
 async function handleRemoteStartTransaction(cpId: string, payload: Record<string, unknown>) {
   const connectorId = (payload.connectorId as number) || 1;
   const idTag = payload.idTag as string;
@@ -735,7 +855,7 @@ Deno.serve(async (req) => {
     const auditedActions = new Set([
       "RemoteStartTransaction", "RemoteStopTransaction",
       "ChangeConfiguration", "Reset", "TriggerMessage", "GetConfiguration",
-      "UnlockConnector",
+      "UnlockConnector", "SetChargingProfile", "ClearChargingProfile", "GetCompositeSchedule",
     ]);
 
     switch (action) {
@@ -780,6 +900,15 @@ Deno.serve(async (req) => {
         break;
       case "UnlockConnector":
         response = await handleUnlockConnector(chargePointId, payload);
+        break;
+      case "SetChargingProfile":
+        response = await handleSetChargingProfile(chargePointId, payload);
+        break;
+      case "GetCompositeSchedule":
+        response = await handleGetCompositeSchedule(chargePointId, payload);
+        break;
+      case "ClearChargingProfile":
+        response = await handleClearChargingProfile(chargePointId, payload);
         break;
       default:
         response = { error: `Unknown action: ${action}` };

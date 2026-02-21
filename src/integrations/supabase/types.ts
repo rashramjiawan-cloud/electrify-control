@@ -133,6 +133,74 @@ export type Database = {
         }
         Relationships: []
       }
+      charging_profiles: {
+        Row: {
+          active: boolean
+          charge_point_id: string
+          charging_profile_kind: string
+          charging_profile_purpose: string
+          charging_schedule_unit: string
+          connector_id: number
+          created_at: string
+          duration: number | null
+          id: number
+          min_charging_rate: number | null
+          recurrency_kind: string | null
+          schedule_periods: Json
+          stack_level: number
+          start_schedule: string | null
+          updated_at: string
+          valid_from: string | null
+          valid_to: string | null
+        }
+        Insert: {
+          active?: boolean
+          charge_point_id: string
+          charging_profile_kind?: string
+          charging_profile_purpose?: string
+          charging_schedule_unit?: string
+          connector_id?: number
+          created_at?: string
+          duration?: number | null
+          id?: number
+          min_charging_rate?: number | null
+          recurrency_kind?: string | null
+          schedule_periods?: Json
+          stack_level?: number
+          start_schedule?: string | null
+          updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Update: {
+          active?: boolean
+          charge_point_id?: string
+          charging_profile_kind?: string
+          charging_profile_purpose?: string
+          charging_schedule_unit?: string
+          connector_id?: number
+          created_at?: string
+          duration?: number | null
+          id?: number
+          min_charging_rate?: number | null
+          recurrency_kind?: string | null
+          schedule_periods?: Json
+          stack_level?: number
+          start_schedule?: string | null
+          updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "charging_profiles_charge_point_id_fkey"
+            columns: ["charge_point_id"]
+            isOneToOne: false
+            referencedRelation: "charge_points"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       charging_tariffs: {
         Row: {
           active: boolean
