@@ -1,1 +1,4 @@
 project_id = "lxdjtwxumzsyowdkahrt"
+
+[functions.grid-load-balancer]
+verify_jwt = false
