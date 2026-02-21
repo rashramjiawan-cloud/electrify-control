@@ -15,8 +15,8 @@ const EMS = () => {
 
   const { data: meters } = useEnergyMeters();
   const enabledMeter = meters?.find(m => m.enabled);
-  // Fetch latest readings for both channels
-  const { data: readings } = useMeterReadings(enabledMeter?.id, 10);
+  // Fetch latest readings for all three channels
+  const { data: readings } = useMeterReadings(enabledMeter?.id, 30);
 
   // Derive per-phase live data from latest Shelly readings
   const { liveGridPower, phases, isLive } = useMemo(() => {

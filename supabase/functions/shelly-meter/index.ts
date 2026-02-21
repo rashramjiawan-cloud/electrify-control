@@ -60,9 +60,9 @@ Deno.serve(async (req) => {
         }, 502);
       }
 
-      // Parse EM1 data (PRO EM-50 has em1:0 and em1:1)
+      // Parse EM1 data (PRO EM-50 has em1:0, em1:1, em1:2)
       const channels: any[] = [];
-      for (const ch of [0, 1]) {
+      for (const ch of [0, 1, 2]) {
         const emKey = `em1:${ch}`;
         const emData = shellyData[emKey];
         if (emData) {
@@ -209,7 +209,7 @@ Deno.serve(async (req) => {
             const shellyData = await resp.json();
 
             const channels: any[] = [];
-            for (const ch of [0, 1]) {
+            for (const ch of [0, 1, 2]) {
               const emKey = `em1:${ch}`;
               const emData = shellyData[emKey];
               if (emData) {
