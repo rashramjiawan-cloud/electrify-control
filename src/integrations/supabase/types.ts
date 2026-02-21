@@ -304,6 +304,7 @@ export type Database = {
           id: string
           last_poll_at: string | null
           last_reading: Json | null
+          meter_type: string
           modbus_address: number | null
           name: string
           poll_interval_sec: number | null
@@ -321,6 +322,7 @@ export type Database = {
           id?: string
           last_poll_at?: string | null
           last_reading?: Json | null
+          meter_type?: string
           modbus_address?: number | null
           name?: string
           poll_interval_sec?: number | null
@@ -338,6 +340,7 @@ export type Database = {
           id?: string
           last_poll_at?: string | null
           last_reading?: Json | null
+          meter_type?: string
           modbus_address?: number | null
           name?: string
           poll_interval_sec?: number | null

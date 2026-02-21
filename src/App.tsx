@@ -19,6 +19,7 @@ import Reserveringen from "./pages/Reserveringen";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import AlertHistory from "./pages/AlertHistory";
+import ZonneEnergie from "./pages/ZonneEnergie";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -53,6 +54,7 @@ const AppRoutes = () => (
     <Route path="/laadpalen" element={<ProtectedRoute><Laadpalen /></ProtectedRoute>} />
     <Route path="/batterij" element={<ProtectedRoute><Batterij /></ProtectedRoute>} />
     <Route path="/ems" element={<ProtectedRoute><EMS /></ProtectedRoute>} />
+    <Route path="/zonne-energie" element={<ProtectedRoute><ZonneEnergie /></ProtectedRoute>} />
     <Route path="/rfid" element={<ProtectedRoute><RFIDTags /></ProtectedRoute>} />
     <Route path="/tarieven" element={<ProtectedRoute><Tarieven /></ProtectedRoute>} />
     <Route path="/transacties" element={<ProtectedRoute><Transacties /></ProtectedRoute>} />
