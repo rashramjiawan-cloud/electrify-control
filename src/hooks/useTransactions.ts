@@ -16,15 +16,18 @@ export interface DbTransaction {
   created_at: string;
 }
 
-export function useTransactions(limit = 20) {
+export function useTransactions(limit = 20, dateFrom?: string, dateTo?: string) {
   return useQuery({
-    queryKey: ['transactions', limit],
+    queryKey: ['transactions', limit, dateFrom, dateTo],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('transactions')
         .select('*')
         .order('start_time', { ascending: false })
         .limit(limit);
+      if (dateFrom) query = query.gte('start_time', dateFrom);
+      if (dateTo) query = query.lte('start_time', dateTo);
+      const { data, error } = await query;
       if (error) throw error;
       return data as DbTransaction[];
     },

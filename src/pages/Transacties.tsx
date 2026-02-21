@@ -5,10 +5,13 @@ import { useChargePoints } from '@/hooks/useChargePoints';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Receipt, Zap, Clock, Euro, ArrowUpDown, Download } from 'lucide-react';
+import { Receipt, Zap, Clock, Euro, ArrowUpDown, Download, CalendarIcon, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { format, differenceInMinutes } from 'date-fns';
+import { format, differenceInMinutes, startOfDay, endOfDay } from 'date-fns';
 import { nl } from 'date-fns/locale';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
 
 const formatCurrency = (val: number | null) => {
   if (val == null) return '—';
@@ -40,7 +43,13 @@ const statusVariant = (status: string) => {
 const Transacties = () => {
   const [limit, setLimit] = useState(50);
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const { data: transactions, isLoading } = useTransactions(limit);
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
+
+  const dateFromIso = dateFrom ? startOfDay(dateFrom).toISOString() : undefined;
+  const dateToIso = dateTo ? endOfDay(dateTo).toISOString() : undefined;
+
+  const { data: transactions, isLoading } = useTransactions(limit, dateFromIso, dateToIso);
   const { data: chargePoints } = useChargePoints();
 
   const filtered = (transactions || []).filter(t =>
@@ -132,7 +141,39 @@ const Transacties = () => {
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        {/* Date From */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className={cn("w-[150px] justify-start text-left font-normal gap-2", !dateFrom && "text-muted-foreground")}>
+              <CalendarIcon className="h-3.5 w-3.5" />
+              {dateFrom ? format(dateFrom, 'dd MMM yyyy', { locale: nl }) : 'Van datum'}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar mode="single" selected={dateFrom} onSelect={setDateFrom} initialFocus className="p-3 pointer-events-auto" />
+          </PopoverContent>
+        </Popover>
+
+        {/* Date To */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className={cn("w-[150px] justify-start text-left font-normal gap-2", !dateTo && "text-muted-foreground")}>
+              <CalendarIcon className="h-3.5 w-3.5" />
+              {dateTo ? format(dateTo, 'dd MMM yyyy', { locale: nl }) : 'Tot datum'}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar mode="single" selected={dateTo} onSelect={setDateTo} initialFocus className="p-3 pointer-events-auto" />
+          </PopoverContent>
+        </Popover>
+
+        {(dateFrom || dateTo) && (
+          <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground" onClick={() => { setDateFrom(undefined); setDateTo(undefined); }}>
+            <X className="h-3.5 w-3.5" /> Wis
+          </Button>
+        )}
+
         <Button variant="outline" size="sm" className="gap-2 ml-auto" onClick={exportCsv} disabled={filtered.length === 0}>
           <Download className="h-3.5 w-3.5" />
           Export CSV
