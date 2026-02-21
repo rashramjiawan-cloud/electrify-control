@@ -16,7 +16,8 @@ import { format, subHours, eachHourOfInterval, startOfHour } from 'date-fns';
 import { nl } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { BarChart3, Loader2 } from 'lucide-react';
+import { BarChart3, Download, Loader2 } from 'lucide-react';
+import { downloadAsCsv } from '@/lib/csvExport';
 
 type Range = '6h' | '12h' | '24h';
 
@@ -208,6 +209,16 @@ const GridPowerHistoryChart = ({ grid }: Props) => {
 
   const ranges: Range[] = ['6h', '12h', '24h'];
 
+  const handleExportCsv = () => {
+    const rows = chartData.map(row => {
+      const out: Record<string, unknown> = { Tijd: row.label };
+      members.forEach(m => { out[m.member_name || m.id] = row[m.id] ?? 0; });
+      out['Totaal (kW)'] = row['__total'];
+      return out;
+    });
+    downloadAsCsv(rows, `vermogenshistorie-${grid.name}-${range}.csv`);
+  };
+
   return (
     <div className="rounded-xl border border-border bg-card p-5 mt-4">
       {/* Header */}
@@ -222,18 +233,23 @@ const GridPowerHistoryChart = ({ grid }: Props) => {
             </p>
           </div>
         </div>
-        <div className="flex gap-1 rounded-lg border border-border p-0.5">
-          {ranges.map(r => (
-            <Button
-              key={r}
-              variant={range === r ? 'default' : 'ghost'}
-              size="sm"
-              className="h-7 text-xs px-2.5"
-              onClick={() => setRange(r)}
-            >
-              {r}
-            </Button>
-          ))}
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1 rounded-lg border border-border p-0.5">
+            {ranges.map(r => (
+              <Button
+                key={r}
+                variant={range === r ? 'default' : 'ghost'}
+                size="sm"
+                className="h-7 text-xs px-2.5"
+                onClick={() => setRange(r)}
+              >
+                {r}
+              </Button>
+            ))}
+          </div>
+          <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={handleExportCsv} title="Exporteer als CSV">
+            <Download className="h-3.5 w-3.5" />
+          </Button>
         </div>
       </div>
 
