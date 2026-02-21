@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Brain, Clock, Zap, Sun, BatteryCharging, User, TrendingUp, RefreshCw, Sparkles, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Brain, Clock, Zap, Sun, BatteryCharging, User, TrendingUp, RefreshCw, Sparkles, AlertTriangle, ChevronDown, ChevronUp, Calendar, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line, Legend } from 'recharts';
 
 interface Pattern {
   title: string;
@@ -34,6 +35,14 @@ interface BehaviorAnalysis {
   summary: string;
 }
 
+interface HistoricalEntry {
+  analysis_date: string;
+  transaction_count: number;
+  total_energy_kwh: number;
+  patterns: Pattern[];
+  summary: string | null;
+}
+
 const iconMap: Record<string, React.ReactNode> = {
   clock: <Clock className="h-4 w-4" />,
   zap: <Zap className="h-4 w-4" />,
@@ -61,6 +70,22 @@ const ChargingBehaviorModels = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(true);
+  const [history, setHistory] = useState<HistoricalEntry[]>([]);
+  const [showTrend, setShowTrend] = useState(false);
+
+  // Load historical data
+  const loadHistory = useCallback(async () => {
+    const { data } = await supabase
+      .from('charging_behavior_analyses')
+      .select('analysis_date, transaction_count, total_energy_kwh, patterns, summary')
+      .order('analysis_date', { ascending: true })
+      .limit(30);
+    if (data) setHistory(data as unknown as HistoricalEntry[]);
+  }, []);
+
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
 
   const analyze = useCallback(async () => {
     setLoading(true);
@@ -70,7 +95,8 @@ const ChargingBehaviorModels = () => {
       if (fnError) throw fnError;
       if (data?.error) throw new Error(data.error);
       setAnalysis(data);
-      toast.success('Gedragsanalyse voltooid');
+      toast.success('Gedragsanalyse voltooid en opgeslagen');
+      loadHistory();
     } catch (err: any) {
       const msg = err?.message || 'Analyse mislukt';
       setError(msg);
@@ -78,7 +104,14 @@ const ChargingBehaviorModels = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadHistory]);
+
+  const trendData = history.map(h => ({
+    date: new Date(h.analysis_date).toLocaleDateString('nl-NL', { day: '2-digit', month: 'short' }),
+    transacties: h.transaction_count,
+    energie: h.total_energy_kwh,
+    patronen: Array.isArray(h.patterns) ? h.patterns.length : 0,
+  }));
 
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
@@ -96,10 +129,26 @@ const ChargingBehaviorModels = () => {
                 AI
               </span>
             </h3>
-            <p className="text-xs text-muted-foreground">Laadpatronen en gebruikersprofielen</p>
+            <p className="text-xs text-muted-foreground">
+              Laadpatronen en gebruikersprofielen
+              {history.length > 0 && (
+                <span className="ml-1 text-muted-foreground/60">· {history.length} analyse{history.length !== 1 ? 's' : ''} opgeslagen</span>
+              )}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {history.length > 0 && (
+            <Button
+              variant={showTrend ? 'default' : 'outline'}
+              size="sm"
+              className="gap-1.5 text-xs"
+              onClick={() => setShowTrend(!showTrend)}
+            >
+              <BarChart3 className="h-3 w-3" />
+              Trends
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -118,12 +167,71 @@ const ChargingBehaviorModels = () => {
         </div>
       </div>
 
-      {/* Content */}
+      {/* Trend View */}
+      {showTrend && history.length > 0 && (
+        <div className="p-5 border-b border-border space-y-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Trendoverzicht</h4>
+          </div>
+          
+          {trendData.length >= 2 ? (
+            <div className="h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+                  <YAxis yAxisId="left" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+                  <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--popover))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
+                      fontSize: '11px',
+                    }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: '11px' }} />
+                  <Line yAxisId="left" type="monotone" dataKey="transacties" name="Transacties" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3 }} />
+                  <Line yAxisId="right" type="monotone" dataKey="energie" name="Energie (kWh)" stroke="hsl(var(--chart-2, 142 71% 45%))" strokeWidth={2} dot={{ r: 3 }} />
+                  <Line yAxisId="left" type="monotone" dataKey="patronen" name="Patronen" stroke="hsl(var(--chart-4, 280 65% 60%))" strokeWidth={1.5} strokeDasharray="4 4" dot={{ r: 2 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="h-48 flex items-center justify-center">
+              <div className="text-center">
+                <BarChart3 className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-xs text-muted-foreground">Minimaal 2 analyses nodig voor trends</p>
+                <p className="text-[10px] text-muted-foreground/60 mt-1">De dagelijkse analyse draait automatisch</p>
+              </div>
+            </div>
+          )}
+
+          {/* History list */}
+          <div className="space-y-1 max-h-32 overflow-y-auto">
+            {[...history].reverse().map((h, i) => (
+              <div key={i} className="flex items-center justify-between px-3 py-1.5 rounded-md bg-muted/20 text-[11px]">
+                <span className="font-mono text-muted-foreground">
+                  {new Date(h.analysis_date).toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' })}
+                </span>
+                <div className="flex items-center gap-3 text-muted-foreground">
+                  <span>{h.transaction_count} tx</span>
+                  <span>{h.total_energy_kwh} kWh</span>
+                  <span>{Array.isArray(h.patterns) ? h.patterns.length : 0} patronen</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Content - existing analysis view */}
       {!analysis && !loading && !error && (
         <div className="p-8 text-center">
           <Brain className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
           <p className="text-sm text-muted-foreground">Klik op "Analyseer" om AI-gestuurde gedragsmodellen te genereren</p>
-          <p className="text-xs text-muted-foreground mt-1">Gebaseerd op historische laadtransacties</p>
+          <p className="text-xs text-muted-foreground mt-1">Resultaten worden automatisch dagelijks opgeslagen</p>
         </div>
       )}
 
@@ -151,14 +259,12 @@ const ChargingBehaviorModels = () => {
 
       {analysis && expanded && (
         <div className="p-5 space-y-5">
-          {/* Summary */}
           {analysis.summary && (
             <div className="rounded-lg bg-muted/30 border border-border px-4 py-3">
               <p className="text-xs text-foreground leading-relaxed">{analysis.summary}</p>
             </div>
           )}
 
-          {/* Patterns */}
           {analysis.patterns?.length > 0 && (
             <div className="space-y-2">
               <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Patronen</h4>
@@ -190,7 +296,6 @@ const ChargingBehaviorModels = () => {
             </div>
           )}
 
-          {/* User Profiles */}
           {analysis.user_profiles?.length > 0 && (
             <div className="space-y-2">
               <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Gebruikersprofielen</h4>
@@ -235,7 +340,6 @@ const ChargingBehaviorModels = () => {
             </div>
           )}
 
-          {/* Peak Hours */}
           {analysis.peak_hours?.length > 0 && (
             <div className="space-y-2">
               <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Piekuren</h4>
@@ -254,7 +358,6 @@ const ChargingBehaviorModels = () => {
                       {h % 4 === 0 && (
                         <span className="text-[8px] font-mono text-muted-foreground">{h}h</span>
                       )}
-                      {/* Tooltip */}
                       <div className="absolute -top-8 left-1/2 -translate-x-1/2 hidden group-hover:block bg-popover border border-border rounded px-1.5 py-0.5 shadow-sm z-10 whitespace-nowrap">
                         <span className="text-[10px] font-mono text-foreground">{h}:00 · {pct}%</span>
                       </div>

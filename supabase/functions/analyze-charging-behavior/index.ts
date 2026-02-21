@@ -17,6 +17,13 @@ serve(async (req) => {
     const lovableKey = Deno.env.get("LOVABLE_API_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Check if save_to_db param is set (for cron / auto mode)
+    let saveToDb = false;
+    try {
+      const body = await req.json();
+      saveToDb = body?.save_to_db === true;
+    } catch { /* no body is fine */ }
+
     // Fetch recent transactions (last 90 days)
     const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
     const { data: transactions } = await supabase
@@ -26,19 +33,18 @@ serve(async (req) => {
       .order("start_time", { ascending: false })
       .limit(500);
 
-    // Fetch charge points for names
     const { data: chargePoints } = await supabase
       .from("charge_points")
       .select("id, name, max_power, status");
 
-    // Fetch RFID tags for user labels
     const { data: tags } = await supabase
       .from("authorized_tags")
       .select("id_tag, label");
 
-    // Build summary for AI
     const tagMap = Object.fromEntries((tags || []).map(t => [t.id_tag, t.label || t.id_tag]));
     const cpMap = Object.fromEntries((chargePoints || []).map(cp => [cp.id, cp.name]));
+
+    const totalEnergyKwh = (transactions || []).reduce((sum, t) => sum + (Number(t.energy_delivered) || 0) / 1000, 0);
 
     const summary = {
       total_transactions: transactions?.length || 0,
@@ -111,8 +117,6 @@ Beperk je tot maximaal 5 patterns, 5 user_profiles en 24 peak_hours. Als er wein
 
     const aiData = await aiResponse.json();
     let content = aiData.choices?.[0]?.message?.content || "{}";
-    
-    // Strip markdown code fences if present
     content = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
 
     let analysis;
@@ -123,7 +127,25 @@ Beperk je tot maximaal 5 patterns, 5 user_profiles en 24 peak_hours. Als er wein
       analysis = { patterns: [], user_profiles: [], peak_hours: [], summary: "Analyse kon niet worden verwerkt." };
     }
 
-    return new Response(JSON.stringify(analysis), {
+    // Always save to DB (upsert on analysis_date)
+    const today = new Date().toISOString().split("T")[0];
+    const { error: upsertError } = await supabase
+      .from("charging_behavior_analyses")
+      .upsert({
+        analysis_date: today,
+        patterns: analysis.patterns || [],
+        user_profiles: analysis.user_profiles || [],
+        peak_hours: analysis.peak_hours || [],
+        summary: analysis.summary || null,
+        transaction_count: transactions?.length || 0,
+        total_energy_kwh: Math.round(totalEnergyKwh * 100) / 100,
+      }, { onConflict: "analysis_date" });
+
+    if (upsertError) {
+      console.error("Failed to save analysis:", upsertError);
+    }
+
+    return new Response(JSON.stringify({ ...analysis, saved: !upsertError, analysis_date: today }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {

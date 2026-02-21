@@ -133,6 +133,42 @@ export type Database = {
         }
         Relationships: []
       }
+      charging_behavior_analyses: {
+        Row: {
+          analysis_date: string
+          created_at: string
+          id: string
+          patterns: Json
+          peak_hours: Json
+          summary: string | null
+          total_energy_kwh: number | null
+          transaction_count: number | null
+          user_profiles: Json
+        }
+        Insert: {
+          analysis_date?: string
+          created_at?: string
+          id?: string
+          patterns?: Json
+          peak_hours?: Json
+          summary?: string | null
+          total_energy_kwh?: number | null
+          transaction_count?: number | null
+          user_profiles?: Json
+        }
+        Update: {
+          analysis_date?: string
+          created_at?: string
+          id?: string
+          patterns?: Json
+          peak_hours?: Json
+          summary?: string | null
+          total_energy_kwh?: number | null
+          transaction_count?: number | null
+          user_profiles?: Json
+        }
+        Relationships: []
+      }
       charging_profiles: {
         Row: {
           active: boolean
