@@ -6,6 +6,10 @@ import { Database, HardDrive, ShieldAlert, FileText, Zap, Heart, Trash2, Loader2
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 interface TableCount {
   label: string;
@@ -125,16 +129,26 @@ const DataRetentionWidget = () => {
               <p className="text-xs text-muted-foreground">
                 Meterdata <span className="font-mono">{meterDays}d</span> · Alerts <span className="font-mono">{alertDays}d</span> · Audit <span className="font-mono">{auditDays}d</span>
               </p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs gap-1.5 shrink-0"
-                onClick={handleCleanup}
-                disabled={cleaning}
-              >
-                {cleaning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
-                Cleanup
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 shrink-0" disabled={cleaning}>
+                    {cleaning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                    Cleanup
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Data opschonen?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Alle records ouder dan de ingestelde retentieperiodes worden permanent verwijderd. Dit kan niet ongedaan worden gemaakt.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Annuleren</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleCleanup}>Opschonen</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </>
         )}
