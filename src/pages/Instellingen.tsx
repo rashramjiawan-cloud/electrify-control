@@ -172,10 +172,10 @@ const Instellingen = () => {
               </div>
 
               <div className="space-y-2">
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Reservering (gepland)</span>
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Reservering (actief)</span>
                 <div className="flex flex-wrap gap-1.5">
                   {['ReserveNow', 'CancelReservation'].map(action => (
-                    <span key={action} className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-[11px] font-mono font-medium text-muted-foreground">
+                    <span key={action} className="inline-flex items-center rounded-md bg-primary/10 text-primary px-2 py-0.5 text-[11px] font-mono font-medium">
                       {action}
                     </span>
                   ))}
