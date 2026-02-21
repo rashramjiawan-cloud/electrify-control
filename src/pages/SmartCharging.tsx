@@ -15,6 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useEnergyMeters, useCreateMeter, useDeleteMeter, usePollMeter, useTestMeterConnection, type EnergyMeter } from '@/hooks/useEnergyMeters';
+import { useLocalAutoPoll } from '@/hooks/useLocalPoll';
 
 type ModuleId = 'power-chart' | 'profiles' | 'shelly-meter';
 
@@ -29,6 +30,148 @@ const DEFAULT_MODULES: ModuleConfig[] = [
   { id: 'profiles', label: 'Laadprofielen', visible: true },
   { id: 'shelly-meter', label: 'Shelly Energiemeter', visible: true },
 ];
+
+// Extracted meter item with local poll hook (hooks must be at top level)
+const MeterItem = ({ meter, pollMeter, deleteMeter }: { meter: EnergyMeter; pollMeter: any; deleteMeter: any }) => {
+  const [localActive, setLocalActive] = useState(false);
+  const localAutoRef = useLocalAutoPoll(localActive ? meter : undefined, 10000);
+
+  return (
+    <div className="px-5 py-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium text-foreground">{meter.name}</p>
+          <p className="font-mono text-xs text-muted-foreground">
+            {meter.connection_type === 'tcp_ip' ? `TCP/IP ${meter.host}:${meter.port}` : `RS485 addr ${meter.modbus_address}`}
+            {meter.last_poll_at && ` · Laatste poll: ${new Date(meter.last_poll_at).toLocaleTimeString('nl-NL')}`}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* Local auto-poll toggle */}
+          <div className="flex items-center gap-1.5 mr-2">
+            <Switch
+              checked={localActive}
+              onCheckedChange={setLocalActive}
+              className="scale-75"
+            />
+            <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+              {localActive ? (
+                <span className="flex items-center gap-1">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary" />
+                  </span>
+                  Lokaal actief
+                </span>
+              ) : 'Lokaal'}
+            </span>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs"
+            disabled={pollMeter.isPending}
+            onClick={() => meter.host && pollMeter.mutate(
+              { meter_id: meter.id, host: meter.host!, port: meter.port },
+              {
+                onSuccess: (res: any) => {
+                  if (res?.success) toast.success('Meterdata opgehaald (cloud)');
+                  else toast.error(res?.error || 'Fout bij ophalen');
+                },
+                onError: () => toast.error('Cloud verbinding mislukt'),
+              }
+            )}
+          >
+            <Zap className="h-3 w-3" />
+            {pollMeter.isPending ? 'Ophalen...' : 'Cloud Poll'}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+            onClick={() => {
+              if (confirm('Meter verwijderen?')) {
+                deleteMeter.mutate(meter.id, {
+                  onSuccess: () => toast.success('Meter verwijderd'),
+                });
+              }
+            }}
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Local poll error */}
+      {localActive && localAutoRef.error && (
+        <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2">
+          <p className="text-xs text-destructive">{localAutoRef.error}</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">
+            Zorg dat de Shelly op hetzelfde netwerk zit als je browser en CORS toestaat.
+          </p>
+        </div>
+      )}
+
+      {/* Last local poll indicator */}
+      {localActive && localAutoRef.lastPoll && (
+        <div className="flex items-center gap-1.5">
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary" />
+          </span>
+          <span className="text-[10px] text-muted-foreground">
+            Lokaal gepolled: {localAutoRef.lastPoll.toLocaleTimeString('nl-NL')} · elke 10s
+          </span>
+        </div>
+      )}
+
+      {/* Live data display */}
+      {meter.last_reading?.channels && (
+        <div className="grid grid-cols-2 gap-3">
+          {(meter.last_reading.channels as any[]).map((ch: any) => (
+            <div key={ch.channel} className="rounded-lg bg-muted/30 p-3 space-y-1">
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                Kanaal {ch.channel + 1}
+              </span>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+                {ch.voltage != null && (
+                  <div className="flex justify-between">
+                    <span className="text-xs text-muted-foreground">Spanning</span>
+                    <span className="font-mono text-xs text-foreground">{Number(ch.voltage).toFixed(1)} V</span>
+                  </div>
+                )}
+                {ch.current != null && (
+                  <div className="flex justify-between">
+                    <span className="text-xs text-muted-foreground">Stroom</span>
+                    <span className="font-mono text-xs text-foreground">{Number(ch.current).toFixed(2)} A</span>
+                  </div>
+                )}
+                {ch.active_power != null && (
+                  <div className="flex justify-between">
+                    <span className="text-xs text-muted-foreground">Vermogen</span>
+                    <span className="font-mono text-xs font-bold text-primary">{Number(ch.active_power).toFixed(0)} W</span>
+                  </div>
+                )}
+                {ch.power_factor != null && (
+                  <div className="flex justify-between">
+                    <span className="text-xs text-muted-foreground">PF</span>
+                    <span className="font-mono text-xs text-foreground">{Number(ch.power_factor).toFixed(2)}</span>
+                  </div>
+                )}
+                {ch.total_energy != null && (
+                  <div className="flex justify-between col-span-2">
+                    <span className="text-xs text-muted-foreground">Totaal</span>
+                    <span className="font-mono text-xs text-foreground">{Number(ch.total_energy).toFixed(1)} kWh</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const SmartCharging = () => {
   const { data: chargePoints } = useChargePoints();
@@ -460,96 +603,12 @@ const SmartCharging = () => {
                         <p className="text-xs text-muted-foreground mt-1">Voeg een Shelly PRO EM-50 toe via TCP/IP</p>
                       </div>
                     ) : meters.map(meter => (
-                      <div key={meter.id} className="px-5 py-4 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-foreground">{meter.name}</p>
-                            <p className="font-mono text-xs text-muted-foreground">
-                              {meter.connection_type === 'tcp_ip' ? `TCP/IP ${meter.host}:${meter.port}` : `RS485 addr ${meter.modbus_address}`}
-                              {meter.last_poll_at && ` · Laatste poll: ${new Date(meter.last_poll_at).toLocaleTimeString('nl-NL')}`}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="gap-1.5 text-xs"
-                              disabled={pollMeter.isPending}
-                              onClick={() => meter.host && pollMeter.mutate(
-                                { meter_id: meter.id, host: meter.host!, port: meter.port },
-                                {
-                                  onSuccess: (res: any) => {
-                                    if (res?.success) toast.success('Meterdata opgehaald');
-                                    else toast.error(res?.error || 'Fout bij ophalen');
-                                  },
-                                  onError: () => toast.error('Verbinding mislukt'),
-                                }
-                              )}
-                            >
-                              <Zap className="h-3 w-3" />
-                              {pollMeter.isPending ? 'Ophalen...' : 'Poll'}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                              onClick={() => {
-                                if (confirm('Meter verwijderen?')) {
-                                  deleteMeter.mutate(meter.id, {
-                                    onSuccess: () => toast.success('Meter verwijderd'),
-                                  });
-                                }
-                              }}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-                        {/* Live data display */}
-                        {meter.last_reading?.channels && (
-                          <div className="grid grid-cols-2 gap-3">
-                            {(meter.last_reading.channels as any[]).map((ch: any) => (
-                              <div key={ch.channel} className="rounded-lg bg-muted/30 p-3 space-y-1">
-                                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                                  Kanaal {ch.channel + 1}
-                                </span>
-                                <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
-                                  {ch.voltage != null && (
-                                    <div className="flex justify-between">
-                                      <span className="text-xs text-muted-foreground">Spanning</span>
-                                      <span className="font-mono text-xs text-foreground">{Number(ch.voltage).toFixed(1)} V</span>
-                                    </div>
-                                  )}
-                                  {ch.current != null && (
-                                    <div className="flex justify-between">
-                                      <span className="text-xs text-muted-foreground">Stroom</span>
-                                      <span className="font-mono text-xs text-foreground">{Number(ch.current).toFixed(2)} A</span>
-                                    </div>
-                                  )}
-                                  {ch.active_power != null && (
-                                    <div className="flex justify-between">
-                                      <span className="text-xs text-muted-foreground">Vermogen</span>
-                                      <span className="font-mono text-xs font-bold text-primary">{Number(ch.active_power).toFixed(0)} W</span>
-                                    </div>
-                                  )}
-                                  {ch.power_factor != null && (
-                                    <div className="flex justify-between">
-                                      <span className="text-xs text-muted-foreground">PF</span>
-                                      <span className="font-mono text-xs text-foreground">{Number(ch.power_factor).toFixed(2)}</span>
-                                    </div>
-                                  )}
-                                  {ch.total_energy != null && (
-                                    <div className="flex justify-between col-span-2">
-                                      <span className="text-xs text-muted-foreground">Totaal</span>
-                                      <span className="font-mono text-xs text-foreground">{Number(ch.total_energy).toFixed(1)} kWh</span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                      <MeterItem
+                        key={meter.id}
+                        meter={meter}
+                        pollMeter={pollMeter}
+                        deleteMeter={deleteMeter}
+                      />
                     ))}
                   </div>
                 </div>
