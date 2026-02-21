@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Copy, Check, Wifi, Server, Shield, Info } from 'lucide-react';
+import AlertThresholdsSettings from '@/components/AlertThresholdsSettings';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const WS_URL = SUPABASE_URL?.replace('https://', 'wss://') + '/functions/v1/ocpp-ws';
@@ -202,6 +203,9 @@ const Instellingen = () => {
             </div>
           </div>
         </div>
+
+        {/* Alert Thresholds */}
+        <AlertThresholdsSettings />
 
         {/* Security */}
         <div className="rounded-xl border border-border bg-card">

@@ -396,6 +396,42 @@ export type Database = {
           },
         ]
       }
+      grid_alert_thresholds: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          label: string
+          max_value: number
+          metric: string
+          min_value: number
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          label: string
+          max_value: number
+          metric: string
+          min_value: number
+          unit?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          label?: string
+          max_value?: number
+          metric?: string
+          min_value?: number
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       grid_alerts: {
         Row: {
           acknowledged: boolean
