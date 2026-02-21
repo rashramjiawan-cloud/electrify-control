@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useGridAlertThresholds } from '@/hooks/useGridAlertThresholds';
 
 interface PhaseData {
   channel: number;
@@ -11,20 +12,21 @@ interface PhaseData {
   freq: number | null;
 }
 
-const THRESHOLDS = {
-  voltage: { min: 207, max: 253, unit: 'V', label: 'Spanning' },
-  frequency: { min: 49.8, max: 50.2, unit: 'Hz', label: 'Frequentie' },
-  pf: { min: 0.85, max: 1, unit: '', label: 'Power Factor' },
-};
-
 type AlertKey = string;
+
+const METRIC_MAP: Record<string, { getValue: (p: PhaseData) => number | null }> = {
+  voltage: { getValue: (p) => p.voltage },
+  frequency: { getValue: (p) => p.freq },
+  pf: { getValue: (p) => p.pf },
+};
 
 export function useGridAlerts(phases: PhaseData[], isLive: boolean, meterId?: string) {
   const firedRef = useRef<Map<AlertKey, number>>(new Map());
   const COOLDOWN_MS = 60_000;
+  const { thresholds } = useGridAlertThresholds();
 
   useEffect(() => {
-    if (!isLive || !phases.length) return;
+    if (!isLive || !phases.length || !thresholds.length) return;
 
     const now = Date.now();
     const fired = firedRef.current;
@@ -32,20 +34,19 @@ export function useGridAlerts(phases: PhaseData[], isLive: boolean, meterId?: st
     for (const phase of phases) {
       const ch = phase.channel;
 
-      const checks: { key: string; metric: string; value: number | null; threshold: typeof THRESHOLDS.voltage }[] = [
-        { key: `voltage_ch${ch}`, metric: 'voltage', value: phase.voltage, threshold: THRESHOLDS.voltage },
-        { key: `freq_ch${ch}`, metric: 'frequency', value: phase.freq, threshold: THRESHOLDS.frequency },
-        { key: `pf_ch${ch}`, metric: 'pf', value: phase.pf, threshold: THRESHOLDS.pf },
-      ];
+      for (const threshold of thresholds) {
+        if (!threshold.enabled) continue;
+        const mapping = METRIC_MAP[threshold.metric];
+        if (!mapping) continue;
 
-      for (const { key, metric, value, threshold } of checks) {
+        const value = mapping.getValue(phase);
         if (value == null) continue;
 
         let alertType: 'low' | 'high' | null = null;
-        if (value < threshold.min) alertType = 'low';
-        else if (value > threshold.max) alertType = 'high';
+        if (value < threshold.min_value) alertType = 'low';
+        else if (value > threshold.max_value) alertType = 'high';
 
-        const alertKey = `${key}_${alertType}`;
+        const alertKey = `${threshold.metric}_ch${ch}_${alertType}`;
 
         if (alertType) {
           const lastFired = fired.get(alertKey) || 0;
@@ -56,18 +57,17 @@ export function useGridAlerts(phases: PhaseData[], isLive: boolean, meterId?: st
             toast({
               variant: 'destructive',
               title: `⚠️ ${threshold.label} ${direction} — Fase ${ch + 1}`,
-              description: `${threshold.label} is ${value}${threshold.unit ? ' ' + threshold.unit : ''} (bereik: ${threshold.min}–${threshold.max}${threshold.unit ? ' ' + threshold.unit : ''})`,
+              description: `${threshold.label} is ${value}${threshold.unit ? ' ' + threshold.unit : ''} (bereik: ${threshold.min_value}–${threshold.max_value}${threshold.unit ? ' ' + threshold.unit : ''})`,
             });
 
-            // Persist to database
             if (meterId) {
               supabase.from('grid_alerts').insert({
                 meter_id: meterId,
                 channel: ch,
-                metric,
+                metric: threshold.metric,
                 value,
-                threshold_min: threshold.min,
-                threshold_max: threshold.max,
+                threshold_min: threshold.min_value,
+                threshold_max: threshold.max_value,
                 direction: alertType,
                 unit: threshold.unit,
               } as any).then(({ error }) => {
@@ -76,10 +76,10 @@ export function useGridAlerts(phases: PhaseData[], isLive: boolean, meterId?: st
             }
           }
         } else {
-          fired.delete(`${key}_low`);
-          fired.delete(`${key}_high`);
+          fired.delete(`${threshold.metric}_ch${ch}_low`);
+          fired.delete(`${threshold.metric}_ch${ch}_high`);
         }
       }
     }
-  }, [phases, isLive, meterId]);
+  }, [phases, isLive, meterId, thresholds]);
 }
