@@ -473,6 +473,50 @@ export type Database = {
         }
         Relationships: []
       }
+      reservations: {
+        Row: {
+          charge_point_id: string
+          connector_id: number
+          created_at: string
+          expiry_date: string
+          id: number
+          id_tag: string
+          parent_id_tag: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          charge_point_id: string
+          connector_id?: number
+          created_at?: string
+          expiry_date: string
+          id?: number
+          id_tag: string
+          parent_id_tag?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          charge_point_id?: string
+          connector_id?: number
+          created_at?: string
+          expiry_date?: string
+          id?: number
+          id_tag?: string
+          parent_id_tag?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservations_charge_point_id_fkey"
+            columns: ["charge_point_id"]
+            isOneToOne: false
+            referencedRelation: "charge_points"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       status_notifications: {
         Row: {
           charge_point_id: string

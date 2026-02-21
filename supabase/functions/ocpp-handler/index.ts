@@ -847,6 +847,117 @@ async function handleDiagnosticsStatusNotification(cpId: string, payload: Record
   return {};
 }
 
+// ── Reservations ────────────────────────────────────────────────────
+
+async function handleReserveNow(cpId: string, payload: Record<string, unknown>) {
+  const connectorId = (payload.connectorId as number) ?? 0;
+  const expiryDate = payload.expiryDate as string;
+  const idTag = payload.idTag as string;
+  const reservationId = payload.reservationId as number | undefined;
+  const parentIdTag = payload.parentIdTag as string | undefined;
+
+  if (!idTag || !expiryDate) {
+    return { status: "Rejected" };
+  }
+
+  // Check if connector is available
+  if (connectorId > 0) {
+    const { data: conn } = await supabase
+      .from("connectors")
+      .select("status")
+      .eq("charge_point_id", cpId)
+      .eq("connector_id", connectorId)
+      .maybeSingle();
+
+    if (conn && conn.status !== "Available") {
+      return { status: "Occupied" };
+    }
+  }
+
+  // Check for existing active reservation on this connector
+  const { data: existing } = await supabase
+    .from("reservations")
+    .select("id")
+    .eq("charge_point_id", cpId)
+    .eq("connector_id", connectorId)
+    .eq("status", "Reserved")
+    .maybeSingle();
+
+  if (existing) {
+    return { status: "Occupied" };
+  }
+
+  // Check tag authorization
+  const authResult = await checkTagAuthorized(idTag, cpId);
+  if (authResult.status !== "Accepted") {
+    return { status: "Rejected" };
+  }
+
+  // Create reservation
+  const { error } = await supabase.from("reservations").insert({
+    charge_point_id: cpId,
+    connector_id: connectorId,
+    id_tag: idTag,
+    expiry_date: expiryDate,
+    status: "Reserved",
+    parent_id_tag: parentIdTag,
+  });
+
+  if (error) {
+    console.error("ReserveNow insert error:", error);
+    return { status: "Rejected" };
+  }
+
+  // Update connector status to Reserved
+  if (connectorId > 0) {
+    await supabase
+      .from("connectors")
+      .upsert(
+        { charge_point_id: cpId, connector_id: connectorId, status: "Reserved" },
+        { onConflict: "charge_point_id,connector_id" }
+      );
+  }
+
+  return { status: "Accepted" };
+}
+
+async function handleCancelReservation(cpId: string, payload: Record<string, unknown>) {
+  const reservationId = payload.reservationId as number;
+
+  if (!reservationId) {
+    return { status: "Rejected" };
+  }
+
+  const { data: reservation, error: fetchErr } = await supabase
+    .from("reservations")
+    .select("*")
+    .eq("id", reservationId)
+    .eq("charge_point_id", cpId)
+    .eq("status", "Reserved")
+    .maybeSingle();
+
+  if (fetchErr || !reservation) {
+    return { status: "Rejected" };
+  }
+
+  // Cancel the reservation
+  await supabase
+    .from("reservations")
+    .update({ status: "Cancelled" })
+    .eq("id", reservationId);
+
+  // Reset connector status back to Available
+  if (reservation.connector_id > 0) {
+    await supabase
+      .from("connectors")
+      .update({ status: "Available" })
+      .eq("charge_point_id", cpId)
+      .eq("connector_id", reservation.connector_id);
+  }
+
+  return { status: "Accepted" };
+}
+
 async function handleRemoteStartTransaction(cpId: string, payload: Record<string, unknown>) {
   const connectorId = (payload.connectorId as number) || 1;
   const idTag = payload.idTag as string;
@@ -972,7 +1083,7 @@ Deno.serve(async (req) => {
       "RemoteStartTransaction", "RemoteStopTransaction",
       "ChangeConfiguration", "Reset", "TriggerMessage", "GetConfiguration",
       "UnlockConnector", "SetChargingProfile", "ClearChargingProfile", "GetCompositeSchedule",
-      "UpdateFirmware", "GetDiagnostics",
+      "UpdateFirmware", "GetDiagnostics", "ReserveNow", "CancelReservation",
     ]);
 
     switch (action) {
@@ -1038,6 +1149,12 @@ Deno.serve(async (req) => {
         break;
       case "DiagnosticsStatusNotification":
         response = await handleDiagnosticsStatusNotification(chargePointId, payload);
+        break;
+      case "ReserveNow":
+        response = await handleReserveNow(chargePointId, payload);
+        break;
+      case "CancelReservation":
+        response = await handleCancelReservation(chargePointId, payload);
         break;
       default:
         response = { error: `Unknown action: ${action}` };
