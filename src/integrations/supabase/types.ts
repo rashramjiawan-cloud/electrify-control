@@ -485,6 +485,44 @@ export type Database = {
           },
         ]
       }
+      gtv_exceedances: {
+        Row: {
+          created_at: string
+          direction: string
+          duration_sec: number | null
+          id: number
+          limit_kw: number
+          meter_id: string | null
+          power_kw: number
+        }
+        Insert: {
+          created_at?: string
+          direction?: string
+          duration_sec?: number | null
+          id?: never
+          limit_kw: number
+          meter_id?: string | null
+          power_kw: number
+        }
+        Update: {
+          created_at?: string
+          direction?: string
+          duration_sec?: number | null
+          id?: never
+          limit_kw?: number
+          meter_id?: string | null
+          power_kw?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gtv_exceedances_meter_id_fkey"
+            columns: ["meter_id"]
+            isOneToOne: false
+            referencedRelation: "energy_meters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       heartbeats: {
         Row: {
           charge_point_id: string
