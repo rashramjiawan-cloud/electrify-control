@@ -292,6 +292,56 @@ export type Database = {
           },
         ]
       }
+      firmware_updates: {
+        Row: {
+          charge_point_id: string
+          created_at: string
+          error_message: string | null
+          id: number
+          location: string
+          retries: number | null
+          retrieve_date: string | null
+          retry_interval: number | null
+          status: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          charge_point_id: string
+          created_at?: string
+          error_message?: string | null
+          id?: number
+          location: string
+          retries?: number | null
+          retrieve_date?: string | null
+          retry_interval?: number | null
+          status?: string
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          charge_point_id?: string
+          created_at?: string
+          error_message?: string | null
+          id?: number
+          location?: string
+          retries?: number | null
+          retrieve_date?: string | null
+          retry_interval?: number | null
+          status?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "firmware_updates_charge_point_id_fkey"
+            columns: ["charge_point_id"]
+            isOneToOne: false
+            referencedRelation: "charge_points"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       heartbeats: {
         Row: {
           charge_point_id: string
