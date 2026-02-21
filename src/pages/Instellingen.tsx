@@ -113,15 +113,92 @@ const Instellingen = () => {
               </div>
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-3">
               <Label className="text-xs text-muted-foreground">Ondersteunde OCPP acties</Label>
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {['BootNotification', 'Heartbeat', 'StatusNotification', 'Authorize', 'StartTransaction', 'StopTransaction', 'MeterValues', 'GetConfiguration', 'ChangeConfiguration', 'Reset', 'TriggerMessage', 'UnlockConnector', 'RemoteStartTransaction', 'RemoteStopTransaction'].map(action => (
-                  <span key={action} className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-[11px] font-mono font-medium text-foreground">
-                    {action}
-                  </span>
-                ))}
+
+              <div className="space-y-2">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Core Profile (actief)</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {['BootNotification', 'Heartbeat', 'StatusNotification', 'Authorize', 'StartTransaction', 'StopTransaction', 'MeterValues', 'DataTransfer'].map(action => (
+                    <span key={action} className="inline-flex items-center rounded-md bg-primary/10 text-primary px-2 py-0.5 text-[11px] font-mono font-medium">
+                      {action}
+                    </span>
+                  ))}
+                </div>
               </div>
+
+              <div className="space-y-2">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Remote Control (actief)</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {['RemoteStartTransaction', 'RemoteStopTransaction', 'Reset', 'UnlockConnector', 'TriggerMessage', 'GetConfiguration', 'ChangeConfiguration', 'ChangeAvailability', 'ClearCache'].map(action => (
+                    <span key={action} className="inline-flex items-center rounded-md bg-primary/10 text-primary px-2 py-0.5 text-[11px] font-mono font-medium">
+                      {action}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Firmware & Diagnostics (gepland)</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {['UpdateFirmware', 'FirmwareStatusNotification', 'GetDiagnostics', 'DiagnosticsStatusNotification'].map(action => (
+                    <span key={action} className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-[11px] font-mono font-medium text-muted-foreground">
+                      {action}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Smart Charging (gepland)</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {['SetChargingProfile', 'GetCompositeSchedule', 'ClearChargingProfile'].map(action => (
+                    <span key={action} className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-[11px] font-mono font-medium text-muted-foreground">
+                      {action}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Local Auth List (gepland)</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {['SendLocalList', 'GetLocalListVersion'].map(action => (
+                    <span key={action} className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-[11px] font-mono font-medium text-muted-foreground">
+                      {action}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Reservering (gepland)</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {['ReserveNow', 'CancelReservation'].map(action => (
+                    <span key={action} className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-[11px] font-mono font-medium text-muted-foreground">
+                      {action}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Security (OCPP 1.6 Security Whitepaper)</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {['SecurityEventNotification', 'SignCertificate', 'CertificateSigned', 'ExtendedTriggerMessage', 'SignedUpdateFirmware', 'SignedFirmwareStatusNotification', 'LogStatusNotification', 'GetLog', 'InstallCertificate', 'GetInstalledCertificateIds', 'DeleteCertificate'].map(action => (
+                    <span key={action} className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-[11px] font-mono font-medium text-muted-foreground">
+                      {action}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <p className="text-[10px] text-muted-foreground pt-1">
+                <span className="inline-flex items-center rounded-md bg-primary/10 text-primary px-1.5 py-0.5 text-[10px] font-mono mr-1">actief</span>
+                Geïmplementeerd &nbsp;
+                <span className="inline-flex items-center rounded-md bg-muted text-muted-foreground px-1.5 py-0.5 text-[10px] font-mono mr-1">gepland</span>
+                Nog niet geïmplementeerd
+              </p>
             </div>
           </div>
         </div>
