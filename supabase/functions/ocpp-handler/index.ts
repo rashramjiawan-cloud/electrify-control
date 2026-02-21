@@ -731,6 +731,122 @@ async function handleClearChargingProfile(cpId: string, payload: Record<string, 
   return { status: count && count > 0 ? "Accepted" : "Unknown" };
 }
 
+// ── Firmware Management ─────────────────────────────────────────────
+
+async function handleUpdateFirmware(cpId: string, payload: Record<string, unknown>) {
+  const location = payload.location as string;
+  const retrieveDate = payload.retrieveDate as string;
+  const retries = (payload.retries as number) || 0;
+  const retryInterval = (payload.retryInterval as number) || 0;
+
+  if (!location) {
+    return { status: "Rejected" };
+  }
+
+  // Create firmware update record
+  const { error } = await supabase.from("firmware_updates").insert({
+    charge_point_id: cpId,
+    type: "Firmware",
+    location,
+    status: "Pending",
+    retrieve_date: retrieveDate || new Date().toISOString(),
+    retries,
+    retry_interval: retryInterval,
+  });
+
+  if (error) {
+    console.error("UpdateFirmware insert error:", error);
+    return { status: "Rejected" };
+  }
+
+  return {};
+}
+
+async function handleFirmwareStatusNotification(cpId: string, payload: Record<string, unknown>) {
+  const status = payload.status as string;
+
+  // Update the most recent firmware update record
+  const { data: latest } = await supabase
+    .from("firmware_updates")
+    .select("id")
+    .eq("charge_point_id", cpId)
+    .eq("type", "Firmware")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (latest) {
+    await supabase
+      .from("firmware_updates")
+      .update({ status })
+      .eq("id", latest.id);
+  }
+
+  // If installed, update charge point firmware_version if available in recent boot
+  if (status === "Installed") {
+    await supabase
+      .from("charge_points")
+      .update({ status: "Available" })
+      .eq("id", cpId);
+  }
+
+  return {};
+}
+
+async function handleGetDiagnostics(cpId: string, payload: Record<string, unknown>) {
+  const location = payload.location as string;
+  const startTime = payload.startTime as string | undefined;
+  const stopTime = payload.stopTime as string | undefined;
+  const retries = (payload.retries as number) || 0;
+  const retryInterval = (payload.retryInterval as number) || 0;
+
+  if (!location) {
+    return { status: "Rejected" };
+  }
+
+  // Create diagnostics record
+  const { error } = await supabase.from("firmware_updates").insert({
+    charge_point_id: cpId,
+    type: "Diagnostics",
+    location,
+    status: "Uploading",
+    retries,
+    retry_interval: retryInterval,
+  });
+
+  if (error) {
+    console.error("GetDiagnostics insert error:", error);
+    return {};
+  }
+
+  // Return a generated filename
+  const fileName = `diag_${cpId}_${new Date().toISOString().replace(/[:.]/g, "-")}.txt`;
+  return { fileName };
+}
+
+async function handleDiagnosticsStatusNotification(cpId: string, payload: Record<string, unknown>) {
+  const status = payload.status as string;
+
+  // Update the most recent diagnostics record
+  const { data: latest } = await supabase
+    .from("firmware_updates")
+    .select("id")
+    .eq("charge_point_id", cpId)
+    .eq("type", "Diagnostics")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (latest) {
+    await supabase
+      .from("firmware_updates")
+      .update({ status })
+      .eq("id", latest.id);
+  }
+
+  return {};
+}
+
 async function handleRemoteStartTransaction(cpId: string, payload: Record<string, unknown>) {
   const connectorId = (payload.connectorId as number) || 1;
   const idTag = payload.idTag as string;
@@ -856,6 +972,7 @@ Deno.serve(async (req) => {
       "RemoteStartTransaction", "RemoteStopTransaction",
       "ChangeConfiguration", "Reset", "TriggerMessage", "GetConfiguration",
       "UnlockConnector", "SetChargingProfile", "ClearChargingProfile", "GetCompositeSchedule",
+      "UpdateFirmware", "GetDiagnostics",
     ]);
 
     switch (action) {
@@ -909,6 +1026,18 @@ Deno.serve(async (req) => {
         break;
       case "ClearChargingProfile":
         response = await handleClearChargingProfile(chargePointId, payload);
+        break;
+      case "UpdateFirmware":
+        response = await handleUpdateFirmware(chargePointId, payload);
+        break;
+      case "FirmwareStatusNotification":
+        response = await handleFirmwareStatusNotification(chargePointId, payload);
+        break;
+      case "GetDiagnostics":
+        response = await handleGetDiagnostics(chargePointId, payload);
+        break;
+      case "DiagnosticsStatusNotification":
+        response = await handleDiagnosticsStatusNotification(chargePointId, payload);
         break;
       default:
         response = { error: `Unknown action: ${action}` };

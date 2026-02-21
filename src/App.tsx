@@ -14,6 +14,7 @@ import Tarieven from "./pages/Tarieven";
 import Transacties from "./pages/Transacties";
 import Instellingen from "./pages/Instellingen";
 import SmartCharging from "./pages/SmartCharging";
+import Firmware from "./pages/Firmware";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
@@ -56,6 +57,7 @@ const AppRoutes = () => (
     <Route path="/simulator" element={<ProtectedRoute adminOnly><Simulator /></ProtectedRoute>} />
     <Route path="/instellingen" element={<ProtectedRoute><Instellingen /></ProtectedRoute>} />
     <Route path="/smart-charging" element={<ProtectedRoute><SmartCharging /></ProtectedRoute>} />
+    <Route path="/firmware" element={<ProtectedRoute><Firmware /></ProtectedRoute>} />
     <Route path="/reset-password" element={<ResetPassword />} />
     <Route path="*" element={<NotFound />} />
   </Routes>
