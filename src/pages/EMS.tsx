@@ -90,18 +90,26 @@ const EMS = () => {
       {/* Per-phase detail strip */}
       {isLive && phases.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-          {phases.map((p) => (
-            <div key={p.channel} className="flex items-center gap-4 rounded-lg border border-border bg-muted/30 px-4 py-2.5">
-              <span className="text-xs font-semibold text-foreground whitespace-nowrap">Fase {p.channel + 1}</span>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 font-mono text-xs text-muted-foreground">
-                {p.voltage != null && <span>{p.voltage} V</span>}
-                {p.current != null && <span>{p.current} A</span>}
-                {p.power != null && <span>{p.power} kW</span>}
-                {p.pf != null && <span>PF {p.pf}</span>}
-                {p.freq != null && <span>{p.freq} Hz</span>}
+          {phases.map((p, i) => {
+            const colors = [
+              'border-primary/40 bg-primary/5',
+              'border-chart-2/40 bg-chart-2/5',
+              'border-chart-3/40 bg-chart-3/5',
+            ];
+            const labelColors = ['text-primary', 'text-chart-2', 'text-chart-3'];
+            return (
+              <div key={p.channel} className={`flex items-center gap-4 rounded-lg border px-4 py-2.5 ${colors[i] || colors[0]}`}>
+                <span className={`text-xs font-semibold whitespace-nowrap ${labelColors[i] || labelColors[0]}`}>Fase {p.channel + 1}</span>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 font-mono text-xs text-muted-foreground">
+                  {p.voltage != null && <span>{p.voltage} V</span>}
+                  {p.current != null && <span>{p.current} A</span>}
+                  {p.power != null && <span>{p.power} kW</span>}
+                  {p.pf != null && <span>PF {p.pf}</span>}
+                  {p.freq != null && <span>{p.freq} Hz</span>}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
