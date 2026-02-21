@@ -23,6 +23,7 @@ const axisTickStyle = { fontSize: 10, fill: 'hsl(var(--muted-foreground))' };
 const PHASE_COLORS = [
   'hsl(var(--primary))',
   'hsl(var(--chart-2, 160 60% 45%))',
+  'hsl(var(--chart-3, 30 80% 55%))',
 ];
 
 interface MiniChartProps {

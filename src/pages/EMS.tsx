@@ -89,7 +89,7 @@ const EMS = () => {
 
       {/* Per-phase detail strip */}
       {isLive && phases.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
           {phases.map((p) => (
             <div key={p.channel} className="flex items-center gap-4 rounded-lg border border-border bg-muted/30 px-4 py-2.5">
               <span className="text-xs font-semibold text-foreground whitespace-nowrap">Fase {p.channel + 1}</span>
