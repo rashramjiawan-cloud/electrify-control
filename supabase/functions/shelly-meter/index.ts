@@ -43,32 +43,33 @@ Deno.serve(async (req) => {
         const { data: settings } = await supabase
           .from('system_settings')
           .select('key, value')
-          .in('key', ['gtv_import_limit', 'gtv_export_limit']);
+          .in('key', ['gtv_import_limit', 'gtv_export_limit', 'gtv_notification_cooldown_min']);
 
         if (!settings?.length) return;
 
         const importLimit = settings.find((s: any) => s.key === 'gtv_import_limit');
         const exportLimit = settings.find((s: any) => s.key === 'gtv_export_limit');
+        const cooldownSetting = settings.find((s: any) => s.key === 'gtv_notification_cooldown_min');
+        const cooldownMin = cooldownSetting ? parseInt(cooldownSetting.value, 10) || 15 : 15;
 
         // Sum active power across all channels (Watts → kW)
         const totalPowerW = channels.reduce((sum: number, ch: any) => sum + (ch.active_power ?? 0), 0);
         const totalPowerKw = Math.abs(totalPowerW) / 1000;
 
-        // Helper to send notification for GTV exceedance (rate-limited: max once per 15 min per direction)
+        // Helper to send notification for GTV exceedance (rate-limited per direction)
         const sendGtvNotification = async (direction: string, powerKw: number, limitKw: number) => {
-          // Check if a notification was sent in the last 15 minutes for this direction
-          const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+          // Check if a notification was sent within the cooldown period for this direction
+          const cooldownAgo = new Date(Date.now() - cooldownMin * 60 * 1000).toISOString();
           const { data: recent } = await supabase
             .from('gtv_exceedances')
             .select('id')
             .eq('direction', direction)
-            .gte('created_at', fifteenMinAgo)
+            .gte('created_at', cooldownAgo)
             .order('created_at', { ascending: false })
-            .limit(2); // current insert + possible previous
+            .limit(2);
 
-          // If there's more than 1 record (the one we just inserted + older), skip notification
           if (recent && recent.length > 1) {
-            console.log(`GTV ${direction} notification skipped (rate limit: already sent within 15 min)`);
+            console.log(`GTV ${direction} notification skipped (cooldown: ${cooldownMin} min)`);
             return;
           }
           const dirLabel = direction === 'import' ? 'Afname' : 'Teruglevering';
