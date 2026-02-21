@@ -6,6 +6,7 @@ import { useTransactions } from '@/hooks/useTransactions';
 import { mockChargePoints, mockBatteries, mockEMS, mockTransactions } from '@/data/mockData';
 import { Zap, BatteryCharging, Sun, Activity, AlertTriangle } from 'lucide-react';
 import EnergyHistoryChart from '@/components/EnergyHistoryChart';
+import DataRetentionWidget from '@/components/DataRetentionWidget';
 
 const Dashboard = () => {
   const { data: dbChargePoints } = useChargePoints();
@@ -120,9 +121,12 @@ const Dashboard = () => {
                 <span className="text-sm font-medium text-foreground">Eigen verbruik</span>
                 <span className="font-mono text-sm font-bold text-primary">{mockEMS.selfConsumption}%</span>
               </div>
-            </div>
           </div>
+
+          {/* Data Retention Widget */}
+          <DataRetentionWidget />
         </div>
+      </div>
       </div>
 
       {/* Recent Transactions */}
