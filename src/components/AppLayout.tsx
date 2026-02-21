@@ -1,5 +1,6 @@
 import { ReactNode, useState } from 'react';
 import AppSidebar from './AppSidebar';
+import GtvExceedanceBanner from './GtvExceedanceBanner';
 import { Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -14,6 +15,7 @@ const AppLayout = ({ children, title, subtitle }: AppLayoutProps) => {
 
   return (
     <div className="min-h-screen bg-background relative">
+      <GtvExceedanceBanner />
       {/* Zen animated background */}
       <div className="zen-bg">
         <div className="zen-orb zen-orb-1" />
