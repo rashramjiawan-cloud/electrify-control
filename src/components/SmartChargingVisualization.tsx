@@ -3,7 +3,7 @@ import { useChargePoints } from '@/hooks/useChargePoints';
 import { useEnergyMeters } from '@/hooks/useEnergyMeters';
 import { useChargingProfiles } from '@/hooks/useChargingProfiles';
 import { useSystemSettings } from '@/hooks/useSystemSettings';
-import { Zap, Sun, BatteryCharging, Cable, Gauge, ArrowRight, ArrowDown } from 'lucide-react';
+import { Zap, Sun, BatteryCharging, Cable, Gauge, ArrowDown } from 'lucide-react';
 
 const SmartChargingVisualization = () => {
   const { data: chargePoints } = useChargePoints();
@@ -100,16 +100,10 @@ const SmartChargingVisualization = () => {
         </div>
 
         {/* ── Flow Arrows ── */}
-        <div className="flex items-center justify-center gap-2">
-          <div className="flex-1 h-px bg-border" />
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/50 border border-border">
-            <ArrowDown className="h-3.5 w-3.5 text-primary animate-pulse" />
-            <span className="text-xs font-semibold text-foreground">
-              {(totalAvailableW / 1000).toFixed(1)} kW beschikbaar
-            </span>
-          </div>
-          <div className="flex-1 h-px bg-border" />
-        </div>
+        <EnergyFlowArrow
+          label={`${(totalAvailableW / 1000).toFixed(1)} kW beschikbaar`}
+          active={totalAvailableW > 0}
+        />
 
         {/* ── Smart Controller ── */}
         <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-4 space-y-3">
@@ -166,16 +160,10 @@ const SmartChargingVisualization = () => {
         </div>
 
         {/* ── Flow Arrows ── */}
-        <div className="flex items-center justify-center gap-2">
-          <div className="flex-1 h-px bg-border" />
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/50 border border-border">
-            <ArrowDown className="h-3.5 w-3.5 text-primary animate-pulse" />
-            <span className="text-xs font-semibold text-foreground">
-              Verdeling → {chargePoints?.length || 0} laadpunten
-            </span>
-          </div>
-          <div className="flex-1 h-px bg-border" />
-        </div>
+        <EnergyFlowArrow
+          label={`Verdeling → ${chargePoints?.length || 0} laadpunten`}
+          active={totalAvailableW > 0 || chargingCPs.length > 0}
+        />
 
         {/* ── Charge Points Grid ── */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -259,6 +247,52 @@ const SmartChargingVisualization = () => {
 };
 
 /* ── Sub-components ─────────────────────────── */
+
+const EnergyFlowArrow = ({ label, active }: { label: string; active: boolean }) => (
+  <div className="flex items-center justify-center gap-2">
+    <div className="flex-1 h-px bg-border relative overflow-hidden">
+      {active && (
+        <div className="absolute inset-0">
+          <div className="h-px w-8 bg-gradient-to-r from-transparent via-primary to-transparent animate-energy-flow-down"
+               style={{ animation: 'energy-flow-horizontal 1.5s ease-in-out infinite', position: 'absolute', top: 0, left: 0 }} />
+        </div>
+      )}
+    </div>
+    <div className="flex flex-col items-center gap-1">
+      {/* Animated flow dots */}
+      <div className="relative h-6 w-4 flex justify-center overflow-hidden">
+        {active ? (
+          <>
+            <div className="absolute w-1.5 h-1.5 rounded-full bg-primary animate-energy-dot" />
+            <div className="absolute w-1.5 h-1.5 rounded-full bg-primary animate-energy-dot" style={{ animationDelay: '0.33s' }} />
+            <div className="absolute w-1.5 h-1.5 rounded-full bg-primary animate-energy-dot" style={{ animationDelay: '0.66s' }} />
+          </>
+        ) : (
+          <div className="w-1 h-1 rounded-full bg-muted-foreground/30" />
+        )}
+      </div>
+      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border border-border ${
+        active ? 'bg-primary/10 border-primary/30' : 'bg-muted/50'
+      }`}>
+        <ArrowDown className={`h-3.5 w-3.5 ${active ? 'text-primary' : 'text-muted-foreground'}`} />
+        <span className="text-xs font-semibold text-foreground">{label}</span>
+      </div>
+      {/* Bottom flow dots */}
+      <div className="relative h-6 w-4 flex justify-center overflow-hidden">
+        {active ? (
+          <>
+            <div className="absolute w-1.5 h-1.5 rounded-full bg-primary/60 animate-energy-dot" style={{ animationDelay: '0.15s' }} />
+            <div className="absolute w-1.5 h-1.5 rounded-full bg-primary/60 animate-energy-dot" style={{ animationDelay: '0.5s' }} />
+            <div className="absolute w-1.5 h-1.5 rounded-full bg-primary/60 animate-energy-dot" style={{ animationDelay: '0.85s' }} />
+          </>
+        ) : (
+          <div className="w-1 h-1 rounded-full bg-muted-foreground/30" />
+        )}
+      </div>
+    </div>
+    <div className="flex-1 h-px bg-border" />
+  </div>
+);
 
 const SourceCard = ({
   icon, label, powerW, color, bgColor, subLabel,
