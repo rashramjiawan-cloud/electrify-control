@@ -5,6 +5,7 @@ import StatCard from '@/components/StatCard';
 import { usePVMeters, usePVReadings, usePVDailyYield, usePVRealtime } from '@/hooks/usePVMeters';
 import { Sun, Zap, Activity, Gauge, Radio } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import PVProductionChart from '@/components/PVProductionChart';
 
 const ZonneEnergie = () => {
   const queryClient = useQueryClient();
@@ -136,6 +137,13 @@ const ZonneEnergie = () => {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Production history chart */}
+      {activeMeter && (
+        <div className="mb-8">
+          <PVProductionChart meterId={activeMeter.id} meterName={activeMeter.name} />
         </div>
       )}
 
