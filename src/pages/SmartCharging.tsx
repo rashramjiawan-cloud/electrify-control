@@ -16,8 +16,9 @@ import { Slider } from '@/components/ui/slider';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useEnergyMeters, useCreateMeter, useUpdateMeter, useDeleteMeter, usePollMeter, useTestMeterConnection, type EnergyMeter } from '@/hooks/useEnergyMeters';
 import { useLocalAutoPoll } from '@/hooks/useLocalPoll';
+import EnergyFlowWidget from '@/components/EnergyFlowWidget';
 
-type ModuleId = 'power-chart' | 'profiles' | 'shelly-meter' | 'ems-auto';
+type ModuleId = 'energy-flow' | 'power-chart' | 'profiles' | 'shelly-meter' | 'ems-auto';
 
 interface ModuleConfig {
   id: ModuleId;
@@ -26,6 +27,7 @@ interface ModuleConfig {
 }
 
 const DEFAULT_MODULES: ModuleConfig[] = [
+  { id: 'energy-flow', label: 'Energiestromen (GTV)', visible: true },
   { id: 'power-chart', label: 'Vermogensgrafiek', visible: true },
   { id: 'profiles', label: 'Laadprofielen', visible: true },
   { id: 'shelly-meter', label: 'Shelly Energiemeter', visible: true },
@@ -595,6 +597,8 @@ const SmartCharging = () => {
               <div className="absolute -left-7 top-3 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing z-10">
                 <GripVertical className="h-4 w-4 text-muted-foreground" />
               </div>
+
+              {mod.id === 'energy-flow' && <EnergyFlowWidget />}
 
               {mod.id === 'power-chart' && <PowerChart />}
 
