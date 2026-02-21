@@ -63,9 +63,8 @@ export function useEnergyFlows() {
       const metersOfType = enabledMeters.filter(m => m.meter_type === type);
 
       const meterFlows = metersOfType.map(meter => {
-        // Find latest readings for this meter
+        // Find latest readings for this meter from meter_readings table
         const meterReadings = allReadings?.filter(r => r.meter_id === meter.id) ?? [];
-        // Sum power across channels (latest reading per channel)
         const seenChannels = new Set<number>();
         let totalPower = 0;
         let hasData = false;
@@ -76,6 +75,17 @@ export function useEnergyFlows() {
           if (r.active_power != null) {
             totalPower += r.active_power;
             hasData = true;
+          }
+        }
+
+        // Fallback to last_reading from energy_meters if no meter_readings exist
+        if (!hasData && (meter.last_reading as any)?.channels) {
+          const channels = (meter.last_reading as any).channels as any[];
+          for (const ch of channels) {
+            if (ch.active_power != null) {
+              totalPower += ch.active_power;
+              hasData = true;
+            }
           }
         }
 

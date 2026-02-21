@@ -117,26 +117,30 @@ const Dashboard = () => {
           <div className="rounded-xl border border-border bg-card p-5">
             <h2 className="text-sm font-semibold text-foreground mb-4">Energieflow</h2>
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Grid</span>
-                <span className="font-mono text-sm text-foreground">{mockEMS.gridPower} kW</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Zon</span>
-                <span className="font-mono text-sm text-primary">{mockEMS.solarPower} kW</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Batterij</span>
-                <span className="font-mono text-sm text-foreground">{mockEMS.batteryPower} kW</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">EV Laden</span>
-                <span className="font-mono text-sm text-foreground">{mockEMS.evPower} kW</span>
-              </div>
-              <div className="border-t border-border pt-3 flex items-center justify-between">
-                <span className="text-sm font-medium text-foreground">Eigen verbruik</span>
-                <span className="font-mono text-sm font-bold text-primary">{mockEMS.selfConsumption}%</span>
-              </div>
+              {flows.map((flow) => {
+                const labels: Record<string, string> = { grid: 'Grid', pv: 'Zon', battery: 'Batterij' };
+                const colorClass = flow.type === 'pv' ? 'text-primary' : 'text-foreground';
+                return (
+                  <div key={flow.type} className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">{labels[flow.type] || flow.label}</span>
+                    <span className={`font-mono text-sm ${colorClass}`}>{flow.totalPowerKw.toFixed(1)} kW</span>
+                  </div>
+                );
+              })}
+              {(() => {
+                const pvFlow = flows.find(f => f.type === 'pv');
+                const gridFlow = flows.find(f => f.type === 'grid');
+                const pvKw = Math.abs(pvFlow?.totalPowerKw ?? 0);
+                const gridKw = gridFlow?.totalPowerKw ?? 0;
+                const totalConsumption = gridKw + pvKw;
+                const selfConsumption = totalConsumption > 0 ? Math.round((pvKw / totalConsumption) * 100) : 0;
+                return (
+                  <div className="border-t border-border pt-3 flex items-center justify-between">
+                    <span className="text-sm font-medium text-foreground">Eigen verbruik</span>
+                    <span className="font-mono text-sm font-bold text-primary">{selfConsumption}%</span>
+                  </div>
+                );
+              })()}
           </div>
 
           {/* GTV Monitor */}
