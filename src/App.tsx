@@ -10,6 +10,7 @@ import Batterij from "./pages/Batterij";
 import EMS from "./pages/EMS";
 import Simulator from "./pages/Simulator";
 import RFIDTags from "./pages/RFIDTags";
+import Tarieven from "./pages/Tarieven";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
@@ -47,6 +48,7 @@ const AppRoutes = () => (
     <Route path="/batterij" element={<ProtectedRoute><Batterij /></ProtectedRoute>} />
     <Route path="/ems" element={<ProtectedRoute><EMS /></ProtectedRoute>} />
     <Route path="/rfid" element={<ProtectedRoute><RFIDTags /></ProtectedRoute>} />
+    <Route path="/tarieven" element={<ProtectedRoute><Tarieven /></ProtectedRoute>} />
     <Route path="/simulator" element={<ProtectedRoute adminOnly><Simulator /></ProtectedRoute>} />
     <Route path="/reset-password" element={<ResetPassword />} />
     <Route path="*" element={<NotFound />} />

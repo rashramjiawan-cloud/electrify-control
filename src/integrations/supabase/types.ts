@@ -133,6 +133,56 @@ export type Database = {
         }
         Relationships: []
       }
+      charging_tariffs: {
+        Row: {
+          active: boolean
+          charge_point_id: string | null
+          created_at: string
+          currency: string
+          id: string
+          idle_fee_per_min: number
+          is_default: boolean
+          name: string
+          price_per_kwh: number
+          start_fee: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          charge_point_id?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          idle_fee_per_min?: number
+          is_default?: boolean
+          name?: string
+          price_per_kwh?: number
+          start_fee?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          charge_point_id?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          idle_fee_per_min?: number
+          is_default?: boolean
+          name?: string
+          price_per_kwh?: number
+          start_fee?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "charging_tariffs_charge_point_id_fkey"
+            columns: ["charge_point_id"]
+            isOneToOne: false
+            referencedRelation: "charge_points"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       connectors: {
         Row: {
           charge_point_id: string
