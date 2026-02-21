@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle, X, Volume2, VolumeX } from 'lucide-react';
 
 interface Exceedance {
   id: number;
@@ -10,9 +10,46 @@ interface Exceedance {
   created_at: string;
 }
 
+/** Play a warning beep using Web Audio API */
+const playAlertSound = () => {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const playBeep = (time: number, freq: number, duration: number) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, time);
+      gain.gain.setValueAtTime(0.3, time);
+      gain.gain.exponentialRampToValueAtTime(0.01, time + duration);
+      osc.start(time);
+      osc.stop(time + duration);
+    };
+    // Three ascending warning beeps
+    playBeep(ctx.currentTime, 880, 0.15);
+    playBeep(ctx.currentTime + 0.2, 1100, 0.15);
+    playBeep(ctx.currentTime + 0.4, 1320, 0.25);
+  } catch {
+    // Audio not available — silently ignore
+  }
+};
+
 const GtvExceedanceBanner = () => {
   const [exceedance, setExceedance] = useState<Exceedance | null>(null);
   const [visible, setVisible] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    const stored = localStorage.getItem('gtv-alert-sound');
+    return stored !== 'false';
+  });
+
+  const toggleSound = useCallback(() => {
+    setSoundEnabled(prev => {
+      const next = !prev;
+      localStorage.setItem('gtv-alert-sound', String(next));
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     const channel = supabase
@@ -24,6 +61,10 @@ const GtvExceedanceBanner = () => {
           const row = payload.new as Exceedance;
           setExceedance(row);
           setVisible(true);
+          // Play alert sound if enabled
+          if (localStorage.getItem('gtv-alert-sound') !== 'false') {
+            playAlertSound();
+          }
           // Auto-hide after 15 seconds
           setTimeout(() => setVisible(false), 15000);
         }
@@ -51,12 +92,21 @@ const GtvExceedanceBanner = () => {
             {exceedance.power_kw.toFixed(1)} kW — limiet {exceedance.limit_kw.toFixed(0)} kW (+{overBy} kW)
           </p>
         </div>
-        <button
-          onClick={() => setVisible(false)}
-          className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <X className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={toggleSound}
+            className="rounded-md p-1 text-muted-foreground hover:text-foreground transition-colors"
+            title={soundEnabled ? 'Geluid uitschakelen' : 'Geluid inschakelen'}
+          >
+            {soundEnabled ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+          </button>
+          <button
+            onClick={() => setVisible(false)}
+            className="rounded-md p-1 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       </div>
     </div>
   );
