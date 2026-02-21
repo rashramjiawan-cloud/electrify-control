@@ -226,7 +226,7 @@ const Transacties = () => {
           <p className="text-sm">Geen transacties gevonden.</p>
         </div>
       ) : (
-        <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="rounded-xl border border-border bg-card overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
