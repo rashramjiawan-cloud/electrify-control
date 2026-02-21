@@ -9,13 +9,14 @@ import { useChargePoints } from '@/hooks/useChargePoints';
 import { useChargingProfiles, useSetChargingProfile, useClearChargingProfile, type SchedulePeriod } from '@/hooks/useChargingProfiles';
 import { useChargingTariffs } from '@/hooks/useChargingTariffs';
 import { toast } from 'sonner';
-import { Zap, Plus, Trash2, Clock, Gauge, Play, Sun, BatteryCharging, Cable, Bolt, Euro, GripVertical, Eye, EyeOff, Settings2 } from 'lucide-react';
+import { Zap, Plus, Trash2, Clock, Gauge, Play, Sun, BatteryCharging, Cable, Bolt, Euro, GripVertical, Eye, EyeOff, Settings2, Activity } from 'lucide-react';
 import PowerChart from '@/components/PowerChart';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useEnergyMeters, useCreateMeter, useDeleteMeter, usePollMeter, useTestMeterConnection, type EnergyMeter } from '@/hooks/useEnergyMeters';
 
-type ModuleId = 'power-chart' | 'profiles';
+type ModuleId = 'power-chart' | 'profiles' | 'shelly-meter';
 
 interface ModuleConfig {
   id: ModuleId;
@@ -26,6 +27,7 @@ interface ModuleConfig {
 const DEFAULT_MODULES: ModuleConfig[] = [
   { id: 'power-chart', label: 'Vermogensgrafiek', visible: true },
   { id: 'profiles', label: 'Laadprofielen', visible: true },
+  { id: 'shelly-meter', label: 'Shelly Energiemeter', visible: true },
 ];
 
 const SmartCharging = () => {
@@ -33,8 +35,18 @@ const SmartCharging = () => {
   const { data: profiles, isLoading } = useChargingProfiles();
   const setProfile = useSetChargingProfile();
   const clearProfile = useClearChargingProfile();
+  const { data: meters } = useEnergyMeters();
+  const createMeter = useCreateMeter();
+  const deleteMeter = useDeleteMeter();
+  const pollMeter = usePollMeter();
+  const testConnection = useTestMeterConnection();
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [meterDialogOpen, setMeterDialogOpen] = useState(false);
+  const [meterHost, setMeterHost] = useState('');
+  const [meterPort, setMeterPort] = useState('80');
+  const [meterName, setMeterName] = useState('Shelly PRO EM-50');
+  const [meterConnType, setMeterConnType] = useState('tcp_ip');
   const [simDialogOpen, setSimDialogOpen] = useState(false);
   const [simView, setSimView] = useState<'list' | 'advanced'>('list');
   const [selectedCp, setSelectedCp] = useState('');
@@ -422,10 +434,236 @@ const SmartCharging = () => {
                   )}
                 </>
               )}
+
+              {mod.id === 'shelly-meter' && (
+                <div className="rounded-xl border border-border bg-card overflow-hidden">
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                        <Activity className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-semibold text-foreground">Shelly Energiemeter</h3>
+                        <p className="text-xs text-muted-foreground">PRO EM-50 · TCP/IP of RS485</p>
+                      </div>
+                    </div>
+                    <Button size="sm" className="gap-1.5 text-xs" onClick={() => setMeterDialogOpen(true)}>
+                      <Plus className="h-3 w-3" />
+                      Meter toevoegen
+                    </Button>
+                  </div>
+                  <div className="divide-y divide-border">
+                    {(!meters || meters.length === 0) ? (
+                      <div className="p-8 text-center">
+                        <Activity className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">Geen meters geconfigureerd</p>
+                        <p className="text-xs text-muted-foreground mt-1">Voeg een Shelly PRO EM-50 toe via TCP/IP</p>
+                      </div>
+                    ) : meters.map(meter => (
+                      <div key={meter.id} className="px-5 py-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-foreground">{meter.name}</p>
+                            <p className="font-mono text-xs text-muted-foreground">
+                              {meter.connection_type === 'tcp_ip' ? `TCP/IP ${meter.host}:${meter.port}` : `RS485 addr ${meter.modbus_address}`}
+                              {meter.last_poll_at && ` · Laatste poll: ${new Date(meter.last_poll_at).toLocaleTimeString('nl-NL')}`}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="gap-1.5 text-xs"
+                              disabled={pollMeter.isPending}
+                              onClick={() => meter.host && pollMeter.mutate(
+                                { meter_id: meter.id, host: meter.host!, port: meter.port },
+                                {
+                                  onSuccess: (res: any) => {
+                                    if (res?.success) toast.success('Meterdata opgehaald');
+                                    else toast.error(res?.error || 'Fout bij ophalen');
+                                  },
+                                  onError: () => toast.error('Verbinding mislukt'),
+                                }
+                              )}
+                            >
+                              <Zap className="h-3 w-3" />
+                              {pollMeter.isPending ? 'Ophalen...' : 'Poll'}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                              onClick={() => {
+                                if (confirm('Meter verwijderen?')) {
+                                  deleteMeter.mutate(meter.id, {
+                                    onSuccess: () => toast.success('Meter verwijderd'),
+                                  });
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                        {/* Live data display */}
+                        {meter.last_reading?.channels && (
+                          <div className="grid grid-cols-2 gap-3">
+                            {(meter.last_reading.channels as any[]).map((ch: any) => (
+                              <div key={ch.channel} className="rounded-lg bg-muted/30 p-3 space-y-1">
+                                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                                  Kanaal {ch.channel + 1}
+                                </span>
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+                                  {ch.voltage != null && (
+                                    <div className="flex justify-between">
+                                      <span className="text-xs text-muted-foreground">Spanning</span>
+                                      <span className="font-mono text-xs text-foreground">{Number(ch.voltage).toFixed(1)} V</span>
+                                    </div>
+                                  )}
+                                  {ch.current != null && (
+                                    <div className="flex justify-between">
+                                      <span className="text-xs text-muted-foreground">Stroom</span>
+                                      <span className="font-mono text-xs text-foreground">{Number(ch.current).toFixed(2)} A</span>
+                                    </div>
+                                  )}
+                                  {ch.active_power != null && (
+                                    <div className="flex justify-between">
+                                      <span className="text-xs text-muted-foreground">Vermogen</span>
+                                      <span className="font-mono text-xs font-bold text-primary">{Number(ch.active_power).toFixed(0)} W</span>
+                                    </div>
+                                  )}
+                                  {ch.power_factor != null && (
+                                    <div className="flex justify-between">
+                                      <span className="text-xs text-muted-foreground">PF</span>
+                                      <span className="font-mono text-xs text-foreground">{Number(ch.power_factor).toFixed(2)}</span>
+                                    </div>
+                                  )}
+                                  {ch.total_energy != null && (
+                                    <div className="flex justify-between col-span-2">
+                                      <span className="text-xs text-muted-foreground">Totaal</span>
+                                      <span className="font-mono text-xs text-foreground">{Number(ch.total_energy).toFixed(1)} kWh</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}
       </div>
+
+      {/* Add Meter Dialog */}
+      <Dialog open={meterDialogOpen} onOpenChange={setMeterDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-primary" />
+              Shelly PRO EM-50 toevoegen
+            </DialogTitle>
+            <DialogDescription>
+              Verbind een energiemeter via TCP/IP (WiFi/Ethernet) of RS485 (Modbus)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Naam</Label>
+              <Input value={meterName} onChange={e => setMeterName(e.target.value)} className="font-mono text-sm" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Verbinding</Label>
+              <Select value={meterConnType} onValueChange={setMeterConnType}>
+                <SelectTrigger className="text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="tcp_ip">TCP/IP (WiFi / Ethernet)</SelectItem>
+                  <SelectItem value="rs485">RS485 (Modbus RTU)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {meterConnType === 'tcp_ip' ? (
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-2 space-y-1.5">
+                  <Label className="text-xs">IP-adres</Label>
+                  <Input value={meterHost} onChange={e => setMeterHost(e.target.value)} placeholder="192.168.1.100" className="font-mono text-sm" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Poort</Label>
+                  <Input value={meterPort} onChange={e => setMeterPort(e.target.value)} type="number" className="font-mono text-sm" />
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-border bg-muted/30 p-4">
+                <p className="text-xs text-muted-foreground">
+                  RS485/Modbus wordt ondersteund via een Modbus-TCP gateway (bijv. USR-TCP232). 
+                  Configureer de gateway en voer het IP-adres in.
+                </p>
+                <div className="grid grid-cols-3 gap-3 mt-3">
+                  <div className="col-span-2 space-y-1.5">
+                    <Label className="text-xs">Gateway IP</Label>
+                    <Input value={meterHost} onChange={e => setMeterHost(e.target.value)} placeholder="192.168.1.200" className="font-mono text-sm" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Poort</Label>
+                    <Input value={meterPort} onChange={e => setMeterPort(e.target.value)} type="number" className="font-mono text-sm" />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              className="gap-1.5"
+              disabled={!meterHost || testConnection.isPending}
+              onClick={() => testConnection.mutate(
+                { host: meterHost, port: Number(meterPort) },
+                {
+                  onSuccess: (res: any) => {
+                    if (res?.success) {
+                      toast.success(`Verbonden! ${res.data?.type || 'Shelly'} (${res.data?.mac || ''})`);
+                    } else {
+                      toast.error(res?.error || 'Verbinding mislukt');
+                    }
+                  },
+                  onError: () => toast.error('Kan niet verbinden'),
+                }
+              )}
+            >
+              {testConnection.isPending ? 'Testen...' : 'Test verbinding'}
+            </Button>
+            <Button
+              disabled={!meterHost || createMeter.isPending}
+              onClick={() => {
+                createMeter.mutate(
+                  {
+                    name: meterName,
+                    device_type: 'shelly_pro_em_50',
+                    connection_type: meterConnType,
+                    host: meterHost,
+                    port: Number(meterPort),
+                  },
+                  {
+                    onSuccess: () => {
+                      toast.success('Meter toegevoegd');
+                      setMeterDialogOpen(false);
+                      setMeterHost('');
+                    },
+                    onError: () => toast.error('Fout bij toevoegen'),
+                  }
+                );
+              }}
+            >
+              {createMeter.isPending ? 'Toevoegen...' : 'Meter toevoegen'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Create Profile Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
