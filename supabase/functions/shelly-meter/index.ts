@@ -15,14 +15,22 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    const { action, meter_id, host, port, channel } = await req.json();
+    const { action, meter_id, host, port, channel, auth_user, auth_pass } = await req.json();
 
     // Helper: build base URL — use https for hostnames (tunnel), http for IPs
     const buildBaseUrl = (h: string, p: number) => {
       const isIp = /^(\d{1,3}\.){3}\d{1,3}$/.test(h);
       const protocol = isIp ? 'http' : 'https';
-      // For tunnel URLs, ignore port (tunnel handles routing)
       return isIp ? `${protocol}://${h}:${p}` : `${protocol}://${h}`;
+    };
+
+    // Helper: build fetch headers with optional Basic Auth
+    const buildHeaders = (user?: string | null, pass?: string | null): Record<string, string> => {
+      if (user && pass) {
+        const encoded = btoa(`${user}:${pass}`);
+        return { 'Authorization': `Basic ${encoded}` };
+      }
+      return {};
     };
 
     // Action: poll — fetch live data from Shelly device via HTTP RPC
@@ -39,8 +47,9 @@ Deno.serve(async (req) => {
       console.log(`Polling Shelly at ${statusUrl}`);
 
       let shellyData: any;
+      const headers = buildHeaders(auth_user, auth_pass);
       try {
-        const resp = await fetch(statusUrl, { signal: AbortSignal.timeout(5000) });
+        const resp = await fetch(statusUrl, { signal: AbortSignal.timeout(5000), headers });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         shellyData = await resp.json();
       } catch (fetchErr) {
@@ -124,8 +133,10 @@ Deno.serve(async (req) => {
       const shellyPort = port || 80;
       const baseUrl = buildBaseUrl(host, shellyPort);
       try {
+        const testHeaders = buildHeaders(auth_user, auth_pass);
         const resp = await fetch(`${baseUrl}/shelly`, {
           signal: AbortSignal.timeout(5000),
+          headers: testHeaders,
         });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const info = await resp.json();
@@ -158,9 +169,10 @@ Deno.serve(async (req) => {
       const shellyPort = port || 80;
       const baseUrl = buildBaseUrl(host, shellyPort);
       try {
+        const emHeaders = buildHeaders(auth_user, auth_pass);
         const resp = await fetch(
           `${baseUrl}/rpc/EM1Data.GetStatus?id=${ch}`,
-          { signal: AbortSignal.timeout(5000) },
+          { signal: AbortSignal.timeout(5000), headers: emHeaders },
         );
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = await resp.json();
@@ -188,8 +200,10 @@ Deno.serve(async (req) => {
           try {
             const shellyPort = meter.port || 80;
             const meterBaseUrl = buildBaseUrl(meter.host, shellyPort);
+            const meterHeaders = buildHeaders(meter.auth_user, meter.auth_pass);
             const resp = await fetch(`${meterBaseUrl}/rpc/Shelly.GetStatus`, {
               signal: AbortSignal.timeout(5000),
+              headers: meterHeaders,
             });
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             const shellyData = await resp.json();

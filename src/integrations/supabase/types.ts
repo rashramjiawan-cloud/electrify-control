@@ -294,6 +294,8 @@ export type Database = {
       }
       energy_meters: {
         Row: {
+          auth_pass: string | null
+          auth_user: string | null
           connection_type: string
           created_at: string
           device_type: string
@@ -309,6 +311,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          auth_pass?: string | null
+          auth_user?: string | null
           connection_type?: string
           created_at?: string
           device_type?: string
@@ -324,6 +328,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          auth_pass?: string | null
+          auth_user?: string | null
           connection_type?: string
           created_at?: string
           device_type?: string

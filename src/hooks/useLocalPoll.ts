@@ -34,7 +34,11 @@ export function useLocalPoll() {
     const url = `${baseUrl}/rpc/Shelly.GetStatus`;
 
     try {
-      const resp = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      const headers: Record<string, string> = {};
+      if (meter.auth_user && meter.auth_pass) {
+        headers['Authorization'] = `Basic ${btoa(`${meter.auth_user}:${meter.auth_pass}`)}`;
+      }
+      const resp = await fetch(url, { signal: AbortSignal.timeout(5000), headers });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const data = await resp.json();
 
