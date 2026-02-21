@@ -1,7 +1,8 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Zap, LayoutDashboard, BatteryCharging, Cpu, Activity, Play, LogOut, Tag, Euro, Receipt, Settings, Gauge, HardDrive, CalendarClock, AlertTriangle, Sun } from 'lucide-react';
+import { Zap, LayoutDashboard, BatteryCharging, Cpu, Activity, Play, LogOut, Tag, Euro, Receipt, Settings, Gauge, HardDrive, CalendarClock, AlertTriangle, Sun, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -20,33 +21,50 @@ const navItems = [
   { to: '/instellingen', label: 'Instellingen', icon: Settings },
 ];
 
-const AppSidebar = () => {
+interface AppSidebarProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+const AppSidebar = ({ open, onClose }: AppSidebarProps) => {
   const location = useLocation();
   const { user, isAdmin, signOut } = useAuth();
 
   const visibleNavItems = navItems.filter(item => !item.adminOnly || isAdmin);
 
   return (
-    <aside className="fixed left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-border bg-sidebar">
+    <aside
+      className={cn(
+        "fixed left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-border bg-sidebar transition-transform duration-300 ease-in-out",
+        "md:translate-x-0",
+        open ? "translate-x-0" : "-translate-x-full"
+      )}
+    >
       {/* Logo */}
-      <div className="flex h-16 items-center gap-3 border-b border-border px-6">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 glow-primary">
-          <Activity className="h-5 w-5 text-primary" />
+      <div className="flex h-16 items-center justify-between border-b border-border px-6">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 glow-primary">
+            <Activity className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="font-mono text-sm font-bold text-foreground tracking-wider">ENERGY</h1>
+            <p className="font-mono text-[10px] text-muted-foreground tracking-widest">BACKOFFICE</p>
+          </div>
         </div>
-        <div>
-          <h1 className="font-mono text-sm font-bold text-foreground tracking-wider">ENERGY</h1>
-          <p className="font-mono text-[10px] text-muted-foreground tracking-widest">BACKOFFICE</p>
-        </div>
+        <Button variant="ghost" size="icon" className="md:hidden h-8 w-8" onClick={onClose}>
+          <X className="h-4 w-4" />
+        </Button>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
         {visibleNavItems.map((item) => {
           const isActive = location.pathname === item.to;
           return (
             <NavLink
               key={item.to}
               to={item.to}
+              onClick={onClose}
               className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
                 isActive
                   ? 'bg-primary/10 text-primary glow-primary'
