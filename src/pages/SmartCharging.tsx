@@ -131,6 +131,24 @@ const SmartCharging = () => {
         { startPeriod: 72000, limit: 3700 },
       ],
     },
+    {
+      name: '15-min blokken',
+      desc: 'Afwisselend vermogen per kwartier (2 uur profiel)',
+      purpose: 'TxDefaultProfile',
+      kind: 'Relative',
+      unit: 'W',
+      duration: 7200,
+      periods: [
+        { startPeriod: 0, limit: 3700 },
+        { startPeriod: 900, limit: 7400 },
+        { startPeriod: 1800, limit: 11000 },
+        { startPeriod: 2700, limit: 7400 },
+        { startPeriod: 3600, limit: 5000 },
+        { startPeriod: 4500, limit: 11000 },
+        { startPeriod: 5400, limit: 3700 },
+        { startPeriod: 6300, limit: 7400 },
+      ],
+    },
   ];
 
   const handleSimulate = async (scenario: typeof simScenarios[0]) => {
