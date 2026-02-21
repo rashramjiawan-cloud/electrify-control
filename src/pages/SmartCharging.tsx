@@ -21,7 +21,7 @@ const SmartCharging = () => {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [simDialogOpen, setSimDialogOpen] = useState(false);
-  const [advSimOpen, setAdvSimOpen] = useState(false);
+  const [simView, setSimView] = useState<'list' | 'advanced'>('list');
   const [selectedCp, setSelectedCp] = useState('');
   const [connectorId, setConnectorId] = useState('0');
   const [stackLevel, setStackLevel] = useState('0');
@@ -465,165 +465,160 @@ const SmartCharging = () => {
       </Dialog>
 
       {/* Simulation Dialog */}
-      <Dialog open={simDialogOpen} onOpenChange={setSimDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Play className="h-5 w-5 text-primary" />
-              Simulatie scenario's
-            </DialogTitle>
-            <DialogDescription>
-              Kies een vooraf ingesteld scenario of maak een geavanceerde simulatie
-            </DialogDescription>
-          </DialogHeader>
+      <Dialog open={simDialogOpen} onOpenChange={(v) => { setSimDialogOpen(v); if (!v) setSimView('list'); }}>
+        <DialogContent className={simView === 'advanced' ? 'sm:max-w-xl max-h-[90vh] overflow-y-auto' : 'sm:max-w-lg max-h-[85vh] overflow-y-auto'}>
+          {simView === 'list' ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Play className="h-5 w-5 text-primary" />
+                  Simulatie scenario's
+                </DialogTitle>
+                <DialogDescription>
+                  Kies een vooraf ingesteld scenario of maak een geavanceerde simulatie
+                </DialogDescription>
+              </DialogHeader>
 
-          {chargePoints && chargePoints.length > 1 && (
-            <div className="space-y-1.5">
-              <Label className="text-xs">Laadpaal</Label>
-              <Select value={selectedCp || chargePoints[0]?.id} onValueChange={setSelectedCp}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {chargePoints.map(cp => (
-                    <SelectItem key={cp.id} value={cp.id}>{cp.name} ({cp.id})</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+              {chargePoints && chargePoints.length > 1 && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Laadpaal</Label>
+                  <Select value={selectedCp || chargePoints[0]?.id} onValueChange={setSelectedCp}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {chargePoints.map(cp => (
+                        <SelectItem key={cp.id} value={cp.id}>{cp.name} ({cp.id})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                {simScenarios.map((scenario, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleSimulate(scenario)}
+                    disabled={setProfile.isPending}
+                    className="w-full text-left rounded-xl border border-border bg-card p-4 hover:border-primary/50 hover:bg-primary/5 transition-colors disabled:opacity-50"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <h4 className="text-sm font-semibold text-foreground">{scenario.name}</h4>
+                      <span className="text-[10px] font-mono text-muted-foreground">
+                        {scenario.periods.length} perioden
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{scenario.desc}</p>
+                    <div className="flex gap-1 mt-2">
+                      {scenario.periods.map((p, i) => {
+                        const maxLim = Math.max(...scenario.periods.map(x => x.limit));
+                        const h = maxLim > 0 ? Math.max((p.limit / maxLim) * 20, 2) : 2;
+                        return (
+                          <div
+                            key={i}
+                            className="flex-1 rounded-sm bg-primary/30"
+                            style={{ height: `${h}px` }}
+                          />
+                        );
+                      })}
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              <div className="border-t border-border pt-3">
+                <Button
+                  variant="outline"
+                  className="w-full gap-2"
+                  onClick={() => setSimView('advanced')}
+                >
+                  <Bolt className="h-4 w-4" />
+                  Geavanceerde simulatie
+                </Button>
+              </div>
+            </>
+          ) : (
+            <AdvancedSimContent
+              chargePoints={chargePoints || []}
+              onApply={async (cpId, pds, dur) => {
+                try {
+                  await setProfile.mutateAsync({
+                    chargePointId: cpId,
+                    connectorId: 0,
+                    profile: {
+                      stackLevel: 0,
+                      chargingProfilePurpose: 'ChargePointMaxProfile',
+                      chargingProfileKind: 'Absolute',
+                      chargingSchedule: {
+                        chargingRateUnit: 'W',
+                        duration: dur,
+                        chargingSchedulePeriod: pds,
+                      },
+                    },
+                  });
+                  toast.success('Simulatieprofiel toegepast');
+                  setSimDialogOpen(false);
+                  setSimView('list');
+                } catch {
+                  toast.error('Fout bij toepassen simulatie');
+                }
+              }}
+              onBack={() => setSimView('list')}
+              isPending={setProfile.isPending}
+            />
           )}
-
-          <div className="space-y-3">
-            {simScenarios.map((scenario, idx) => (
-              <button
-                key={idx}
-                onClick={() => handleSimulate(scenario)}
-                disabled={setProfile.isPending}
-                className="w-full text-left rounded-xl border border-border bg-card p-4 hover:border-primary/50 hover:bg-primary/5 transition-colors disabled:opacity-50"
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <h4 className="text-sm font-semibold text-foreground">{scenario.name}</h4>
-                  <span className="text-[10px] font-mono text-muted-foreground">
-                    {scenario.periods.length} perioden
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground">{scenario.desc}</p>
-                <div className="flex gap-1 mt-2">
-                  {scenario.periods.map((p, i) => {
-                    const maxLim = Math.max(...scenario.periods.map(x => x.limit));
-                    const h = maxLim > 0 ? Math.max((p.limit / maxLim) * 20, 2) : 2;
-                    return (
-                      <div
-                        key={i}
-                        className="flex-1 rounded-sm bg-primary/30"
-                        style={{ height: `${h}px` }}
-                      />
-                    );
-                  })}
-                </div>
-              </button>
-            ))}
-          </div>
-
-          <div className="border-t border-border pt-3">
-            <Button
-              variant="outline"
-              className="w-full gap-2"
-              onClick={() => { setSimDialogOpen(false); setAdvSimOpen(true); }}
-            >
-              <Bolt className="h-4 w-4" />
-              Geavanceerde simulatie
-            </Button>
-          </div>
         </DialogContent>
       </Dialog>
-
-      {/* Advanced Simulation Dialog */}
-      <AdvancedSimDialog
-        open={advSimOpen}
-        onOpenChange={setAdvSimOpen}
-        chargePoints={chargePoints || []}
-        onApply={async (cpId, periods, duration) => {
-          try {
-            await setProfile.mutateAsync({
-              chargePointId: cpId,
-              connectorId: 0,
-              profile: {
-                stackLevel: 0,
-                chargingProfilePurpose: 'ChargePointMaxProfile',
-                chargingProfileKind: 'Absolute',
-                chargingSchedule: {
-                  chargingRateUnit: 'W',
-                  duration,
-                  chargingSchedulePeriod: periods,
-                },
-              },
-            });
-            toast.success('Simulatieprofiel toegepast');
-            setAdvSimOpen(false);
-          } catch {
-            toast.error('Fout bij toepassen simulatie');
-          }
-        }}
-        isPending={setProfile.isPending}
-      />
     </AppLayout>
   );
 };
 
 /* ── Advanced Simulation Dialog ─────────────────────────── */
 
-interface AdvSimProps {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
+interface AdvSimContentProps {
   chargePoints: { id: string; name: string }[];
   onApply: (cpId: string, periods: SchedulePeriod[], duration: number) => void;
+  onBack: () => void;
   isPending: boolean;
 }
 
-const AdvancedSimDialog = ({ open, onOpenChange, chargePoints, onApply, isPending }: AdvSimProps) => {
+const AdvancedSimContent = ({ chargePoints, onApply, onBack, isPending }: AdvSimContentProps) => {
   const [numCps, setNumCps] = useState(3);
-  const [gridPower, setGridPower] = useState(25); // kW
+  const [gridPower, setGridPower] = useState(25);
   const [hasSolar, setHasSolar] = useState(true);
-  const [solarPeak, setSolarPeak] = useState(10); // kWp
+  const [solarPeak, setSolarPeak] = useState(10);
   const [hasBattery, setHasBattery] = useState(false);
-  const [batteryCapacity, setBatteryCapacity] = useState(13.5); // kWh
-  const [batteryPower, setBatteryPower] = useState(5); // kW
+  const [batteryCapacity, setBatteryCapacity] = useState(13.5);
+  const [batteryPower, setBatteryPower] = useState(5);
   const [selectedCp, setSelectedCp] = useState(chargePoints[0]?.id || '');
 
-  // Generate a 24h profile in 15-min blocks based on parameters
   const generatedProfile = useMemo(() => {
     const blocksPerHour = 4;
-    const totalBlocks = 24 * blocksPerHour; // 96 blocks
+    const totalBlocks = 24 * blocksPerHour;
     const periods: SchedulePeriod[] = [];
 
     for (let i = 0; i < totalBlocks; i++) {
       const hour = i / blocksPerHour;
-      const startPeriod = i * 900; // 15 min = 900 sec
+      const startPeriod = i * 900;
 
-      // Solar curve: bell curve peaking at 12:00
       let solarW = 0;
       if (hasSolar && hour >= 6 && hour <= 20) {
         const x = (hour - 13) / 3.5;
         solarW = solarPeak * 1000 * Math.exp(-x * x / 2) * 0.85;
       }
 
-      // Battery: discharge evening (17-22), charge midday (10-15) if solar
       let batteryW = 0;
       if (hasBattery) {
         if (hour >= 17 && hour < 22) {
-          batteryW = batteryPower * 1000 * 0.8; // discharge → extra capacity
+          batteryW = batteryPower * 1000 * 0.8;
         } else if (hasSolar && hour >= 10 && hour < 15) {
-          batteryW = -batteryPower * 1000 * 0.5; // charging → uses solar
+          batteryW = -batteryPower * 1000 * 0.5;
         }
       }
 
-      // Available power for EVs = grid + solar + battery discharge
       const availableW = gridPower * 1000 + solarW + batteryW;
-      // Per charge point limit
       const perCpLimit = Math.max(Math.floor(availableW / numCps / 100) * 100, 0);
-      // Cap at 22kW (typical AC max)
       const limit = Math.min(perCpLimit, 22000);
 
-      // Skip if same limit as previous
       if (periods.length > 0 && periods[periods.length - 1].limit === limit) continue;
       periods.push({ startPeriod, limit });
     }
@@ -634,180 +629,153 @@ const AdvancedSimDialog = ({ open, onOpenChange, chargePoints, onApply, isPendin
   const maxLimit = Math.max(...generatedProfile.map(p => p.limit), 1);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Bolt className="h-5 w-5 text-primary" />
-            Geavanceerde simulatie
-          </DialogTitle>
-          <DialogDescription>
-            Configureer je installatie en genereer automatisch een slim laadprofiel
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-2">
+          <Bolt className="h-5 w-5 text-primary" />
+          Geavanceerde simulatie
+        </DialogTitle>
+        <DialogDescription>
+          Configureer je installatie en genereer automatisch een slim laadprofiel
+        </DialogDescription>
+      </DialogHeader>
 
-        <div className="space-y-5">
-          {/* Grid & Charge Points */}
-          <div className="rounded-lg border border-border p-4 space-y-4">
+      <div className="space-y-5">
+        {/* Grid & Charge Points */}
+        <div className="rounded-lg border border-border p-4 space-y-4">
+          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <Cable className="h-4 w-4 text-muted-foreground" />
+            Installatie
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-xs">Aantal laadpalen</Label>
+              <div className="flex items-center gap-3">
+                <Slider value={[numCps]} onValueChange={([v]) => setNumCps(v)} min={1} max={20} step={1} className="flex-1" />
+                <span className="font-mono text-sm w-8 text-right">{numCps}</span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Netvermogen (kW)</Label>
+              <div className="flex items-center gap-3">
+                <Slider value={[gridPower]} onValueChange={([v]) => setGridPower(v)} min={3} max={100} step={1} className="flex-1" />
+                <span className="font-mono text-sm w-10 text-right">{gridPower}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Solar */}
+        <div className="rounded-lg border border-border p-4 space-y-4">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <Cable className="h-4 w-4 text-muted-foreground" />
-              Installatie
+              <Sun className="h-4 w-4 text-yellow-500" />
+              Zonnepanelen
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-xs">Aantal laadpalen</Label>
-                <div className="flex items-center gap-3">
-                  <Slider
-                    value={[numCps]}
-                    onValueChange={([v]) => setNumCps(v)}
-                    min={1} max={20} step={1}
-                    className="flex-1"
-                  />
-                  <span className="font-mono text-sm w-8 text-right">{numCps}</span>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs">Netvermogen (kW)</Label>
-                <div className="flex items-center gap-3">
-                  <Slider
-                    value={[gridPower]}
-                    onValueChange={([v]) => setGridPower(v)}
-                    min={3} max={100} step={1}
-                    className="flex-1"
-                  />
-                  <span className="font-mono text-sm w-10 text-right">{gridPower}</span>
-                </div>
-              </div>
-            </div>
+            <Switch checked={hasSolar} onCheckedChange={setHasSolar} />
           </div>
-
-          {/* Solar */}
-          <div className="rounded-lg border border-border p-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <Sun className="h-4 w-4 text-yellow-500" />
-                Zonnepanelen
+          {hasSolar && (
+            <div className="space-y-2">
+              <Label className="text-xs">Piekvermogen (kWp)</Label>
+              <div className="flex items-center gap-3">
+                <Slider value={[solarPeak]} onValueChange={([v]) => setSolarPeak(v)} min={1} max={50} step={0.5} className="flex-1" />
+                <span className="font-mono text-sm w-10 text-right">{solarPeak}</span>
               </div>
-              <Switch checked={hasSolar} onCheckedChange={setHasSolar} />
-            </div>
-            {hasSolar && (
-              <div className="space-y-2">
-                <Label className="text-xs">Piekvermogen (kWp)</Label>
-                <div className="flex items-center gap-3">
-                  <Slider
-                    value={[solarPeak]}
-                    onValueChange={([v]) => setSolarPeak(v)}
-                    min={1} max={50} step={0.5}
-                    className="flex-1"
-                  />
-                  <span className="font-mono text-sm w-10 text-right">{solarPeak}</span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Battery */}
-          <div className="rounded-lg border border-border p-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <BatteryCharging className="h-4 w-4 text-primary" />
-                Thuisbatterij
-              </div>
-              <Switch checked={hasBattery} onCheckedChange={setHasBattery} />
-            </div>
-            {hasBattery && (
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-xs">Capaciteit (kWh)</Label>
-                  <div className="flex items-center gap-3">
-                    <Slider
-                      value={[batteryCapacity]}
-                      onValueChange={([v]) => setBatteryCapacity(v)}
-                      min={5} max={50} step={0.5}
-                      className="flex-1"
-                    />
-                    <span className="font-mono text-sm w-10 text-right">{batteryCapacity}</span>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs">Vermogen (kW)</Label>
-                  <div className="flex items-center gap-3">
-                    <Slider
-                      value={[batteryPower]}
-                      onValueChange={([v]) => setBatteryPower(v)}
-                      min={1} max={25} step={0.5}
-                      className="flex-1"
-                    />
-                    <span className="font-mono text-sm w-10 text-right">{batteryPower}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Preview */}
-          <div className="rounded-lg border border-border p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Gegenereerd profiel — {generatedProfile.length} perioden
-              </span>
-              <span className="font-mono text-xs text-muted-foreground">
-                Max {(maxLimit / 1000).toFixed(1)} kW / laadpaal
-              </span>
-            </div>
-            <div className="flex items-end gap-px h-20">
-              {generatedProfile.map((p, i) => {
-                const nextStart = i < generatedProfile.length - 1
-                  ? generatedProfile[i + 1].startPeriod
-                  : 86400;
-                const widthPct = ((nextStart - p.startPeriod) / 86400) * 100;
-                const heightPct = maxLimit > 0 ? (p.limit / maxLimit) * 100 : 0;
-                const hour = p.startPeriod / 3600;
-                const isSolarHour = hour >= 8 && hour <= 18;
-                return (
-                  <div
-                    key={i}
-                    className={`rounded-t-sm transition-all ${isSolarHour && hasSolar ? 'bg-yellow-500/40' : 'bg-primary/40'}`}
-                    style={{ width: `${widthPct}%`, height: `${Math.max(heightPct, 2)}%` }}
-                    title={`${Math.floor(hour)}:${String(Math.round((hour % 1) * 60)).padStart(2, '0')} — ${(p.limit / 1000).toFixed(1)} kW`}
-                  />
-                );
-              })}
-            </div>
-            <div className="flex justify-between text-[10px] font-mono text-muted-foreground">
-              <span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span>
-            </div>
-          </div>
-
-          {/* Target charge point */}
-          {chargePoints.length > 0 && (
-            <div className="space-y-1.5">
-              <Label className="text-xs">Toepassen op laadpaal</Label>
-              <Select value={selectedCp || chargePoints[0]?.id} onValueChange={setSelectedCp}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {chargePoints.map(cp => (
-                    <SelectItem key={cp.id} value={cp.id}>{cp.name} ({cp.id})</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
           )}
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Annuleren</Button>
-          <Button
-            onClick={() => onApply(selectedCp || chargePoints[0]?.id, generatedProfile, 86400)}
-            disabled={isPending || !chargePoints.length}
-            className="gap-2"
-          >
-            <Play className="h-4 w-4" />
-            {isPending ? 'Toepassen...' : 'Profiel toepassen'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        {/* Battery */}
+        <div className="rounded-lg border border-border p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <BatteryCharging className="h-4 w-4 text-primary" />
+              Thuisbatterij
+            </div>
+            <Switch checked={hasBattery} onCheckedChange={setHasBattery} />
+          </div>
+          {hasBattery && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-xs">Capaciteit (kWh)</Label>
+                <div className="flex items-center gap-3">
+                  <Slider value={[batteryCapacity]} onValueChange={([v]) => setBatteryCapacity(v)} min={5} max={50} step={0.5} className="flex-1" />
+                  <span className="font-mono text-sm w-10 text-right">{batteryCapacity}</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Vermogen (kW)</Label>
+                <div className="flex items-center gap-3">
+                  <Slider value={[batteryPower]} onValueChange={([v]) => setBatteryPower(v)} min={1} max={25} step={0.5} className="flex-1" />
+                  <span className="font-mono text-sm w-10 text-right">{batteryPower}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Preview */}
+        <div className="rounded-lg border border-border p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Gegenereerd profiel — {generatedProfile.length} perioden
+            </span>
+            <span className="font-mono text-xs text-muted-foreground">
+              Max {(maxLimit / 1000).toFixed(1)} kW / laadpaal
+            </span>
+          </div>
+          <div className="flex items-end gap-px h-20">
+            {generatedProfile.map((p, i) => {
+              const nextStart = i < generatedProfile.length - 1
+                ? generatedProfile[i + 1].startPeriod
+                : 86400;
+              const widthPct = ((nextStart - p.startPeriod) / 86400) * 100;
+              const heightPct = maxLimit > 0 ? (p.limit / maxLimit) * 100 : 0;
+              const hour = p.startPeriod / 3600;
+              const isSolarHour = hour >= 8 && hour <= 18;
+              return (
+                <div
+                  key={i}
+                  className={`rounded-t-sm transition-all ${isSolarHour && hasSolar ? 'bg-yellow-500/40' : 'bg-primary/40'}`}
+                  style={{ width: `${widthPct}%`, height: `${Math.max(heightPct, 2)}%` }}
+                  title={`${Math.floor(hour)}:${String(Math.round((hour % 1) * 60)).padStart(2, '0')} — ${(p.limit / 1000).toFixed(1)} kW`}
+                />
+              );
+            })}
+          </div>
+          <div className="flex justify-between text-[10px] font-mono text-muted-foreground">
+            <span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span>
+          </div>
+        </div>
+
+        {/* Target charge point */}
+        {chargePoints.length > 0 && (
+          <div className="space-y-1.5">
+            <Label className="text-xs">Toepassen op laadpaal</Label>
+            <Select value={selectedCp || chargePoints[0]?.id} onValueChange={setSelectedCp}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {chargePoints.map(cp => (
+                  <SelectItem key={cp.id} value={cp.id}>{cp.name} ({cp.id})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+      </div>
+
+      <DialogFooter>
+        <Button variant="outline" onClick={onBack}>← Terug</Button>
+        <Button
+          onClick={() => onApply(selectedCp || chargePoints[0]?.id, generatedProfile, 86400)}
+          disabled={isPending || !chargePoints.length}
+          className="gap-2"
+        >
+          <Play className="h-4 w-4" />
+          {isPending ? 'Toepassen...' : 'Profiel toepassen'}
+        </Button>
+      </DialogFooter>
+    </>
   );
 };
 
