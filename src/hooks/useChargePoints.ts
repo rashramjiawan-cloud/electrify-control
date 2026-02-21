@@ -53,5 +53,6 @@ export function useConnectors(chargePointId?: string) {
       if (error) throw error;
       return data as DbConnector[];
     },
+    refetchInterval: 30_000,
   });
 }
