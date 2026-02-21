@@ -292,6 +292,54 @@ export type Database = {
           },
         ]
       }
+      energy_meters: {
+        Row: {
+          connection_type: string
+          created_at: string
+          device_type: string
+          enabled: boolean
+          host: string | null
+          id: string
+          last_poll_at: string | null
+          last_reading: Json | null
+          modbus_address: number | null
+          name: string
+          poll_interval_sec: number | null
+          port: number | null
+          updated_at: string
+        }
+        Insert: {
+          connection_type?: string
+          created_at?: string
+          device_type?: string
+          enabled?: boolean
+          host?: string | null
+          id?: string
+          last_poll_at?: string | null
+          last_reading?: Json | null
+          modbus_address?: number | null
+          name?: string
+          poll_interval_sec?: number | null
+          port?: number | null
+          updated_at?: string
+        }
+        Update: {
+          connection_type?: string
+          created_at?: string
+          device_type?: string
+          enabled?: boolean
+          host?: string | null
+          id?: string
+          last_poll_at?: string | null
+          last_reading?: Json | null
+          modbus_address?: number | null
+          name?: string
+          poll_interval_sec?: number | null
+          port?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       firmware_updates: {
         Row: {
           charge_point_id: string
@@ -364,6 +412,56 @@ export type Database = {
             columns: ["charge_point_id"]
             isOneToOne: false
             referencedRelation: "charge_points"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meter_readings: {
+        Row: {
+          active_power: number | null
+          apparent_power: number | null
+          channel: number
+          current: number | null
+          frequency: number | null
+          id: number
+          meter_id: string
+          power_factor: number | null
+          timestamp: string
+          total_energy: number | null
+          voltage: number | null
+        }
+        Insert: {
+          active_power?: number | null
+          apparent_power?: number | null
+          channel?: number
+          current?: number | null
+          frequency?: number | null
+          id?: never
+          meter_id: string
+          power_factor?: number | null
+          timestamp?: string
+          total_energy?: number | null
+          voltage?: number | null
+        }
+        Update: {
+          active_power?: number | null
+          apparent_power?: number | null
+          channel?: number
+          current?: number | null
+          frequency?: number | null
+          id?: never
+          meter_id?: string
+          power_factor?: number | null
+          timestamp?: string
+          total_energy?: number | null
+          voltage?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meter_readings_meter_id_fkey"
+            columns: ["meter_id"]
+            isOneToOne: false
+            referencedRelation: "energy_meters"
             referencedColumns: ["id"]
           },
         ]
