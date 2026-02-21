@@ -5,7 +5,7 @@ import { useChargePoints } from '@/hooks/useChargePoints';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Receipt, Zap, Clock, Euro, ArrowUpDown, Download, CalendarIcon, X } from 'lucide-react';
+import { Receipt, Zap, Clock, Euro, ArrowUpDown, Download, CalendarIcon, X, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { format, differenceInMinutes, startOfDay, endOfDay } from 'date-fns';
 import { nl } from 'date-fns/locale';
@@ -43,6 +43,7 @@ const statusVariant = (status: string) => {
 const Transacties = () => {
   const [limit, setLimit] = useState(50);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [chargePointFilter, setChargePointFilter] = useState<string>('all');
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
 
@@ -53,7 +54,8 @@ const Transacties = () => {
   const { data: chargePoints } = useChargePoints();
 
   const filtered = (transactions || []).filter(t =>
-    statusFilter === 'all' ? true : t.status === statusFilter
+    (statusFilter === 'all' || t.status === statusFilter) &&
+    (chargePointFilter === 'all' || t.charge_point_id === chargePointFilter)
   );
 
   const getCpName = (cpId: string) => {
@@ -173,6 +175,19 @@ const Transacties = () => {
             <X className="h-3.5 w-3.5" /> Wis
           </Button>
         )}
+
+        <Select value={chargePointFilter} onValueChange={setChargePointFilter}>
+          <SelectTrigger className="w-[180px]">
+            <MapPin className="h-3.5 w-3.5 mr-2" />
+            <SelectValue placeholder="Laadpaal" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Alle laadpalen</SelectItem>
+            {(chargePoints || []).map(cp => (
+              <SelectItem key={cp.id} value={cp.id}>{cp.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         <Button variant="outline" size="sm" className="gap-2 ml-auto" onClick={exportCsv} disabled={filtered.length === 0}>
           <Download className="h-3.5 w-3.5" />
