@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import AppLayout from '@/components/AppLayout';
+import { Euro } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
 import StatCard from '@/components/StatCard';
 import { Button } from '@/components/ui/button';
@@ -132,6 +133,15 @@ const Laadpalen = () => {
   // Find active transactions for a charge point
   const getActiveTransactions = (cpId: string) =>
     (dbTransactions || []).filter(tx => tx.charge_point_id === cpId && tx.status === 'Active');
+
+  // Find recent completed transactions for a charge point
+  const getRecentCompletedTransactions = (cpId: string) =>
+    (dbTransactions || []).filter(tx => tx.charge_point_id === cpId && tx.status === 'Completed').slice(0, 3);
+
+  const formatCurrency = (val: number | null) => {
+    if (val == null) return '—';
+    return new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(val);
+  };
 
   const handleRemoteStart = async () => {
     setSending(true);
@@ -492,16 +502,51 @@ const Laadpalen = () => {
                             <span className="font-mono text-xs text-primary font-medium">TX #{tx.id}</span>
                             <span className="font-mono text-xs text-muted-foreground">{tx.id_tag}</span>
                           </div>
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-4">
                             <span className="font-mono text-xs text-muted-foreground">
                               {new Date(tx.start_time).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}
                             </span>
                             <span className="font-mono text-xs text-primary">{tx.energy_delivered} kWh</span>
+                            {tx.cost != null && tx.cost > 0 && (
+                              <span className="font-mono text-xs font-semibold text-foreground flex items-center gap-1">
+                                <Euro className="h-3 w-3" />
+                                {formatCurrency(tx.cost)}
+                              </span>
+                            )}
                           </div>
                         </div>
                       ))}
                     </div>
                   )}
+
+                  {/* Recent completed transactions */}
+                  {(() => {
+                    const recentCompleted = getRecentCompletedTransactions(cp.id);
+                    if (recentCompleted.length === 0) return null;
+                    return (
+                      <div className="mt-3 space-y-1.5">
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Recente sessies</span>
+                        {recentCompleted.map(tx => (
+                          <div key={tx.id} className="flex items-center justify-between rounded-lg bg-muted/30 border border-border px-4 py-2">
+                            <div className="flex items-center gap-3">
+                              <CheckCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span className="font-mono text-xs text-muted-foreground">TX #{tx.id}</span>
+                              <span className="font-mono text-xs text-muted-foreground">{tx.id_tag}</span>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <span className="font-mono text-xs text-muted-foreground">
+                                {new Date(tx.start_time).toLocaleDateString('nl-NL', { day: '2-digit', month: 'short' })}
+                              </span>
+                              <span className="font-mono text-xs text-primary">{tx.energy_delivered} kWh</span>
+                              <span className="font-mono text-xs font-semibold text-foreground">
+                                {formatCurrency(tx.cost)}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
 
                   {/* Connectors */}
                   <div className="mt-4 space-y-2">
