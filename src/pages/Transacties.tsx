@@ -5,7 +5,8 @@ import { useChargePoints } from '@/hooks/useChargePoints';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Receipt, Zap, Clock, Euro, ArrowUpDown } from 'lucide-react';
+import { Receipt, Zap, Clock, Euro, ArrowUpDown, Download } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { format, differenceInMinutes } from 'date-fns';
 import { nl } from 'date-fns/locale';
 
@@ -56,6 +57,30 @@ const Transacties = () => {
   const completedCount = filtered.filter(t => t.status === 'Completed').length;
   const activeCount = filtered.filter(t => t.status === 'Active').length;
 
+  const exportCsv = () => {
+    const headers = ['ID', 'Laadpaal', 'Laadpaal ID', 'RFID Tag', 'Connector', 'Start', 'Stop', 'Energie (kWh)', 'Kosten (EUR)', 'Status'];
+    const rows = filtered.map(t => [
+      t.id,
+      getCpName(t.charge_point_id),
+      t.charge_point_id,
+      t.id_tag,
+      t.connector_id,
+      t.start_time,
+      t.stop_time || '',
+      t.energy_delivered ?? '',
+      t.cost ?? '',
+      t.status,
+    ]);
+    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `transacties-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <AppLayout title="Transacties" subtitle="Overzicht van alle laadsessies met kosten en energieverbruik">
       {/* Summary Cards */}
@@ -104,6 +129,10 @@ const Transacties = () => {
           </p>
           <p className="text-[10px] text-muted-foreground mt-1">per sessie</p>
         </div>
+        <Button variant="outline" size="sm" className="gap-2" onClick={exportCsv} disabled={filtered.length === 0}>
+          <Download className="h-3.5 w-3.5" />
+          Export CSV
+        </Button>
       </div>
 
       {/* Filters */}
