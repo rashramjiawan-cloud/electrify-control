@@ -12,7 +12,7 @@ import { useTransactions } from '@/hooks/useTransactions';
 import { useAuditLog } from '@/hooks/useAuditLog';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 import { mockChargePoints } from '@/data/mockData';
-import { Zap, Plug, AlertTriangle, CheckCircle, Play, Square, Settings, Lock, Unlock, Loader2, RotateCcw, Radio, Trash2 } from 'lucide-react';
+import { Zap, Plug, AlertTriangle, CheckCircle, Play, Square, Settings, Lock, Unlock, Loader2, RotateCcw, Radio, Trash2, Wifi, WifiOff } from 'lucide-react';
 import AuditLogTable from '@/components/AuditLogTable';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
@@ -129,6 +129,13 @@ const Laadpalen = () => {
   const available = chargePoints.filter(cp => cp.status === 'Available').length;
   const charging = chargePoints.filter(cp => cp.status === 'Charging').length;
   const faulted = chargePoints.filter(cp => cp.status === 'Faulted').length;
+
+  const HEARTBEAT_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+  const isOnline = (lastHeartbeat: string | null) => {
+    if (!lastHeartbeat) return false;
+    return Date.now() - new Date(lastHeartbeat).getTime() < HEARTBEAT_TIMEOUT_MS;
+  };
+  const onlineCount = chargePoints.filter(cp => isOnline(cp.last_heartbeat)).length;
 
   // Find active transactions for a charge point
   const getActiveTransactions = (cpId: string) =>
@@ -357,7 +364,8 @@ const Laadpalen = () => {
         </CollapsibleContent>
       </Collapsible>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <StatCard title="Online" value={onlineCount} icon={Wifi} variant="primary" />
         <StatCard title="Beschikbaar" value={available} icon={CheckCircle} variant="primary" />
         <StatCard title="Laden" value={charging} icon={Zap} variant="primary" />
         <StatCard title="Storing" value={faulted} icon={AlertTriangle} variant={faulted > 0 ? 'destructive' : 'default'} />
@@ -370,16 +378,24 @@ const Laadpalen = () => {
           {chargePoints.map((cp) => {
             const activeTxs = getActiveTransactions(cp.id);
             const isCharging = cp.status === 'Charging';
+            const online = isOnline(cp.last_heartbeat);
 
             return (
               <div key={cp.id} className="rounded-xl border border-border bg-card overflow-hidden">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-border">
                   <div className="flex items-center gap-4">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                    <div className="relative flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                       <Zap className="h-5 w-5 text-primary" />
+                      <span className={`absolute -top-1 -right-1 h-3 w-3 rounded-full border-2 border-card ${online ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground/40'}`} />
                     </div>
                     <div>
-                      <h3 className="text-sm font-semibold text-foreground">{cp.name}</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-semibold text-foreground">{cp.name}</h3>
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${online ? 'bg-green-500/10 text-green-600' : 'bg-muted text-muted-foreground'}`}>
+                          {online ? <Wifi className="h-2.5 w-2.5" /> : <WifiOff className="h-2.5 w-2.5" />}
+                          {online ? 'Online' : 'Offline'}
+                        </span>
+                      </div>
                       <p className="font-mono text-xs text-muted-foreground">{cp.id} · {cp.vendor} {cp.model}</p>
                     </div>
                   </div>
