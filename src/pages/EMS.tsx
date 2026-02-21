@@ -16,13 +16,15 @@ const EMS = () => {
   const { data: readings } = useMeterReadings(enabledMeter?.id, 1);
 
   // Derive grid power and current from latest Shelly reading
-  const { liveGridPower, liveCurrent, liveVoltage } = useMemo(() => {
-    if (!readings?.length) return { liveGridPower: null, liveCurrent: null, liveVoltage: null };
+  const { liveGridPower, liveCurrent, liveVoltage, livePF, liveFreq } = useMemo(() => {
+    if (!readings?.length) return { liveGridPower: null, liveCurrent: null, liveVoltage: null, livePF: null, liveFreq: null };
     const r = readings[0];
     const power = r?.active_power != null ? +(r.active_power / 1000).toFixed(2) : null;
     const current = r?.current != null ? +Number(r.current).toFixed(1) : null;
     const voltage = r?.voltage != null ? +Number(r.voltage).toFixed(1) : null;
-    return { liveGridPower: power, liveCurrent: current, liveVoltage: voltage };
+    const pf = r?.power_factor != null ? +Number(r.power_factor).toFixed(2) : null;
+    const freq = r?.frequency != null ? +Number(r.frequency).toFixed(1) : null;
+    return { liveGridPower: power, liveCurrent: current, liveVoltage: voltage, livePF: pf, liveFreq: freq };
   }, [readings]);
 
   const gridPower = liveGridPower ?? mockEMS.gridPower;
@@ -36,7 +38,7 @@ const EMS = () => {
   const selfConsumption = totalConsumption > 0 ? Math.round(((solarPower + Math.abs(batteryPower)) / totalConsumption) * 100) : 0;
 
   const flowItems = [
-    { label: 'Grid Import', value: gridPower, unit: 'kW', icon: ArrowDownUp, color: 'text-foreground', live: isLive, ampere: liveCurrent, volt: liveVoltage },
+    { label: 'Grid Import', value: gridPower, unit: 'kW', icon: ArrowDownUp, color: 'text-foreground', live: isLive, ampere: liveCurrent, volt: liveVoltage, pf: livePF, freq: liveFreq },
     { label: 'Zonne-energie', value: solarPower, unit: 'kW', icon: Sun, color: 'text-primary', live: false },
     { label: 'Batterij', value: batteryPower, unit: 'kW', icon: BatteryCharging, color: batteryPower < 0 ? 'text-warning' : 'text-primary', live: false },
     { label: 'EV Laden', value: evPower, unit: 'kW', icon: Zap, color: 'text-foreground', live: false },
@@ -95,6 +97,16 @@ const EMS = () => {
               )}
               {'volt' in item && item.volt != null && (
                 <span className="font-mono text-sm text-muted-foreground">{item.volt} V</span>
+              )}
+              {('pf' in item && item.pf != null || 'freq' in item && item.freq != null) && (
+                <div className="flex items-center gap-2 mt-1">
+                  {'pf' in item && item.pf != null && (
+                    <span className="font-mono text-xs text-muted-foreground">PF {item.pf}</span>
+                  )}
+                  {'freq' in item && item.freq != null && (
+                    <span className="font-mono text-xs text-muted-foreground">{item.freq} Hz</span>
+                  )}
+                </div>
               )}
             </div>
           ))}
