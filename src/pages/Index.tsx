@@ -5,6 +5,7 @@ import { useChargePoints } from '@/hooks/useChargePoints';
 import { useTransactions } from '@/hooks/useTransactions';
 import { mockChargePoints, mockBatteries, mockEMS, mockTransactions } from '@/data/mockData';
 import { Zap, BatteryCharging, Sun, Activity, AlertTriangle } from 'lucide-react';
+import EnergyHistoryChart from '@/components/EnergyHistoryChart';
 
 const Dashboard = () => {
   const { data: dbChargePoints } = useChargePoints();
@@ -34,6 +35,10 @@ const Dashboard = () => {
         <StatCard title="Huidig vermogen" value={totalPower.toFixed(1)} unit="kW" icon={Activity} variant="primary" />
         <StatCard title="Zonne-energie" value={mockEMS.solarPower} unit="kW" icon={Sun} trend={{ value: 8, label: 'vandaag' }} />
         <StatCard title="Storingen" value={faultedCount} icon={AlertTriangle} variant={faultedCount > 0 ? 'destructive' : 'default'} />
+      </div>
+      {/* Energy History Chart */}
+      <div className="mb-8">
+        <EnergyHistoryChart />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
