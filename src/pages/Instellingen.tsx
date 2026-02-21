@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { Copy, Check, Wifi, Server, Shield, Info } from 'lucide-react';
 import AlertThresholdsSettings from '@/components/AlertThresholdsSettings';
 import DataRetentionSettings from '@/components/DataRetentionSettings';
+import NotificationChannelsSettings from '@/components/NotificationChannelsSettings';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const WS_URL = SUPABASE_URL?.replace('https://', 'wss://') + '/functions/v1/ocpp-ws';
@@ -207,6 +208,9 @@ const Instellingen = () => {
 
         {/* Alert Thresholds */}
         <AlertThresholdsSettings />
+
+        {/* Notification Channels */}
+        <NotificationChannelsSettings />
 
         {/* Data Retention */}
         <DataRetentionSettings />
