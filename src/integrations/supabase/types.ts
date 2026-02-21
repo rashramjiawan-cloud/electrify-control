@@ -585,6 +585,50 @@ export type Database = {
           },
         ]
       }
+      load_balance_logs: {
+        Row: {
+          allocations: Json
+          created_at: string
+          grid_id: string
+          grid_name: string
+          gtv_limit_kw: number
+          id: string
+          strategy: string
+          total_allocated_kw: number
+          total_available_kw: number
+        }
+        Insert: {
+          allocations?: Json
+          created_at?: string
+          grid_id: string
+          grid_name: string
+          gtv_limit_kw?: number
+          id?: string
+          strategy: string
+          total_allocated_kw?: number
+          total_available_kw?: number
+        }
+        Update: {
+          allocations?: Json
+          created_at?: string
+          grid_id?: string
+          grid_name?: string
+          gtv_limit_kw?: number
+          id?: string
+          strategy?: string
+          total_allocated_kw?: number
+          total_available_kw?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "load_balance_logs_grid_id_fkey"
+            columns: ["grid_id"]
+            isOneToOne: false
+            referencedRelation: "virtual_grids"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meter_readings: {
         Row: {
           active_power: number | null

@@ -48,10 +48,11 @@ Deno.serve(async (req) => {
 
       if (gridsErr) throw gridsErr;
 
-      const results = [];
+    const results = [];
       for (const grid of grids || []) {
         const result = await balanceGrid(supabase, grid, undefined);
         results.push(result);
+        await logResult(supabase, result);
       }
 
       console.log(`[auto-balance] Processed ${results.length} grids`);
@@ -76,6 +77,7 @@ Deno.serve(async (req) => {
     }
 
     const result = await balanceGrid(supabase, grid, available_power_kw);
+    await logResult(supabase, result);
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -154,6 +156,26 @@ async function balanceGrid(supabase: any, grid: any, overridePower?: number) {
     gtv_limit_kw: grid.gtv_limit_kw,
     allocations,
   };
+}
+
+// Log result to load_balance_logs table
+async function logResult(supabase: any, result: any) {
+  try {
+    const totalAllocated = (result.allocations || []).reduce(
+      (s: number, a: any) => s + (a.allocated_kw || 0), 0
+    );
+    await supabase.from("load_balance_logs").insert({
+      grid_id: result.grid_id,
+      grid_name: result.grid_name,
+      strategy: result.strategy,
+      total_available_kw: result.total_available_kw,
+      gtv_limit_kw: result.gtv_limit_kw,
+      total_allocated_kw: +totalAllocated.toFixed(2),
+      allocations: result.allocations,
+    });
+  } catch (e) {
+    console.error("[log-result] Failed to log balance result:", e);
+  }
 }
 
 // Proportional: distribute based on max_power_kw ratio
