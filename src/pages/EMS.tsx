@@ -1,5 +1,6 @@
 import AppLayout from '@/components/AppLayout';
 import StatCard from '@/components/StatCard';
+import MeterHistoryChart from '@/components/MeterHistoryChart';
 import { mockEMS } from '@/data/mockData';
 import { useEnergyMeters, useMeterReadings } from '@/hooks/useEnergyMeters';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
@@ -130,6 +131,11 @@ const EMS = () => {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Meter History Chart */}
+      <div className="mt-8">
+        <MeterHistoryChart />
       </div>
     </AppLayout>
   );
