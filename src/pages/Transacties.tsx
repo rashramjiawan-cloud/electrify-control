@@ -95,39 +95,39 @@ const Transacties = () => {
   return (
     <AppLayout title="Transacties" subtitle="Overzicht van alle laadsessies met kosten en energieverbruik">
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="rounded-xl border border-border bg-card p-4">
-          <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
-            <Receipt className="h-3.5 w-3.5" />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mb-4 md:mb-6">
+        <div className="rounded-xl border border-border bg-card p-2.5 md:p-4">
+          <div className="flex items-center gap-1.5 text-muted-foreground text-[10px] md:text-xs mb-0.5 md:mb-1">
+            <Receipt className="h-3 w-3 md:h-3.5 md:w-3.5" />
             Sessies
           </div>
-          <p className="text-2xl font-bold font-mono">{filtered.length}</p>
-          <p className="text-[10px] text-muted-foreground mt-1">
+          <p className="text-lg md:text-2xl font-bold font-mono">{filtered.length}</p>
+          <p className="text-[9px] md:text-[10px] text-muted-foreground mt-0.5">
             {activeCount} actief · {completedCount} voltooid
           </p>
         </div>
-        <div className="rounded-xl border border-border bg-card p-4">
-          <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
-            <Zap className="h-3.5 w-3.5" />
+        <div className="rounded-xl border border-border bg-card p-2.5 md:p-4">
+          <div className="flex items-center gap-1.5 text-muted-foreground text-[10px] md:text-xs mb-0.5 md:mb-1">
+            <Zap className="h-3 w-3 md:h-3.5 md:w-3.5" />
             Totaal energie
           </div>
-          <p className="text-2xl font-bold font-mono text-primary">{totalEnergy.toFixed(2)}</p>
-          <p className="text-[10px] text-muted-foreground mt-1">kWh</p>
+          <p className="text-lg md:text-2xl font-bold font-mono text-primary">{totalEnergy.toFixed(2)}</p>
+          <p className="text-[9px] md:text-[10px] text-muted-foreground mt-0.5">kWh</p>
         </div>
-        <div className="rounded-xl border border-border bg-card p-4">
-          <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
-            <Euro className="h-3.5 w-3.5" />
+        <div className="rounded-xl border border-border bg-card p-2.5 md:p-4">
+          <div className="flex items-center gap-1.5 text-muted-foreground text-[10px] md:text-xs mb-0.5 md:mb-1">
+            <Euro className="h-3 w-3 md:h-3.5 md:w-3.5" />
             Totaal kosten
           </div>
-          <p className="text-2xl font-bold font-mono">{formatCurrency(totalCost)}</p>
-          <p className="text-[10px] text-muted-foreground mt-1">excl. btw</p>
+          <p className="text-lg md:text-2xl font-bold font-mono">{formatCurrency(totalCost)}</p>
+          <p className="text-[9px] md:text-[10px] text-muted-foreground mt-0.5">excl. btw</p>
         </div>
-        <div className="rounded-xl border border-border bg-card p-4">
-          <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
-            <Clock className="h-3.5 w-3.5" />
+        <div className="rounded-xl border border-border bg-card p-2.5 md:p-4">
+          <div className="flex items-center gap-1.5 text-muted-foreground text-[10px] md:text-xs mb-0.5 md:mb-1">
+            <Clock className="h-3 w-3 md:h-3.5 md:w-3.5" />
             Gem. duur
           </div>
-          <p className="text-2xl font-bold font-mono">
+          <p className="text-lg md:text-2xl font-bold font-mono">
             {completedCount > 0
               ? (() => {
                   const totalMins = filtered
@@ -138,7 +138,7 @@ const Transacties = () => {
                 })()
               : '—'}
           </p>
-          <p className="text-[10px] text-muted-foreground mt-1">per sessie</p>
+          <p className="text-[9px] md:text-[10px] text-muted-foreground mt-0.5">per sessie</p>
         </div>
       </div>
 
