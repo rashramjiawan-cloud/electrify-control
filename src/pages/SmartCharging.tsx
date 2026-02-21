@@ -9,6 +9,7 @@ import { useChargePoints } from '@/hooks/useChargePoints';
 import { useChargingProfiles, useSetChargingProfile, useClearChargingProfile, type SchedulePeriod } from '@/hooks/useChargingProfiles';
 import { toast } from 'sonner';
 import { Zap, Plus, Trash2, Clock, Gauge, Play } from 'lucide-react';
+import PowerChart from '@/components/PowerChart';
 
 const SmartCharging = () => {
   const { data: chargePoints } = useChargePoints();
@@ -212,6 +213,9 @@ const SmartCharging = () => {
             </Button>
           </div>
         </div>
+
+        {/* Realtime power chart */}
+        <PowerChart />
 
         {/* Profiles list */}
         {isLoading ? (
