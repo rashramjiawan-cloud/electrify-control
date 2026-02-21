@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Copy, Check, Wifi, Server, Shield, Info } from 'lucide-react';
 import AlertThresholdsSettings from '@/components/AlertThresholdsSettings';
+import DataRetentionSettings from '@/components/DataRetentionSettings';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const WS_URL = SUPABASE_URL?.replace('https://', 'wss://') + '/functions/v1/ocpp-ws';
@@ -206,6 +207,9 @@ const Instellingen = () => {
 
         {/* Alert Thresholds */}
         <AlertThresholdsSettings />
+
+        {/* Data Retention */}
+        <DataRetentionSettings />
 
         {/* Security */}
         <div className="rounded-xl border border-border bg-card">
