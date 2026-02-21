@@ -159,6 +159,92 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Action: poll-all — poll ALL enabled meters in a loop (called by cron every minute)
+    if (action === 'poll-all') {
+      const { data: meters } = await supabase
+        .from('energy_meters')
+        .select('*')
+        .eq('enabled', true);
+
+      if (!meters?.length) {
+        return jsonRes({ success: true, message: 'Geen actieve meters gevonden' });
+      }
+
+      const pollOnce = async () => {
+        const results: any[] = [];
+        for (const meter of meters) {
+          if (!meter.host) continue;
+          try {
+            const shellyPort = meter.port || 80;
+            const resp = await fetch(`http://${meter.host}:${shellyPort}/rpc/Shelly.GetStatus`, {
+              signal: AbortSignal.timeout(5000),
+            });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const shellyData = await resp.json();
+
+            const channels: any[] = [];
+            for (const ch of [0, 1]) {
+              const emKey = `em1:${ch}`;
+              const emData = shellyData[emKey];
+              if (emData) {
+                const chData: any = {
+                  channel: ch,
+                  voltage: emData.voltage ?? null,
+                  current: emData.current ?? null,
+                  active_power: emData.act_power ?? null,
+                  apparent_power: emData.aprt_power ?? null,
+                  power_factor: emData.pf ?? null,
+                  frequency: emData.freq ?? null,
+                };
+                const dataKey = `em1data:${ch}`;
+                if (shellyData[dataKey]) {
+                  chData.total_energy = (shellyData[dataKey].total_act_energy ?? 0) / 1000;
+                }
+                channels.push(chData);
+              }
+            }
+
+            for (const ch of channels) {
+              await supabase.from('meter_readings').insert({
+                meter_id: meter.id,
+                channel: ch.channel,
+                voltage: ch.voltage,
+                current: ch.current,
+                active_power: ch.active_power,
+                apparent_power: ch.apparent_power,
+                power_factor: ch.power_factor,
+                frequency: ch.frequency,
+                total_energy: ch.total_energy,
+              });
+            }
+
+            await supabase.from('energy_meters').update({
+              last_reading: { channels, raw: shellyData.sys || {} },
+              last_poll_at: new Date().toISOString(),
+            }).eq('id', meter.id);
+
+            results.push({ meter_id: meter.id, name: meter.name, ok: true, channels: channels.length });
+          } catch (err) {
+            console.error(`Poll failed for ${meter.name}:`, err);
+            results.push({ meter_id: meter.id, name: meter.name, ok: false, error: String(err) });
+          }
+        }
+        return results;
+      };
+
+      // Poll 6 times with 10s interval (~60s total, cron fires every minute)
+      const allResults: any[] = [];
+      for (let i = 0; i < 6; i++) {
+        const res = await pollOnce();
+        allResults.push({ iteration: i + 1, timestamp: new Date().toISOString(), results: res });
+        if (i < 5) {
+          await new Promise(resolve => setTimeout(resolve, 10000));
+        }
+      }
+
+      return jsonRes({ success: true, polls: allResults });
+    }
+
     return jsonRes({ success: false, error: `Onbekende actie: ${action}` }, 400);
   } catch (error) {
     console.error('Shelly meter error:', error);
