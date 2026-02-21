@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import AppLayout from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,10 +9,24 @@ import { useChargePoints } from '@/hooks/useChargePoints';
 import { useChargingProfiles, useSetChargingProfile, useClearChargingProfile, type SchedulePeriod } from '@/hooks/useChargingProfiles';
 import { useChargingTariffs } from '@/hooks/useChargingTariffs';
 import { toast } from 'sonner';
-import { Zap, Plus, Trash2, Clock, Gauge, Play, Sun, BatteryCharging, Cable, Bolt, Euro } from 'lucide-react';
+import { Zap, Plus, Trash2, Clock, Gauge, Play, Sun, BatteryCharging, Cable, Bolt, Euro, GripVertical, Eye, EyeOff, Settings2 } from 'lucide-react';
 import PowerChart from '@/components/PowerChart';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+
+type ModuleId = 'power-chart' | 'profiles';
+
+interface ModuleConfig {
+  id: ModuleId;
+  label: string;
+  visible: boolean;
+}
+
+const DEFAULT_MODULES: ModuleConfig[] = [
+  { id: 'power-chart', label: 'Vermogensgrafiek', visible: true },
+  { id: 'profiles', label: 'Laadprofielen', visible: true },
+];
 
 const SmartCharging = () => {
   const { data: chargePoints } = useChargePoints();
@@ -34,6 +48,43 @@ const SmartCharging = () => {
   const [periods, setPeriods] = useState<SchedulePeriod[]>([
     { startPeriod: 0, limit: 7400 },
   ]);
+
+  const [modules, setModules] = useState<ModuleConfig[]>(() => {
+    try {
+      const saved = localStorage.getItem('sc-modules');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return DEFAULT_MODULES;
+  });
+  const dragItem = useRef<number | null>(null);
+  const dragOverItem = useRef<number | null>(null);
+
+  const saveModules = useCallback((mods: ModuleConfig[]) => {
+    setModules(mods);
+    localStorage.setItem('sc-modules', JSON.stringify(mods));
+  }, []);
+
+  const toggleModule = useCallback((id: ModuleId) => {
+    saveModules(modules.map(m => m.id === id ? { ...m, visible: !m.visible } : m));
+  }, [modules, saveModules]);
+
+  const handleDragStart = useCallback((idx: number) => {
+    dragItem.current = idx;
+  }, []);
+
+  const handleDragEnter = useCallback((idx: number) => {
+    dragOverItem.current = idx;
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    if (dragItem.current === null || dragOverItem.current === null) return;
+    const copy = [...modules];
+    const dragged = copy.splice(dragItem.current, 1)[0];
+    copy.splice(dragOverItem.current, 0, dragged);
+    dragItem.current = null;
+    dragOverItem.current = null;
+    saveModules(copy);
+  }, [modules, saveModules]);
 
   const addPeriod = () => {
     const lastEnd = periods.length > 0 ? periods[periods.length - 1].startPeriod + 3600 : 0;
@@ -225,6 +276,26 @@ const SmartCharging = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-muted-foreground">
+                  <Settings2 className="h-4 w-4" />
+                  Modules
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-3" align="end">
+                <p className="text-xs font-semibold text-foreground mb-2">Modules weergeven</p>
+                <div className="space-y-2">
+                  {modules.map(m => (
+                    <div key={m.id} className="flex items-center justify-between">
+                      <span className="text-sm text-foreground">{m.label}</span>
+                      <Switch checked={m.visible} onCheckedChange={() => toggleModule(m.id)} />
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-3">Sleep modules om de volgorde te wijzigen</p>
+              </PopoverContent>
+            </Popover>
             <Button variant="outline" className="gap-2" onClick={() => setSimDialogOpen(true)}>
               <Play className="h-4 w-4" />
               Simulatie
@@ -236,103 +307,124 @@ const SmartCharging = () => {
           </div>
         </div>
 
-        {/* Realtime power chart */}
-        <PowerChart />
+        {/* Draggable Modules */}
+        {modules.map((mod, idx) => {
+          if (!mod.visible) return null;
+          return (
+            <div
+              key={mod.id}
+              draggable
+              onDragStart={() => handleDragStart(idx)}
+              onDragEnter={() => handleDragEnter(idx)}
+              onDragEnd={handleDragEnd}
+              onDragOver={(e) => e.preventDefault()}
+              className="group relative"
+            >
+              <div className="absolute -left-7 top-3 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing z-10">
+                <GripVertical className="h-4 w-4 text-muted-foreground" />
+              </div>
 
-        {/* Profiles list */}
-        {isLoading ? (
-          <div className="text-center py-12 text-muted-foreground">Laden...</div>
-        ) : !profiles || profiles.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border bg-card p-12 text-center">
-            <Gauge className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">Geen actieve laadprofielen</p>
-            <p className="text-xs text-muted-foreground mt-1">Maak een profiel aan om het laadvermogen te sturen</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {profiles.map(profile => (
-              <div key={profile.id} className="rounded-xl border border-border bg-card overflow-hidden">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                      <Zap className="h-4 w-4 text-primary" />
+              {mod.id === 'power-chart' && <PowerChart />}
+
+              {mod.id === 'profiles' && (
+                <>
+                  {isLoading ? (
+                    <div className="text-center py-12 text-muted-foreground">Laden...</div>
+                  ) : !profiles || profiles.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-border bg-card p-12 text-center">
+                      <Gauge className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+                      <p className="text-sm text-muted-foreground">Geen actieve laadprofielen</p>
+                      <p className="text-xs text-muted-foreground mt-1">Maak een profiel aan om het laadvermogen te sturen</p>
                     </div>
-                    <div>
-                      <h3 className="text-sm font-semibold text-foreground">
-                        {getCpName(profile.charge_point_id)}
-                        <span className="ml-2 font-mono text-xs text-muted-foreground">
-                          Connector {profile.connector_id}
-                        </span>
-                      </h3>
-                      <p className="text-xs text-muted-foreground font-mono">
-                        {profile.charging_profile_purpose} · {profile.charging_profile_kind} · Stack {profile.stack_level}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center rounded-full bg-primary/10 text-primary px-2.5 py-0.5 text-[11px] font-medium">
-                      {profile.charging_schedule_unit === 'A' ? 'Ampère' : 'Watt'}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5 text-xs border-destructive/30 text-destructive hover:bg-destructive/10"
-                      onClick={() => handleClear(profile)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                      Verwijder
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Schedule periods visualization */}
-                <div className="px-5 py-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Schedule ({profile.schedule_periods.length} perioden)
-                    </span>
-                    {profile.duration && (
-                      <span className="text-xs text-muted-foreground">· Duur: {formatDuration(profile.duration)}</span>
-                    )}
-                  </div>
-
-                  <div className="space-y-1.5">
-                    {profile.schedule_periods.map((period, idx) => {
-                      const nextStart = idx < profile.schedule_periods.length - 1
-                        ? profile.schedule_periods[idx + 1].startPeriod
-                        : profile.duration || period.startPeriod + 3600;
-                      const periodDuration = nextStart - period.startPeriod;
-                      const maxLimit = Math.max(...profile.schedule_periods.map(p => p.limit));
-                      const widthPct = maxLimit > 0 ? (period.limit / maxLimit) * 100 : 100;
-
-                      return (
-                        <div key={idx} className="flex items-center gap-3">
-                          <span className="font-mono text-[11px] text-muted-foreground w-16 text-right shrink-0">
-                            {formatDuration(period.startPeriod)}
-                          </span>
-                          <div className="flex-1 h-7 bg-muted/30 rounded overflow-hidden relative">
-                            <div
-                              className="h-full bg-primary/20 border border-primary/30 rounded flex items-center px-2 transition-all"
-                              style={{ width: `${Math.max(widthPct, 10)}%` }}
-                            >
-                              <span className="font-mono text-[11px] font-semibold text-primary whitespace-nowrap">
-                                {formatLimit(period.limit, profile.charging_schedule_unit)}
+                  ) : (
+                    <div className="space-y-4">
+                      {profiles.map(profile => (
+                        <div key={profile.id} className="rounded-xl border border-border bg-card overflow-hidden">
+                          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+                            <div className="flex items-center gap-4">
+                              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                                <Zap className="h-4 w-4 text-primary" />
+                              </div>
+                              <div>
+                                <h3 className="text-sm font-semibold text-foreground">
+                                  {getCpName(profile.charge_point_id)}
+                                  <span className="ml-2 font-mono text-xs text-muted-foreground">
+                                    Connector {profile.connector_id}
+                                  </span>
+                                </h3>
+                                <p className="text-xs text-muted-foreground font-mono">
+                                  {profile.charging_profile_purpose} · {profile.charging_profile_kind} · Stack {profile.stack_level}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center rounded-full bg-primary/10 text-primary px-2.5 py-0.5 text-[11px] font-medium">
+                                {profile.charging_schedule_unit === 'A' ? 'Ampère' : 'Watt'}
                               </span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-1.5 text-xs border-destructive/30 text-destructive hover:bg-destructive/10"
+                                onClick={() => handleClear(profile)}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                                Verwijder
+                              </Button>
                             </div>
                           </div>
-                          <span className="font-mono text-[10px] text-muted-foreground w-12 shrink-0">
-                            {formatDuration(periodDuration)}
-                          </span>
+
+                          <div className="px-5 py-4">
+                            <div className="flex items-center gap-2 mb-3">
+                              <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                                Schedule ({profile.schedule_periods.length} perioden)
+                              </span>
+                              {profile.duration && (
+                                <span className="text-xs text-muted-foreground">· Duur: {formatDuration(profile.duration)}</span>
+                              )}
+                            </div>
+
+                            <div className="space-y-1.5">
+                              {profile.schedule_periods.map((period, idx2) => {
+                                const nextStart = idx2 < profile.schedule_periods.length - 1
+                                  ? profile.schedule_periods[idx2 + 1].startPeriod
+                                  : profile.duration || period.startPeriod + 3600;
+                                const periodDuration = nextStart - period.startPeriod;
+                                const maxLimitVal = Math.max(...profile.schedule_periods.map(p => p.limit));
+                                const widthPct = maxLimitVal > 0 ? (period.limit / maxLimitVal) * 100 : 100;
+
+                                return (
+                                  <div key={idx2} className="flex items-center gap-3">
+                                    <span className="font-mono text-[11px] text-muted-foreground w-16 text-right shrink-0">
+                                      {formatDuration(period.startPeriod)}
+                                    </span>
+                                    <div className="flex-1 h-7 bg-muted/30 rounded overflow-hidden relative">
+                                      <div
+                                        className="h-full bg-primary/20 border border-primary/30 rounded flex items-center px-2 transition-all"
+                                        style={{ width: `${Math.max(widthPct, 10)}%` }}
+                                      >
+                                        <span className="font-mono text-[11px] font-semibold text-primary whitespace-nowrap">
+                                          {formatLimit(period.limit, profile.charging_schedule_unit)}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <span className="font-mono text-[10px] text-muted-foreground w-12 shrink-0">
+                                      {formatDuration(periodDuration)}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* Create Profile Dialog */}
