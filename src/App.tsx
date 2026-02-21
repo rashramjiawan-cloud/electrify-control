@@ -18,6 +18,7 @@ import Firmware from "./pages/Firmware";
 import Reserveringen from "./pages/Reserveringen";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
+import AlertHistory from "./pages/AlertHistory";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -60,6 +61,7 @@ const AppRoutes = () => (
     <Route path="/smart-charging" element={<ProtectedRoute><SmartCharging /></ProtectedRoute>} />
     <Route path="/firmware" element={<ProtectedRoute><Firmware /></ProtectedRoute>} />
     <Route path="/reserveringen" element={<ProtectedRoute><Reserveringen /></ProtectedRoute>} />
+    <Route path="/alerts" element={<ProtectedRoute><AlertHistory /></ProtectedRoute>} />
     <Route path="/reset-password" element={<ResetPassword />} />
     <Route path="*" element={<NotFound />} />
   </Routes>

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface PhaseData {
   channel: number;
@@ -16,16 +17,11 @@ const THRESHOLDS = {
   pf: { min: 0.85, max: 1, unit: '', label: 'Power Factor' },
 };
 
-type AlertKey = string; // e.g. "voltage_high_ch0"
+type AlertKey = string;
 
-/**
- * Monitors per-phase grid data and fires toast alerts when values
- * fall outside configured thresholds. Debounces alerts so the same
- * alert is not repeated within the cooldown period.
- */
-export function useGridAlerts(phases: PhaseData[], isLive: boolean) {
+export function useGridAlerts(phases: PhaseData[], isLive: boolean, meterId?: string) {
   const firedRef = useRef<Map<AlertKey, number>>(new Map());
-  const COOLDOWN_MS = 60_000; // Don't repeat same alert within 60s
+  const COOLDOWN_MS = 60_000;
 
   useEffect(() => {
     if (!isLive || !phases.length) return;
@@ -36,13 +32,13 @@ export function useGridAlerts(phases: PhaseData[], isLive: boolean) {
     for (const phase of phases) {
       const ch = phase.channel;
 
-      const checks: { key: string; value: number | null; threshold: typeof THRESHOLDS.voltage }[] = [
-        { key: `voltage_ch${ch}`, value: phase.voltage, threshold: THRESHOLDS.voltage },
-        { key: `freq_ch${ch}`, value: phase.freq, threshold: THRESHOLDS.frequency },
-        { key: `pf_ch${ch}`, value: phase.pf, threshold: THRESHOLDS.pf },
+      const checks: { key: string; metric: string; value: number | null; threshold: typeof THRESHOLDS.voltage }[] = [
+        { key: `voltage_ch${ch}`, metric: 'voltage', value: phase.voltage, threshold: THRESHOLDS.voltage },
+        { key: `freq_ch${ch}`, metric: 'frequency', value: phase.freq, threshold: THRESHOLDS.frequency },
+        { key: `pf_ch${ch}`, metric: 'pf', value: phase.pf, threshold: THRESHOLDS.pf },
       ];
 
-      for (const { key, value, threshold } of checks) {
+      for (const { key, metric, value, threshold } of checks) {
         if (value == null) continue;
 
         let alertType: 'low' | 'high' | null = null;
@@ -56,18 +52,34 @@ export function useGridAlerts(phases: PhaseData[], isLive: boolean) {
           if (now - lastFired > COOLDOWN_MS) {
             fired.set(alertKey, now);
             const direction = alertType === 'low' ? 'te laag' : 'te hoog';
+
             toast({
               variant: 'destructive',
               title: `⚠️ ${threshold.label} ${direction} — Fase ${ch + 1}`,
               description: `${threshold.label} is ${value}${threshold.unit ? ' ' + threshold.unit : ''} (bereik: ${threshold.min}–${threshold.max}${threshold.unit ? ' ' + threshold.unit : ''})`,
             });
+
+            // Persist to database
+            if (meterId) {
+              supabase.from('grid_alerts').insert({
+                meter_id: meterId,
+                channel: ch,
+                metric,
+                value,
+                threshold_min: threshold.min,
+                threshold_max: threshold.max,
+                direction: alertType,
+                unit: threshold.unit,
+              } as any).then(({ error }) => {
+                if (error) console.error('Failed to save grid alert:', error);
+              });
+            }
           }
         } else {
-          // Value back to normal — clear cooldown for both directions
           fired.delete(`${key}_low`);
           fired.delete(`${key}_high`);
         }
       }
     }
-  }, [phases, isLive]);
+  }, [phases, isLive, meterId]);
 }

@@ -396,6 +396,56 @@ export type Database = {
           },
         ]
       }
+      grid_alerts: {
+        Row: {
+          acknowledged: boolean
+          channel: number
+          created_at: string
+          direction: string
+          id: number
+          meter_id: string | null
+          metric: string
+          threshold_max: number
+          threshold_min: number
+          unit: string
+          value: number
+        }
+        Insert: {
+          acknowledged?: boolean
+          channel?: number
+          created_at?: string
+          direction: string
+          id?: never
+          meter_id?: string | null
+          metric: string
+          threshold_max: number
+          threshold_min: number
+          unit?: string
+          value: number
+        }
+        Update: {
+          acknowledged?: boolean
+          channel?: number
+          created_at?: string
+          direction?: string
+          id?: never
+          meter_id?: string | null
+          metric?: string
+          threshold_max?: number
+          threshold_min?: number
+          unit?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grid_alerts_meter_id_fkey"
+            columns: ["meter_id"]
+            isOneToOne: false
+            referencedRelation: "energy_meters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       heartbeats: {
         Row: {
           charge_point_id: string
