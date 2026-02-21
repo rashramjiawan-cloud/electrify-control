@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Zap, LayoutDashboard, BatteryCharging, Cpu, Activity, Play, LogOut, Tag, Euro, Receipt, Settings, Gauge, HardDrive, CalendarClock, AlertTriangle, Sun, X } from 'lucide-react';
+import { Zap, LayoutDashboard, BatteryCharging, Cpu, Activity, Play, LogOut, Tag, Euro, Receipt, Settings, Gauge, HardDrive, CalendarClock, AlertTriangle, Sun, X, Network } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -16,6 +16,7 @@ const navItems = [
   { to: '/batterij', label: 'Batterij', icon: BatteryCharging },
   { to: '/zonne-energie', label: 'Zonne-energie', icon: Sun },
   { to: '/ems', label: 'EMS', icon: Cpu },
+  { to: '/virtual-grids', label: 'Virtuele Grids', icon: Network },
   { to: '/alerts', label: 'Alerts', icon: AlertTriangle },
   { to: '/simulator', label: 'Simulator', icon: Play, adminOnly: true },
   { to: '/instellingen', label: 'Instellingen', icon: Settings },
