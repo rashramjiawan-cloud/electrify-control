@@ -2,3 +2,6 @@ project_id = "lxdjtwxumzsyowdkahrt"
 
 [functions.grid-load-balancer]
 verify_jwt = false
+
+[functions.check-gtv-exceedance]
+verify_jwt = false
