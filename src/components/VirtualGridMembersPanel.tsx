@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { VirtualGrid, VirtualGridMember, useVirtualGridMembers, useAddGridMember, useRemoveGridMember } from '@/hooks/useVirtualGrids';
 import VirtualGridPowerWidget from '@/components/VirtualGridPowerWidget';
+import LoadBalancerButton from '@/components/LoadBalancerButton';
 import { useChargePoints } from '@/hooks/useChargePoints';
 import { useEnergyMeters } from '@/hooks/useEnergyMeters';
 import { Button } from '@/components/ui/button';
@@ -193,6 +194,9 @@ const VirtualGridMembersPanel = ({ grid }: Props) => {
 
       {/* Realtime power distribution widget */}
       <VirtualGridPowerWidget grid={grid} />
+
+      {/* Load balancer action */}
+      <LoadBalancerButton grid={grid} />
     </div>
   );
 };
