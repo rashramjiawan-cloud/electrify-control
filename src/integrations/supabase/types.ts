@@ -606,6 +606,36 @@ export type Database = {
           },
         ]
       }
+      notification_channels: {
+        Row: {
+          config: Json
+          created_at: string
+          enabled: boolean
+          id: string
+          name: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          name: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          name?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ocpp_audit_log: {
         Row: {
           action: string

@@ -60,6 +60,24 @@ export function useGridAlerts(phases: PhaseData[], isLive: boolean, meterId?: st
               description: `${threshold.label} is ${value}${threshold.unit ? ' ' + threshold.unit : ''} (bereik: ${threshold.min_value}–${threshold.max_value}${threshold.unit ? ' ' + threshold.unit : ''})`,
             });
 
+            // Send external notifications
+            supabase.functions.invoke('send-alert-notification', {
+              body: {
+                metric: threshold.metric,
+                label: threshold.label,
+                value,
+                unit: threshold.unit,
+                direction: alertType,
+                channel: ch,
+                meter_id: meterId,
+                threshold_min: threshold.min_value,
+                threshold_max: threshold.max_value,
+              },
+            }).then(({ error: notifError }) => {
+              if (notifError) console.error('Failed to send alert notification:', notifError);
+            });
+
+            // Persist to database
             if (meterId) {
               supabase.from('grid_alerts').insert({
                 meter_id: meterId,
