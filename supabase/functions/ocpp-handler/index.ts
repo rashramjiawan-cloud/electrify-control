@@ -144,6 +144,42 @@ async function handleStartTransaction(cpId: string, payload: Record<string, unkn
   };
 }
 
+async function getTariffForChargePoint(cpId: string) {
+  // First try charge-point-specific tariff
+  const { data: specificTariff } = await supabase
+    .from("charging_tariffs")
+    .select("*")
+    .eq("charge_point_id", cpId)
+    .eq("active", true)
+    .limit(1)
+    .maybeSingle();
+
+  if (specificTariff) return specificTariff;
+
+  // Fall back to default tariff
+  const { data: defaultTariff } = await supabase
+    .from("charging_tariffs")
+    .select("*")
+    .is("charge_point_id", null)
+    .eq("is_default", true)
+    .eq("active", true)
+    .limit(1)
+    .maybeSingle();
+
+  if (defaultTariff) return defaultTariff;
+
+  // Fall back to any active tariff without CP restriction
+  const { data: anyTariff } = await supabase
+    .from("charging_tariffs")
+    .select("*")
+    .is("charge_point_id", null)
+    .eq("active", true)
+    .limit(1)
+    .maybeSingle();
+
+  return anyTariff;
+}
+
 async function handleStopTransaction(cpId: string, payload: Record<string, unknown>) {
   const transactionId = payload.transactionId as number;
   const meterStop = payload.meterStop as number;
@@ -152,11 +188,32 @@ async function handleStopTransaction(cpId: string, payload: Record<string, unkno
   // Get transaction to calculate energy
   const { data: tx } = await supabase
     .from("transactions")
-    .select("meter_start")
+    .select("meter_start, start_time")
     .eq("id", transactionId)
     .single();
 
   const energyDelivered = tx ? (meterStop - (tx.meter_start as number)) / 1000 : 0; // Wh to kWh
+
+  // Calculate cost using tariff
+  let cost = 0;
+  const tariff = await getTariffForChargePoint(cpId);
+  if (tariff) {
+    cost = energyDelivered * (tariff.price_per_kwh as number);
+    cost += (tariff.start_fee as number) || 0;
+
+    // Calculate idle fee if applicable
+    if ((tariff.idle_fee_per_min as number) > 0 && tx?.start_time) {
+      const stopTime = timestamp ? new Date(timestamp) : new Date();
+      const startTime = new Date(tx.start_time as string);
+      const durationMin = (stopTime.getTime() - startTime.getTime()) / 60000;
+      // Only charge idle fee beyond reasonable charging time (assume 1 kW min charging speed)
+      const estimatedChargingMin = energyDelivered * 60; // rough estimate
+      const idleMin = Math.max(0, durationMin - estimatedChargingMin);
+      cost += idleMin * (tariff.idle_fee_per_min as number);
+    }
+
+    cost = Math.round(cost * 100) / 100; // Round to 2 decimals
+  }
 
   await supabase
     .from("transactions")
@@ -164,6 +221,7 @@ async function handleStopTransaction(cpId: string, payload: Record<string, unkno
       stop_time: timestamp || new Date().toISOString(),
       meter_stop: meterStop,
       energy_delivered: energyDelivered,
+      cost,
       status: "Completed",
     })
     .eq("id", transactionId);
