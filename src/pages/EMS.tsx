@@ -7,6 +7,7 @@ import { useEnergyMeters, useMeterReadings } from '@/hooks/useEnergyMeters';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 import { Cpu, Sun, Zap, BatteryCharging, ArrowDownUp, Radio } from 'lucide-react';
 import { useMemo } from 'react';
+import { useGridAlerts } from '@/hooks/useGridAlerts';
 
 const EMS = () => {
   // Realtime subscription (includes meter_readings)
@@ -50,6 +51,9 @@ const EMS = () => {
       isLive: phases.length > 0,
     };
   }, [readings]);
+
+  // Alert when voltage/frequency/PF out of range
+  useGridAlerts(phases, isLive);
 
   const gridPower = liveGridPower ?? mockEMS.gridPower;
 
