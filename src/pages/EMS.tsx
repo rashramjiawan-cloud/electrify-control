@@ -5,6 +5,7 @@ import GridDetailsPanel from '@/components/GridDetailsPanel';
 import EnergyFlowWidget from '@/components/EnergyFlowWidget';
 import GtvMonitorWidget from '@/components/GtvMonitorWidget';
 import LoadBalanceStatusWidget from '@/components/LoadBalanceStatusWidget';
+import LoadBalanceHistoryWidget from '@/components/LoadBalanceHistoryWidget';
 import { mockEMS } from '@/data/mockData';
 import { useEnergyMeters, useMeterReadings } from '@/hooks/useEnergyMeters';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
@@ -135,9 +136,10 @@ const EMS = () => {
         <GtvMonitorWidget />
       </div>
 
-      {/* Load Balance Status Widget */}
-      <div className="mt-8">
+      {/* Load Balance Status + History */}
+      <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
         <LoadBalanceStatusWidget />
+        <LoadBalanceHistoryWidget />
       </div>
 
       {/* Grid Details Panel */}
