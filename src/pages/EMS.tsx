@@ -53,7 +53,7 @@ const EMS = () => {
   }, [readings]);
 
   // Alert when voltage/frequency/PF out of range
-  useGridAlerts(phases, isLive);
+  useGridAlerts(phases, isLive, enabledMeter?.id);
 
   const gridPower = liveGridPower ?? mockEMS.gridPower;
 
