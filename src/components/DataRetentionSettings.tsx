@@ -7,10 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Trash2, Save, Loader2, Play } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+import CleanupConfirmDialog from '@/components/CleanupConfirmDialog';
 
 const RETENTION_KEYS = [
   { key: 'meter_data_retention_days', label: 'Meterdata & heartbeats', icon: '📊' },
@@ -105,26 +102,15 @@ const DataRetentionSettings = () => {
           <h2 className="text-sm font-semibold text-foreground">Data Retentie</h2>
           <p className="text-xs text-muted-foreground">Automatisch opschonen van oude data</p>
         </div>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
+        <CleanupConfirmDialog
+          onConfirm={runCleanupNow}
+          trigger={
             <Button variant="outline" size="sm" disabled={running} className="gap-1.5">
               {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
               Nu opschonen
             </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Data opschonen?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Alle records ouder dan de ingestelde retentieperiodes worden permanent verwijderd. Dit kan niet ongedaan worden gemaakt.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Annuleren</AlertDialogCancel>
-              <AlertDialogAction onClick={runCleanupNow}>Opschonen</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+          }
+        />
       </div>
       <div className="p-5 space-y-3">
         {isLoading ? (

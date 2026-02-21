@@ -16,6 +16,13 @@ serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+    // Check for dry_run mode (preview only, no deletes)
+    let dryRun = false;
+    try {
+      const body = await req.json();
+      dryRun = body?.dry_run === true;
+    } catch { /* no body or invalid json, proceed normally */ }
+
     // Fetch retention settings
     const { data: settings, error: settingsError } = await supabase
       .from("system_settings")
@@ -37,41 +44,62 @@ serve(async (req) => {
     const alertDays = getRetention("grid_alerts_retention_days", 180);
     const auditDays = getRetention("audit_log_retention_days", 365);
 
+    const meterCutoff = new Date(Date.now() - meterDays * 86400000).toISOString();
+    const alertCutoff = new Date(Date.now() - alertDays * 86400000).toISOString();
+    const auditCutoff = new Date(Date.now() - auditDays * 86400000).toISOString();
+
+    if (dryRun) {
+      // Count only, no deletes
+      const [mr, ga, al, mv, hb] = await Promise.all([
+        supabase.from("meter_readings").select("id", { count: "exact", head: true }).lt("timestamp", meterCutoff),
+        supabase.from("grid_alerts").select("id", { count: "exact", head: true }).lt("created_at", alertCutoff),
+        supabase.from("ocpp_audit_log").select("id", { count: "exact", head: true }).lt("created_at", auditCutoff),
+        supabase.from("meter_values").select("id", { count: "exact", head: true }).lt("timestamp", meterCutoff),
+        supabase.from("heartbeats").select("id", { count: "exact", head: true }).lt("received_at", meterCutoff),
+      ]);
+
+      return new Response(JSON.stringify({
+        dry_run: true,
+        meter_readings: mr.count ?? 0,
+        grid_alerts: ga.count ?? 0,
+        audit_log: al.count ?? 0,
+        meter_values: mv.count ?? 0,
+        heartbeats: hb.count ?? 0,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const results: Record<string, number> = {};
 
-    // Delete old meter_readings
     const { count: meterCount } = await supabase
       .from("meter_readings")
       .delete({ count: "exact" })
-      .lt("timestamp", new Date(Date.now() - meterDays * 86400000).toISOString());
+      .lt("timestamp", meterCutoff);
     results.meter_readings_deleted = meterCount ?? 0;
 
-    // Delete old grid_alerts
     const { count: alertCount } = await supabase
       .from("grid_alerts")
       .delete({ count: "exact" })
-      .lt("created_at", new Date(Date.now() - alertDays * 86400000).toISOString());
+      .lt("created_at", alertCutoff);
     results.grid_alerts_deleted = alertCount ?? 0;
 
-    // Delete old ocpp_audit_log
     const { count: auditCount } = await supabase
       .from("ocpp_audit_log")
       .delete({ count: "exact" })
-      .lt("created_at", new Date(Date.now() - auditDays * 86400000).toISOString());
+      .lt("created_at", auditCutoff);
     results.audit_log_deleted = auditCount ?? 0;
 
-    // Delete old meter_values
     const { count: mvCount } = await supabase
       .from("meter_values")
       .delete({ count: "exact" })
-      .lt("timestamp", new Date(Date.now() - meterDays * 86400000).toISOString());
+      .lt("timestamp", meterCutoff);
     results.meter_values_deleted = mvCount ?? 0;
 
-    // Delete old heartbeats
     const { count: hbCount } = await supabase
       .from("heartbeats")
       .delete({ count: "exact" })
-      .lt("received_at", new Date(Date.now() - meterDays * 86400000).toISOString());
+      .lt("received_at", meterCutoff);
     results.heartbeats_deleted = hbCount ?? 0;
 
     console.log("Cleanup completed:", results);
