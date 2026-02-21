@@ -13,6 +13,8 @@ export interface EnergyMeter {
   enabled: boolean;
   last_reading: any;
   last_poll_at: string | null;
+  auth_user: string | null;
+  auth_pass: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -100,9 +102,9 @@ export function useMeterReadings(meterId: string | undefined, limit = 60) {
 export function usePollMeter() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ meter_id, host, port }: { meter_id?: string; host: string; port?: number }) => {
+    mutationFn: async ({ meter_id, host, port, auth_user, auth_pass }: { meter_id?: string; host: string; port?: number; auth_user?: string; auth_pass?: string }) => {
       const { data, error } = await supabase.functions.invoke('shelly-meter', {
-        body: { action: 'poll', meter_id, host, port },
+        body: { action: 'poll', meter_id, host, port, auth_user, auth_pass },
       });
       if (error) throw error;
       return data;
@@ -116,9 +118,9 @@ export function usePollMeter() {
 
 export function useTestMeterConnection() {
   return useMutation({
-    mutationFn: async ({ host, port }: { host: string; port?: number }) => {
+    mutationFn: async ({ host, port, auth_user, auth_pass }: { host: string; port?: number; auth_user?: string; auth_pass?: string }) => {
       const { data, error } = await supabase.functions.invoke('shelly-meter', {
-        body: { action: 'test', host, port },
+        body: { action: 'test', host, port, auth_user, auth_pass },
       });
       if (error) throw error;
       return data;

@@ -72,7 +72,7 @@ const MeterItem = ({ meter, pollMeter, deleteMeter }: { meter: EnergyMeter; poll
             className="gap-1.5 text-xs"
             disabled={pollMeter.isPending}
             onClick={() => meter.host && pollMeter.mutate(
-              { meter_id: meter.id, host: meter.host!, port: meter.port },
+              { meter_id: meter.id, host: meter.host!, port: meter.port, auth_user: meter.auth_user || undefined, auth_pass: meter.auth_pass || undefined },
               {
                 onSuccess: (res: any) => {
                   if (res?.success) toast.success('Meterdata opgehaald (cloud)');
@@ -190,6 +190,8 @@ const SmartCharging = () => {
   const [meterPort, setMeterPort] = useState('80');
   const [meterName, setMeterName] = useState('Shelly PRO EM-50');
   const [meterConnType, setMeterConnType] = useState('tcp_ip');
+  const [meterAuthUser, setMeterAuthUser] = useState('');
+  const [meterAuthPass, setMeterAuthPass] = useState('');
   const [simDialogOpen, setSimDialogOpen] = useState(false);
   const [simView, setSimView] = useState<'list' | 'advanced'>('list');
   const [selectedCp, setSelectedCp] = useState('');
@@ -675,6 +677,24 @@ const SmartCharging = () => {
                 </div>
               </div>
             )}
+
+            {/* HTTP Basic Auth (optional) */}
+            <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Label className="text-xs font-semibold">HTTP Authenticatie (optioneel)</Label>
+                <span className="text-[10px] text-muted-foreground">Voor Shelly achter een beveiligde tunnel</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Gebruikersnaam</Label>
+                  <Input value={meterAuthUser} onChange={e => setMeterAuthUser(e.target.value)} placeholder="admin" className="text-sm" autoComplete="off" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Wachtwoord</Label>
+                  <Input value={meterAuthPass} onChange={e => setMeterAuthPass(e.target.value)} placeholder="••••••••" type="password" className="text-sm" autoComplete="off" />
+                </div>
+              </div>
+            </div>
           </div>
           <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button
@@ -682,7 +702,7 @@ const SmartCharging = () => {
               className="gap-1.5"
               disabled={!meterHost || testConnection.isPending}
               onClick={() => testConnection.mutate(
-                { host: meterHost, port: Number(meterPort) },
+                { host: meterHost, port: Number(meterPort), auth_user: meterAuthUser || undefined, auth_pass: meterAuthPass || undefined },
                 {
                   onSuccess: (res: any) => {
                     if (res?.success) {
@@ -707,12 +727,16 @@ const SmartCharging = () => {
                     connection_type: meterConnType,
                     host: meterHost,
                     port: Number(meterPort),
+                    auth_user: meterAuthUser || null,
+                    auth_pass: meterAuthPass || null,
                   },
                   {
                     onSuccess: () => {
                       toast.success('Meter toegevoegd');
                       setMeterDialogOpen(false);
                       setMeterHost('');
+                      setMeterAuthUser('');
+                      setMeterAuthPass('');
                     },
                     onError: () => toast.error('Fout bij toevoegen'),
                   }
