@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import AppLayout from '@/components/AppLayout';
-import { Euro } from 'lucide-react';
+import { Euro, Download } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
 import StatCard from '@/components/StatCard';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import { useAuditLog } from '@/hooks/useAuditLog';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 import { mockChargePoints } from '@/data/mockData';
 import { Zap, Plug, AlertTriangle, CheckCircle, Play, Square, Settings, Lock, Unlock, Loader2, RotateCcw, Radio, Trash2, Wifi, WifiOff } from 'lucide-react';
+import { downloadAsCsv } from '@/lib/csvExport';
 import AuditLogTable from '@/components/AuditLogTable';
 import ChargePointDonutCharts from '@/components/ChargePointDonutCharts';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -324,6 +325,40 @@ const Laadpalen = () => {
       setSending(false);
     }
   };
+  const handleExportCsv = () => {
+    const exportData = chargePoints.map(cp => ({
+      id: cp.id,
+      naam: cp.name,
+      status: cp.status,
+      online: isOnline(cp.last_heartbeat) ? 'Ja' : 'Nee',
+      model: cp.model ?? '',
+      fabrikant: cp.vendor ?? '',
+      serienummer: cp.serial_number ?? '',
+      firmware: cp.firmware_version ?? '',
+      locatie: cp.location ?? '',
+      max_vermogen_kw: cp.max_power ?? '',
+      energie_geleverd_kwh: cp.energy_delivered ?? '',
+      laatste_heartbeat: cp.last_heartbeat ?? '',
+      connectors: (cp.connectors || []).length,
+    }));
+
+    downloadAsCsv(exportData, `laadpalen_${new Date().toISOString().slice(0, 10)}.csv`, [
+      { key: 'id', label: 'ID' },
+      { key: 'naam', label: 'Naam' },
+      { key: 'status', label: 'Status' },
+      { key: 'online', label: 'Online' },
+      { key: 'model', label: 'Model' },
+      { key: 'fabrikant', label: 'Fabrikant' },
+      { key: 'serienummer', label: 'Serienummer' },
+      { key: 'firmware', label: 'Firmware' },
+      { key: 'locatie', label: 'Locatie' },
+      { key: 'max_vermogen_kw', label: 'Max Vermogen (kW)' },
+      { key: 'energie_geleverd_kwh', label: 'Energie Geleverd (kWh)' },
+      { key: 'laatste_heartbeat', label: 'Laatste Heartbeat' },
+      { key: 'connectors', label: 'Connectors' },
+    ]);
+    toast.success('CSV gedownload');
+  };
 
   return (
     <AppLayout title="Laadpalen" subtitle="OCPP 1.6J Charge Point Management">
@@ -334,13 +369,14 @@ const Laadpalen = () => {
       )}
 
       {/* OCPP Connection Info */}
-      <Collapsible>
-        <CollapsibleTrigger asChild>
-          <Button variant="outline" size="sm" className="mb-4 gap-2 text-xs">
-            <Plug className="h-3.5 w-3.5" />
-            Laadpaal verbinden (OCPP 1.6J)
-          </Button>
-        </CollapsibleTrigger>
+      <div className="flex items-center gap-2 mb-4">
+        <Collapsible>
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2 text-xs">
+              <Plug className="h-3.5 w-3.5" />
+              Laadpaal verbinden (OCPP 1.6J)
+            </Button>
+          </CollapsibleTrigger>
         <CollapsibleContent>
           <div className="mb-6 rounded-xl border border-border bg-card p-5 space-y-3">
             <h3 className="text-sm font-semibold text-foreground">Verbind een laadpaal via OCPP 1.6J WebSocket</h3>
@@ -363,8 +399,12 @@ const Laadpalen = () => {
             </div>
           </div>
         </CollapsibleContent>
-      </Collapsible>
-
+        </Collapsible>
+        <Button variant="outline" size="sm" className="gap-2 text-xs" onClick={handleExportCsv}>
+          <Download className="h-3.5 w-3.5" />
+          Export CSV
+        </Button>
+      </div>
       <ChargePointDonutCharts chargePoints={chargePoints as any} />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
