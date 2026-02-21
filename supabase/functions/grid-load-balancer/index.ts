@@ -36,16 +36,32 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { grid_id, available_power_kw } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const { grid_id, available_power_kw } = body;
 
+    // If no grid_id provided, process ALL enabled grids (batch/cron mode)
     if (!grid_id) {
-      return new Response(JSON.stringify({ error: "grid_id is required" }), {
-        status: 400,
+      const { data: grids, error: gridsErr } = await supabase
+        .from("virtual_grids")
+        .select("*")
+        .eq("enabled", true);
+
+      if (gridsErr) throw gridsErr;
+
+      const results = [];
+      for (const grid of grids || []) {
+        const result = await balanceGrid(supabase, grid, undefined);
+        results.push(result);
+      }
+
+      console.log(`[auto-balance] Processed ${results.length} grids`);
+
+      return new Response(JSON.stringify({ mode: "batch", grids_processed: results.length, results }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Fetch grid config
+    // Single grid mode (manual trigger)
     const { data: grid, error: gridErr } = await supabase
       .from("virtual_grids")
       .select("*")
@@ -59,51 +75,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch enabled members
-    const { data: members, error: memErr } = await supabase
-      .from("virtual_grid_members")
-      .select("*")
-      .eq("grid_id", grid_id)
-      .eq("enabled", true)
-      .order("priority", { ascending: true });
+    const result = await balanceGrid(supabase, grid, available_power_kw);
 
-    if (memErr) throw memErr;
-
-    const enabledMembers = (members || []) as GridMember[];
-    const totalAvailable = available_power_kw ?? grid.gtv_limit_kw ?? 0;
-
-    let allocations: BalanceResult[];
-
-    switch (grid.balancing_strategy) {
-      case "priority":
-        allocations = balancePriority(enabledMembers, totalAvailable);
-        break;
-      case "round_robin":
-        allocations = balanceRoundRobin(enabledMembers, totalAvailable);
-        break;
-      case "soc_based":
-        // SoC-based falls back to proportional for now (needs real SoC data)
-        allocations = balanceProportional(enabledMembers, totalAvailable);
-        break;
-      case "proportional":
-      default:
-        allocations = balanceProportional(enabledMembers, totalAvailable);
-        break;
-    }
-
-    return new Response(
-      JSON.stringify({
-        grid_id: grid.id,
-        grid_name: grid.name,
-        strategy: grid.balancing_strategy,
-        total_available_kw: totalAvailable,
-        gtv_limit_kw: grid.gtv_limit_kw,
-        allocations,
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (err) {
     return new Response(JSON.stringify({ error: String(err) }), {
       status: 500,
@@ -111,6 +87,74 @@ Deno.serve(async (req) => {
     });
   }
 });
+
+async function balanceGrid(supabase: any, grid: any, overridePower?: number) {
+  // Fetch enabled members
+  const { data: members, error: memErr } = await supabase
+    .from("virtual_grid_members")
+    .select("*")
+    .eq("grid_id", grid.id)
+    .eq("enabled", true)
+    .order("priority", { ascending: true });
+
+  if (memErr) throw memErr;
+
+  const enabledMembers = (members || []) as GridMember[];
+
+  // In batch mode, try to get actual meter power for the grid
+  let totalAvailable = overridePower ?? grid.gtv_limit_kw ?? 0;
+
+  // Look for energy_meter members to get real-time power
+  const meterMembers = enabledMembers.filter((m) => m.member_type === "energy_meter");
+  if (meterMembers.length > 0 && overridePower === undefined) {
+    const meterIds = meterMembers.map((m) => m.member_id);
+    const { data: meters } = await supabase
+      .from("energy_meters")
+      .select("id, last_reading")
+      .in("id", meterIds);
+
+    if (meters && meters.length > 0) {
+      let totalMeterPower = 0;
+      for (const meter of meters) {
+        const reading = meter.last_reading as any;
+        if (reading?.active_power !== undefined) {
+          totalMeterPower += Math.abs(Number(reading.active_power) || 0);
+        }
+      }
+      // Available = GTV limit minus current meter usage
+      if (totalMeterPower > 0) {
+        totalAvailable = Math.max(0, (grid.gtv_limit_kw ?? 0) - totalMeterPower / 1000);
+      }
+    }
+  }
+
+  let allocations: BalanceResult[];
+
+  switch (grid.balancing_strategy) {
+    case "priority":
+      allocations = balancePriority(enabledMembers, totalAvailable);
+      break;
+    case "round_robin":
+      allocations = balanceRoundRobin(enabledMembers, totalAvailable);
+      break;
+    case "soc_based":
+      allocations = balanceProportional(enabledMembers, totalAvailable);
+      break;
+    case "proportional":
+    default:
+      allocations = balanceProportional(enabledMembers, totalAvailable);
+      break;
+  }
+
+  return {
+    grid_id: grid.id,
+    grid_name: grid.name,
+    strategy: grid.balancing_strategy,
+    total_available_kw: +totalAvailable.toFixed(2),
+    gtv_limit_kw: grid.gtv_limit_kw,
+    allocations,
+  };
+}
 
 // Proportional: distribute based on max_power_kw ratio
 function balanceProportional(members: GridMember[], totalKw: number): BalanceResult[] {
