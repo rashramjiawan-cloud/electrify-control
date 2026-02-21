@@ -5,6 +5,9 @@ import {
 } from 'recharts';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Download } from 'lucide-react';
+import { downloadReadingsAsCsv } from '@/lib/csvExport';
 
 type TimeRange = '1h' | '6h' | '24h';
 const RANGE_LIMITS: Record<TimeRange, number> = { '1h': 360, '6h': 2160, '24h': 8640 };
@@ -102,6 +105,23 @@ const MeterHistoryChart = () => {
               <TabsTrigger value="24h" className="text-xs px-3 h-6">24u</TabsTrigger>
             </TabsList>
           </Tabs>
+
+          {/* CSV Export */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs gap-1.5"
+            disabled={!readings?.length}
+            onClick={() => {
+              if (!readings?.length) return;
+              const meterName = meters?.find(m => m.id === meterId)?.name || 'meter';
+              const safeName = meterName.replace(/[^a-zA-Z0-9]/g, '_');
+              downloadReadingsAsCsv(readings, `${safeName}_${range}.csv`);
+            }}
+          >
+            <Download className="h-3.5 w-3.5" />
+            CSV
+          </Button>
         </div>
       </div>
 

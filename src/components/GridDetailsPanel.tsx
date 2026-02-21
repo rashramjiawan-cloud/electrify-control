@@ -4,6 +4,9 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
 } from 'recharts';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Download } from 'lucide-react';
+import { downloadReadingsAsCsv } from '@/lib/csvExport';
 
 type TimeRange = '1h' | '6h' | '24h';
 const RANGE_LIMITS: Record<TimeRange, number> = { '1h': 720, '6h': 4320, '24h': 17280 };
@@ -164,13 +167,28 @@ const GridDetailsPanel = () => {
             {channels.length > 1 && ` · ${channels.length} fasen`}
           </p>
         </div>
-        <Tabs value={range} onValueChange={(v) => setRange(v as TimeRange)}>
-          <TabsList className="h-8">
-            <TabsTrigger value="1h" className="text-xs px-3 h-6">1u</TabsTrigger>
-            <TabsTrigger value="6h" className="text-xs px-3 h-6">6u</TabsTrigger>
-            <TabsTrigger value="24h" className="text-xs px-3 h-6">24u</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="flex items-center gap-3">
+          <Tabs value={range} onValueChange={(v) => setRange(v as TimeRange)}>
+            <TabsList className="h-8">
+              <TabsTrigger value="1h" className="text-xs px-3 h-6">1u</TabsTrigger>
+              <TabsTrigger value="6h" className="text-xs px-3 h-6">6u</TabsTrigger>
+              <TabsTrigger value="24h" className="text-xs px-3 h-6">24u</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs gap-1.5"
+            disabled={!readings?.length}
+            onClick={() => {
+              if (!readings?.length) return;
+              downloadReadingsAsCsv(readings, `grid_details_${range}.csv`);
+            }}
+          >
+            <Download className="h-3.5 w-3.5" />
+            CSV
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
