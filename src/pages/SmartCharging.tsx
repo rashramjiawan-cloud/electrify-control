@@ -648,8 +648,9 @@ const SmartCharging = () => {
             {meterConnType === 'tcp_ip' ? (
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2 space-y-1.5">
-                  <Label className="text-xs">IP-adres</Label>
-                  <Input value={meterHost} onChange={e => setMeterHost(e.target.value)} placeholder="192.168.1.100" className="font-mono text-sm" />
+                  <Label className="text-xs">Host (IP-adres of tunnel URL)</Label>
+                  <Input value={meterHost} onChange={e => setMeterHost(e.target.value)} placeholder="192.168.1.100 of shelly.jouwdomein.nl" className="font-mono text-sm" />
+                  <p className="text-[10px] text-muted-foreground">IP-adres voor lokaal netwerk, of een tunnel URL (Cloudflare/ngrok) voor cloud-toegang</p>
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Poort</Label>
@@ -660,12 +661,12 @@ const SmartCharging = () => {
               <div className="rounded-lg border border-border bg-muted/30 p-4">
                 <p className="text-xs text-muted-foreground">
                   RS485/Modbus wordt ondersteund via een Modbus-TCP gateway (bijv. USR-TCP232). 
-                  Configureer de gateway en voer het IP-adres in.
+                  Configureer de gateway en voer het IP-adres of de tunnel URL in.
                 </p>
                 <div className="grid grid-cols-3 gap-3 mt-3">
                   <div className="col-span-2 space-y-1.5">
-                    <Label className="text-xs">Gateway IP</Label>
-                    <Input value={meterHost} onChange={e => setMeterHost(e.target.value)} placeholder="192.168.1.200" className="font-mono text-sm" />
+                    <Label className="text-xs">Gateway host (IP of tunnel URL)</Label>
+                    <Input value={meterHost} onChange={e => setMeterHost(e.target.value)} placeholder="192.168.1.200 of gateway.jouwdomein.nl" className="font-mono text-sm" />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">Poort</Label>

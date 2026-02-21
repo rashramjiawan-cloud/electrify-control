@@ -29,7 +29,9 @@ export function useLocalPoll() {
     }
 
     const port = meter.port || 80;
-    const url = `http://${meter.host}:${port}/rpc/Shelly.GetStatus`;
+    const isIp = /^(\d{1,3}\.){3}\d{1,3}$/.test(meter.host);
+    const baseUrl = isIp ? `http://${meter.host}:${port}` : `https://${meter.host}`;
+    const url = `${baseUrl}/rpc/Shelly.GetStatus`;
 
     try {
       const resp = await fetch(url, { signal: AbortSignal.timeout(5000) });

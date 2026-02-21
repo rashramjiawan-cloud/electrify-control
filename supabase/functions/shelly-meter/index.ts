@@ -17,16 +17,25 @@ Deno.serve(async (req) => {
 
     const { action, meter_id, host, port, channel } = await req.json();
 
+    // Helper: build base URL — use https for hostnames (tunnel), http for IPs
+    const buildBaseUrl = (h: string, p: number) => {
+      const isIp = /^(\d{1,3}\.){3}\d{1,3}$/.test(h);
+      const protocol = isIp ? 'http' : 'https';
+      // For tunnel URLs, ignore port (tunnel handles routing)
+      return isIp ? `${protocol}://${h}:${p}` : `${protocol}://${h}`;
+    };
+
     // Action: poll — fetch live data from Shelly device via HTTP RPC
     if (action === 'poll') {
       if (!host) {
-        return jsonRes({ success: false, error: 'Host (IP) is vereist' }, 400);
+        return jsonRes({ success: false, error: 'Host is vereist' }, 400);
       }
 
       const shellyPort = port || 80;
+      const baseUrl = buildBaseUrl(host, shellyPort);
 
       // Shelly PRO EM-50 Gen2 RPC: get status of all components
-      const statusUrl = `http://${host}:${shellyPort}/rpc/Shelly.GetStatus`;
+      const statusUrl = `${baseUrl}/rpc/Shelly.GetStatus`;
       console.log(`Polling Shelly at ${statusUrl}`);
 
       let shellyData: any;
@@ -109,12 +118,13 @@ Deno.serve(async (req) => {
     // Action: test — verify connection to Shelly device
     if (action === 'test') {
       if (!host) {
-        return jsonRes({ success: false, error: 'Host (IP) is vereist' }, 400);
+        return jsonRes({ success: false, error: 'Host is vereist' }, 400);
       }
 
       const shellyPort = port || 80;
+      const baseUrl = buildBaseUrl(host, shellyPort);
       try {
-        const resp = await fetch(`http://${host}:${shellyPort}/shelly`, {
+        const resp = await fetch(`${baseUrl}/shelly`, {
           signal: AbortSignal.timeout(5000),
         });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -142,13 +152,14 @@ Deno.serve(async (req) => {
     // Action: get_em_data — get historical energy data
     if (action === 'get_em_data') {
       if (!host) {
-        return jsonRes({ success: false, error: 'Host (IP) is vereist' }, 400);
+        return jsonRes({ success: false, error: 'Host is vereist' }, 400);
       }
       const ch = channel ?? 0;
       const shellyPort = port || 80;
+      const baseUrl = buildBaseUrl(host, shellyPort);
       try {
         const resp = await fetch(
-          `http://${host}:${shellyPort}/rpc/EM1Data.GetStatus?id=${ch}`,
+          `${baseUrl}/rpc/EM1Data.GetStatus?id=${ch}`,
           { signal: AbortSignal.timeout(5000) },
         );
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -176,7 +187,8 @@ Deno.serve(async (req) => {
           if (!meter.host) continue;
           try {
             const shellyPort = meter.port || 80;
-            const resp = await fetch(`http://${meter.host}:${shellyPort}/rpc/Shelly.GetStatus`, {
+            const meterBaseUrl = buildBaseUrl(meter.host, shellyPort);
+            const resp = await fetch(`${meterBaseUrl}/rpc/Shelly.GetStatus`, {
               signal: AbortSignal.timeout(5000),
             });
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
