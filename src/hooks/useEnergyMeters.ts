@@ -15,6 +15,7 @@ export interface EnergyMeter {
   last_poll_at: string | null;
   auth_user: string | null;
   auth_pass: string | null;
+  meter_type: string;
   created_at: string;
   updated_at: string;
 }
