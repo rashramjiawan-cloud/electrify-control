@@ -6,6 +6,7 @@ import { usePVMeters, usePVReadings, usePVDailyYield, usePVRealtime } from '@/ho
 import { Sun, Zap, Activity, Gauge, Radio } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import PVProductionChart from '@/components/PVProductionChart';
+import PVMonthlyYieldChart from '@/components/PVMonthlyYieldChart';
 
 const ZonneEnergie = () => {
   const queryClient = useQueryClient();
@@ -144,6 +145,13 @@ const ZonneEnergie = () => {
       {activeMeter && (
         <div className="mb-8">
           <PVProductionChart meterId={activeMeter.id} meterName={activeMeter.name} />
+        </div>
+      )}
+
+      {/* Monthly yield bar chart */}
+      {activeMeter && (
+        <div className="mb-8">
+          <PVMonthlyYieldChart meterId={activeMeter.id} />
         </div>
       )}
 
