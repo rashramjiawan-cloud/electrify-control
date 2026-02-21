@@ -2,9 +2,11 @@ import AppLayout from '@/components/AppLayout';
 import StatCard from '@/components/StatCard';
 import MeterHistoryChart from '@/components/MeterHistoryChart';
 import GridDetailsPanel from '@/components/GridDetailsPanel';
+import EnergyFlowWidget from '@/components/EnergyFlowWidget';
 import { mockEMS } from '@/data/mockData';
 import { useEnergyMeters, useMeterReadings } from '@/hooks/useEnergyMeters';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
+import { useEnergyFlows } from '@/hooks/useEnergyFlows';
 import { Cpu, Sun, Zap, BatteryCharging, ArrowDownUp, Radio } from 'lucide-react';
 import { useMemo } from 'react';
 import { useGridAlerts } from '@/hooks/useGridAlerts';
@@ -55,21 +57,18 @@ const EMS = () => {
   // Alert when voltage/frequency/PF out of range
   useGridAlerts(phases, isLive, enabledMeter?.id);
 
-  const gridPower = liveGridPower ?? mockEMS.gridPower;
+  // Use real energy flows where available, fall back to mock
+  const { flows } = useEnergyFlows();
+  const gridFlow = flows.find(f => f.type === 'grid');
+  const pvFlow = flows.find(f => f.type === 'pv');
+  const batFlow = flows.find(f => f.type === 'battery');
 
-  // Recalculate totals when live data available
-  const solarPower = mockEMS.solarPower;
-  const batteryPower = mockEMS.batteryPower;
+  const gridPower = gridFlow?.totalPowerKw ?? (liveGridPower ?? mockEMS.gridPower);
+  const solarPower = pvFlow?.totalPowerKw ?? mockEMS.solarPower;
+  const batteryPower = batFlow?.totalPowerKw ?? mockEMS.batteryPower;
   const evPower = mockEMS.evPower;
   const totalConsumption = solarPower + Math.abs(batteryPower) + gridPower;
   const selfConsumption = totalConsumption > 0 ? Math.round(((solarPower + Math.abs(batteryPower)) / totalConsumption) * 100) : 0;
-
-  const flowItems = [
-    { label: 'Grid Import', value: gridPower, unit: 'kW', icon: ArrowDownUp, color: 'text-foreground', live: isLive, phases },
-    { label: 'Zonne-energie', value: solarPower, unit: 'kW', icon: Sun, color: 'text-primary', live: false, phases: [] as any[] },
-    { label: 'Batterij', value: batteryPower, unit: 'kW', icon: BatteryCharging, color: batteryPower < 0 ? 'text-warning' : 'text-primary', live: false, phases: [] as any[] },
-    { label: 'EV Laden', value: evPower, unit: 'kW', icon: Zap, color: 'text-foreground', live: false, phases: [] as any[] },
-  ];
 
   return (
     <AppLayout title="Energy Management System" subtitle="Realtime energiebalans en optimalisatie">
@@ -126,80 +125,8 @@ const EMS = () => {
         </div>
       )}
 
-      {/* Energy Flow Diagram */}
-      <div className="rounded-xl border border-border bg-card p-8">
-        <h2 className="text-sm font-semibold text-foreground mb-8">Energieflow</h2>
-        
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-          {flowItems.map((item) => (
-            <div key={item.label} className="flex flex-col items-center text-center p-6 rounded-xl bg-muted/50 border border-border relative">
-              {item.live && (
-                <div className="absolute top-3 right-3">
-                  <Radio className="h-3.5 w-3.5 text-primary animate-pulse" />
-                </div>
-              )}
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 mb-4">
-                <item.icon className="h-7 w-7 text-primary" />
-              </div>
-              <span className="text-xs text-muted-foreground mb-1">{item.label}</span>
-              <span className={`font-mono text-2xl font-bold ${item.color}`}>
-                {item.value > 0 && item.label === 'Batterij' ? '+' : ''}{item.value}
-              </span>
-              <span className="font-mono text-xs text-muted-foreground">{item.unit}</span>
-              {item.phases.length > 0 && (
-                <div className="flex flex-col gap-0.5 mt-2 text-left w-full">
-                  {item.phases.map((p: any) => (
-                    <div key={p.channel} className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
-                      <span className="font-semibold text-foreground">F{p.channel + 1}</span>
-                      {p.current != null && <span>{p.current}A</span>}
-                      {p.voltage != null && <span>{p.voltage}V</span>}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* Balance Bar */}
-        <div className="mt-8">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-muted-foreground">Energiebalans</span>
-            <span className="font-mono text-xs text-primary">{selfConsumption}% eigen verbruik</span>
-          </div>
-          <div className="h-4 rounded-full bg-muted overflow-hidden flex">
-            <div
-              className="bg-primary h-full transition-all duration-700"
-              style={{ width: `${totalConsumption > 0 ? (solarPower / totalConsumption) * 100 : 0}%` }}
-              title="Zon"
-            />
-            <div
-              className="bg-warning h-full transition-all duration-700"
-              style={{ width: `${totalConsumption > 0 ? (Math.abs(batteryPower) / totalConsumption) * 100 : 0}%` }}
-              title="Batterij"
-            />
-            <div
-              className="bg-muted-foreground/30 h-full transition-all duration-700"
-              style={{ width: `${totalConsumption > 0 ? (gridPower / totalConsumption) * 100 : 0}%` }}
-              title="Grid"
-            />
-          </div>
-          <div className="flex items-center gap-6 mt-3">
-            <div className="flex items-center gap-2">
-              <div className="h-2.5 w-2.5 rounded-sm bg-primary" />
-              <span className="text-xs text-muted-foreground">Zon</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="h-2.5 w-2.5 rounded-sm bg-warning" />
-              <span className="text-xs text-muted-foreground">Batterij</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="h-2.5 w-2.5 rounded-sm bg-muted-foreground/30" />
-              <span className="text-xs text-muted-foreground">Grid</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Energy Flow Diagram - reusable widget */}
+      <EnergyFlowWidget />
 
       {/* Grid Details Panel */}
       <div className="mt-8">
