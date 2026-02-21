@@ -3,8 +3,10 @@ import StatCard from '@/components/StatCard';
 import StatusBadge from '@/components/StatusBadge';
 import { useChargePoints } from '@/hooks/useChargePoints';
 import { useTransactions } from '@/hooks/useTransactions';
+import { useSystemSettings } from '@/hooks/useSystemSettings';
+import { useEnergyFlows } from '@/hooks/useEnergyFlows';
 import { mockChargePoints, mockBatteries, mockEMS, mockTransactions } from '@/data/mockData';
-import { Zap, BatteryCharging, Sun, Activity, AlertTriangle } from 'lucide-react';
+import { Zap, BatteryCharging, Sun, Activity, AlertTriangle, Gauge } from 'lucide-react';
 import EnergyHistoryChart from '@/components/EnergyHistoryChart';
 import DataRetentionWidget from '@/components/DataRetentionWidget';
 import GtvMonitorWidget from '@/components/GtvMonitorWidget';
@@ -12,6 +14,8 @@ import GtvMonitorWidget from '@/components/GtvMonitorWidget';
 const Dashboard = () => {
   const { data: dbChargePoints } = useChargePoints();
   const { data: dbTransactions } = useTransactions(5);
+  const { getSetting } = useSystemSettings();
+  const { flows } = useEnergyFlows();
 
   const hasDbCp = dbChargePoints && dbChargePoints.length > 0;
   const hasDbTx = dbTransactions && dbTransactions.length > 0;
@@ -25,6 +29,16 @@ const Dashboard = () => {
   const faultedCount = cpList.filter(cp => cp.status === 'Faulted').length;
   const totalPower = hasDbCp ? 0 : mockChargePoints.reduce((acc, cp) => acc + cp.connectors.reduce((a, c) => a + c.currentPower, 0), 0);
 
+  // GTV usage
+  const gtvImport = Number(getSetting('gtv_import_kw')?.value ?? 150);
+  const gtvExport = Number(getSetting('gtv_export_kw')?.value ?? 150);
+  const gridFlow = flows.find(f => f.type === 'grid');
+  const currentPowerKw = gridFlow?.totalPowerKw ?? 0;
+  const isImporting = currentPowerKw >= 0;
+  const activeGtvLimit = isImporting ? gtvImport : gtvExport;
+  const gtvUsagePct = activeGtvLimit > 0 ? Math.round((Math.abs(currentPowerKw) / activeGtvLimit) * 100) : 0;
+  const gtvVariant = gtvUsagePct >= 100 ? 'destructive' : gtvUsagePct >= 80 ? 'warning' : 'default';
+
   // Transactions
   const txList = hasDbTx
     ? dbTransactions.map(tx => ({ id: tx.id, idTag: tx.id_tag, startTime: tx.start_time, energyDelivered: tx.energy_delivered, cost: tx.cost, status: tx.status }))
@@ -32,11 +46,12 @@ const Dashboard = () => {
 
   return (
     <AppLayout title="Dashboard" subtitle="Overzicht van je energiesysteem">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         <StatCard title="Actief laden" value={chargingCount} unit={`/ ${cpList.length}`} icon={Zap} variant="primary" />
         <StatCard title="Huidig vermogen" value={totalPower.toFixed(1)} unit="kW" icon={Activity} variant="primary" />
         <StatCard title="Zonne-energie" value={mockEMS.solarPower} unit="kW" icon={Sun} trend={{ value: 8, label: 'vandaag' }} />
         <StatCard title="Storingen" value={faultedCount} icon={AlertTriangle} variant={faultedCount > 0 ? 'destructive' : 'default'} />
+        <StatCard title="GTV-gebruik" value={gtvUsagePct} unit={`% / ${activeGtvLimit} kW`} icon={Gauge} variant={gtvVariant as any} />
       </div>
       {/* Energy History Chart */}
       <div className="mb-8">
