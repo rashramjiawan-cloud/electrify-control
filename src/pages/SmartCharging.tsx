@@ -9,12 +9,12 @@ import { useChargePoints } from '@/hooks/useChargePoints';
 import { useChargingProfiles, useSetChargingProfile, useClearChargingProfile, type SchedulePeriod } from '@/hooks/useChargingProfiles';
 import { useChargingTariffs } from '@/hooks/useChargingTariffs';
 import { toast } from 'sonner';
-import { Zap, Plus, Trash2, Clock, Gauge, Play, Sun, BatteryCharging, Cable, Bolt, Euro, GripVertical, Eye, EyeOff, Settings2, Activity, Send, Power, PowerOff, RefreshCw } from 'lucide-react';
+import { Zap, Plus, Trash2, Clock, Gauge, Play, Sun, BatteryCharging, Cable, Bolt, Euro, GripVertical, Eye, EyeOff, Settings2, Activity, Send, Power, PowerOff, RefreshCw, Pencil } from 'lucide-react';
 import PowerChart from '@/components/PowerChart';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { useEnergyMeters, useCreateMeter, useDeleteMeter, usePollMeter, useTestMeterConnection, type EnergyMeter } from '@/hooks/useEnergyMeters';
+import { useEnergyMeters, useCreateMeter, useUpdateMeter, useDeleteMeter, usePollMeter, useTestMeterConnection, type EnergyMeter } from '@/hooks/useEnergyMeters';
 import { useLocalAutoPoll } from '@/hooks/useLocalPoll';
 
 type ModuleId = 'power-chart' | 'profiles' | 'shelly-meter' | 'ems-auto';
@@ -33,7 +33,7 @@ const DEFAULT_MODULES: ModuleConfig[] = [
 ];
 
 // Extracted meter item with local poll hook (hooks must be at top level)
-const MeterItem = ({ meter, pollMeter, deleteMeter }: { meter: EnergyMeter; pollMeter: any; deleteMeter: any }) => {
+const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit }: { meter: EnergyMeter; pollMeter: any; deleteMeter: any; onEdit: (meter: EnergyMeter) => void }) => {
   const [localActive, setLocalActive] = useState(false);
   const localAutoRef = useLocalAutoPoll(localActive ? meter : undefined, 10000);
 
@@ -85,6 +85,14 @@ const MeterItem = ({ meter, pollMeter, deleteMeter }: { meter: EnergyMeter; poll
           >
             <Zap className="h-3 w-3" />
             {pollMeter.isPending ? 'Ophalen...' : 'Cloud Poll'}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+            onClick={() => onEdit(meter)}
+          >
+            <Pencil className="h-3 w-3" />
           </Button>
           <Button
             variant="ghost"
@@ -181,12 +189,14 @@ const SmartCharging = () => {
   const clearProfile = useClearChargingProfile();
   const { data: meters } = useEnergyMeters();
   const createMeter = useCreateMeter();
+  const updateMeter = useUpdateMeter();
   const deleteMeter = useDeleteMeter();
   const pollMeter = usePollMeter();
   const testConnection = useTestMeterConnection();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [meterDialogOpen, setMeterDialogOpen] = useState(false);
+  const [editingMeter, setEditingMeter] = useState<EnergyMeter | null>(null);
   const [meterHost, setMeterHost] = useState('');
   const [meterPort, setMeterPort] = useState('80');
   const [meterName, setMeterName] = useState('Shelly PRO EM-50');
@@ -697,7 +707,16 @@ const SmartCharging = () => {
                         <p className="text-xs text-muted-foreground">PRO EM-50 · TCP/IP of RS485</p>
                       </div>
                     </div>
-                    <Button size="sm" className="gap-1.5 text-xs" onClick={() => setMeterDialogOpen(true)}>
+                    <Button size="sm" className="gap-1.5 text-xs" onClick={() => {
+                      setEditingMeter(null);
+                      setMeterName('Shelly PRO EM-50');
+                      setMeterConnType('tcp_ip');
+                      setMeterHost('');
+                      setMeterPort('80');
+                      setMeterAuthUser('');
+                      setMeterAuthPass('');
+                      setMeterDialogOpen(true);
+                    }}>
                       <Plus className="h-3 w-3" />
                       Meter toevoegen
                     </Button>
@@ -715,6 +734,16 @@ const SmartCharging = () => {
                         meter={meter}
                         pollMeter={pollMeter}
                         deleteMeter={deleteMeter}
+                        onEdit={(m) => {
+                          setEditingMeter(m);
+                          setMeterName(m.name);
+                          setMeterConnType(m.connection_type);
+                          setMeterHost(m.host || '');
+                          setMeterPort(String(m.port || 80));
+                          setMeterAuthUser(m.auth_user || '');
+                          setMeterAuthPass(m.auth_pass || '');
+                          setMeterDialogOpen(true);
+                        }}
                       />
                     ))}
                   </div>
@@ -835,15 +864,18 @@ const SmartCharging = () => {
       </div>
 
       {/* Add Meter Dialog */}
-      <Dialog open={meterDialogOpen} onOpenChange={setMeterDialogOpen}>
+      <Dialog open={meterDialogOpen} onOpenChange={(open) => {
+        setMeterDialogOpen(open);
+        if (!open) setEditingMeter(null);
+      }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5 text-primary" />
-              Shelly PRO EM-50 toevoegen
+              {editingMeter ? 'Meter bewerken' : 'Shelly PRO EM-50 toevoegen'}
             </DialogTitle>
             <DialogDescription>
-              Verbind een energiemeter via TCP/IP (WiFi/Ethernet) of RS485 (Modbus)
+              {editingMeter ? 'Wijzig de verbindingsinstellingen van deze meter' : 'Verbind een energiemeter via TCP/IP (WiFi/Ethernet) of RS485 (Modbus)'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -932,32 +964,52 @@ const SmartCharging = () => {
               {testConnection.isPending ? 'Testen...' : 'Test verbinding'}
             </Button>
             <Button
-              disabled={!meterHost || createMeter.isPending}
+              disabled={!meterHost || createMeter.isPending || updateMeter.isPending}
               onClick={() => {
-                createMeter.mutate(
-                  {
-                    name: meterName,
-                    device_type: 'shelly_pro_em_50',
-                    connection_type: meterConnType,
-                    host: meterHost,
-                    port: Number(meterPort),
-                    auth_user: meterAuthUser || null,
-                    auth_pass: meterAuthPass || null,
-                  },
-                  {
-                    onSuccess: () => {
-                      toast.success('Meter toegevoegd');
-                      setMeterDialogOpen(false);
-                      setMeterHost('');
-                      setMeterAuthUser('');
-                      setMeterAuthPass('');
-                    },
-                    onError: () => toast.error('Fout bij toevoegen'),
-                  }
-                );
+                const meterData = {
+                  name: meterName,
+                  device_type: 'shelly_pro_em_50',
+                  connection_type: meterConnType,
+                  host: meterHost,
+                  port: Number(meterPort),
+                  auth_user: meterAuthUser || null,
+                  auth_pass: meterAuthPass || null,
+                };
+                if (editingMeter) {
+                  updateMeter.mutate(
+                    { id: editingMeter.id, ...meterData },
+                    {
+                      onSuccess: () => {
+                        toast.success('Meter bijgewerkt');
+                        setMeterDialogOpen(false);
+                        setEditingMeter(null);
+                        setMeterHost('');
+                        setMeterAuthUser('');
+                        setMeterAuthPass('');
+                      },
+                      onError: () => toast.error('Fout bij bijwerken'),
+                    }
+                  );
+                } else {
+                  createMeter.mutate(
+                    meterData,
+                    {
+                      onSuccess: () => {
+                        toast.success('Meter toegevoegd');
+                        setMeterDialogOpen(false);
+                        setMeterHost('');
+                        setMeterAuthUser('');
+                        setMeterAuthPass('');
+                      },
+                      onError: () => toast.error('Fout bij toevoegen'),
+                    }
+                  );
+                }
               }}
             >
-              {createMeter.isPending ? 'Toevoegen...' : 'Meter toevoegen'}
+              {(createMeter.isPending || updateMeter.isPending) 
+                ? (editingMeter ? 'Bijwerken...' : 'Toevoegen...') 
+                : (editingMeter ? 'Meter bijwerken' : 'Meter toevoegen')}
             </Button>
           </DialogFooter>
         </DialogContent>
