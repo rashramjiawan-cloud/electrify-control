@@ -43,7 +43,7 @@ export function useLocalPoll() {
       const data = await resp.json();
 
       const channels: LocalPollResult['channels'] = [];
-      for (const ch of [0, 1]) {
+      for (const ch of [0, 1, 2]) {
         const emData = data[`em1:${ch}`];
         if (emData) {
           const chData: any = {
