@@ -230,7 +230,7 @@ const Transacties = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="sticky left-0 z-10 bg-card">ID</TableHead>
+                <TableHead className="sticky left-0 z-10 bg-card after:absolute after:right-0 after:top-0 after:bottom-0 after:w-px after:bg-border after:shadow-[2px_0_8px_rgba(0,0,0,0.3)]">ID</TableHead>
                 <TableHead>Laadpaal</TableHead>
                 <TableHead>RFID Tag</TableHead>
                 <TableHead>Start</TableHead>
@@ -243,7 +243,7 @@ const Transacties = () => {
             <TableBody>
               {filtered.map(t => (
                 <TableRow key={t.id}>
-                  <TableCell className="font-mono text-xs text-muted-foreground sticky left-0 z-10 bg-card">#{t.id}</TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground sticky left-0 z-10 bg-card after:absolute after:right-0 after:top-0 after:bottom-0 after:w-px after:bg-border after:shadow-[2px_0_8px_rgba(0,0,0,0.3)]">#{t.id}</TableCell>
                   <TableCell className="text-sm">
                     <Badge variant="secondary" className="gap-1 text-xs">
                       <Zap className="h-3 w-3" />
