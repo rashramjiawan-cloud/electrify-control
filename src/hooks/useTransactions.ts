@@ -28,5 +28,6 @@ export function useTransactions(limit = 20) {
       if (error) throw error;
       return data as DbTransaction[];
     },
+    refetchInterval: 30_000,
   });
 }
