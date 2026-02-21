@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import AppLayout from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,7 @@ import { useChargePoints } from '@/hooks/useChargePoints';
 import { useChargingProfiles, useSetChargingProfile, useClearChargingProfile, type SchedulePeriod } from '@/hooks/useChargingProfiles';
 import { useChargingTariffs } from '@/hooks/useChargingTariffs';
 import { toast } from 'sonner';
-import { Zap, Plus, Trash2, Clock, Gauge, Play, Sun, BatteryCharging, Cable, Bolt, Euro, GripVertical, Eye, EyeOff, Settings2, Activity } from 'lucide-react';
+import { Zap, Plus, Trash2, Clock, Gauge, Play, Sun, BatteryCharging, Cable, Bolt, Euro, GripVertical, Eye, EyeOff, Settings2, Activity, Send, Power, PowerOff, RefreshCw } from 'lucide-react';
 import PowerChart from '@/components/PowerChart';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
@@ -17,7 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useEnergyMeters, useCreateMeter, useDeleteMeter, usePollMeter, useTestMeterConnection, type EnergyMeter } from '@/hooks/useEnergyMeters';
 import { useLocalAutoPoll } from '@/hooks/useLocalPoll';
 
-type ModuleId = 'power-chart' | 'profiles' | 'shelly-meter';
+type ModuleId = 'power-chart' | 'profiles' | 'shelly-meter' | 'ems-auto';
 
 interface ModuleConfig {
   id: ModuleId;
@@ -29,6 +29,7 @@ const DEFAULT_MODULES: ModuleConfig[] = [
   { id: 'power-chart', label: 'Vermogensgrafiek', visible: true },
   { id: 'profiles', label: 'Laadprofielen', visible: true },
   { id: 'shelly-meter', label: 'Shelly Energiemeter', visible: true },
+  { id: 'ems-auto', label: 'EMS Auto-sturing', visible: true },
 ];
 
 // Extracted meter item with local poll hook (hooks must be at top level)
@@ -406,6 +407,100 @@ const SmartCharging = () => {
     }
   };
 
+  const handleActivate = async (profile: any) => {
+    try {
+      await setProfile.mutateAsync({
+        chargePointId: profile.charge_point_id,
+        connectorId: profile.connector_id,
+        profile: {
+          stackLevel: profile.stack_level,
+          chargingProfilePurpose: profile.charging_profile_purpose,
+          chargingProfileKind: profile.charging_profile_kind,
+          chargingSchedule: {
+            chargingRateUnit: profile.charging_schedule_unit,
+            duration: profile.duration,
+            chargingSchedulePeriod: profile.schedule_periods,
+          },
+        },
+      });
+      toast.success('Profiel geactiveerd op laadpaal via OCPP');
+    } catch {
+      toast.error('Fout bij activeren profiel');
+    }
+  };
+
+  // EMS auto-steer state
+  const [emsActive, setEmsActive] = useState(() => {
+    try { return localStorage.getItem('ems-auto-active') === 'true'; } catch { return false; }
+  });
+  const [emsMaxPower, setEmsMaxPower] = useState(() => {
+    try { return Number(localStorage.getItem('ems-max-power')) || 11000; } catch { return 11000; }
+  });
+  const [emsMinPower, setEmsMinPower] = useState(() => {
+    try { return Number(localStorage.getItem('ems-min-power')) || 1380; } catch { return 1380; }
+  });
+  const emsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Persist EMS settings
+  useEffect(() => {
+    localStorage.setItem('ems-auto-active', String(emsActive));
+    localStorage.setItem('ems-max-power', String(emsMaxPower));
+    localStorage.setItem('ems-min-power', String(emsMinPower));
+  }, [emsActive, emsMaxPower, emsMinPower]);
+
+  // EMS auto-steer logic: adjust charging based on grid power from meter
+  useEffect(() => {
+    if (!emsActive) {
+      if (emsIntervalRef.current) clearInterval(emsIntervalRef.current);
+      emsIntervalRef.current = null;
+      return;
+    }
+
+    const adjustCharging = async () => {
+      const enabledMeter = meters?.find(m => m.enabled);
+      if (!enabledMeter?.last_reading?.channels) return;
+
+      const channels = enabledMeter.last_reading.channels as any[];
+      const totalGridPower = channels.reduce((sum: number, ch: any) => sum + (ch.active_power || 0), 0);
+
+      const cpId = selectedCp || chargePoints?.[0]?.id;
+      if (!cpId) return;
+
+      // If grid import is high, reduce charging. If exporting, increase.
+      let targetPower = emsMaxPower;
+      if (totalGridPower > 0) {
+        // Importing from grid — reduce charging to stay under limit
+        targetPower = Math.max(emsMinPower, emsMaxPower - totalGridPower);
+      } else {
+        // Exporting to grid — can charge at max
+        targetPower = emsMaxPower;
+      }
+
+      try {
+        await setProfile.mutateAsync({
+          chargePointId: cpId,
+          connectorId: 0,
+          profile: {
+            stackLevel: 99,
+            chargingProfilePurpose: 'ChargePointMaxProfile',
+            chargingProfileKind: 'Absolute',
+            chargingSchedule: {
+              chargingRateUnit: 'W',
+              chargingSchedulePeriod: [{ startPeriod: 0, limit: Math.round(targetPower) }],
+            },
+          },
+        });
+        console.log(`EMS: Grid=${totalGridPower}W → Charging limited to ${Math.round(targetPower)}W`);
+      } catch (err) {
+        console.error('EMS auto-steer failed:', err);
+      }
+    };
+
+    adjustCharging();
+    emsIntervalRef.current = setInterval(adjustCharging, 30000);
+    return () => { if (emsIntervalRef.current) clearInterval(emsIntervalRef.current); };
+  }, [emsActive, emsMaxPower, emsMinPower, meters, chargePoints, selectedCp, setProfile]);
+
   const formatLimit = (limit: number, scheduleUnit: string) =>
     scheduleUnit === 'A' ? `${limit} A` : `${(limit / 1000).toFixed(1)} kW`;
 
@@ -519,6 +614,16 @@ const SmartCharging = () => {
                                 {profile.charging_schedule_unit === 'A' ? 'Ampère' : 'Watt'}
                               </span>
                               <Button
+                                variant="default"
+                                size="sm"
+                                className="gap-1.5 text-xs"
+                                disabled={setProfile.isPending}
+                                onClick={() => handleActivate(profile)}
+                              >
+                                <Send className="h-3 w-3" />
+                                {setProfile.isPending ? 'Activeren...' : 'Activeer'}
+                              </Button>
+                              <Button
                                 variant="outline"
                                 size="sm"
                                 className="gap-1.5 text-xs border-destructive/30 text-destructive hover:bg-destructive/10"
@@ -612,6 +717,115 @@ const SmartCharging = () => {
                         deleteMeter={deleteMeter}
                       />
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {mod.id === 'ems-auto' && (
+                <div className="rounded-xl border border-border bg-card overflow-hidden">
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+                    <div className="flex items-center gap-3">
+                      <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${emsActive ? 'bg-primary/20' : 'bg-muted'}`}>
+                        {emsActive ? <Power className="h-4 w-4 text-primary" /> : <PowerOff className="h-4 w-4 text-muted-foreground" />}
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-semibold text-foreground">EMS Auto-sturing</h3>
+                        <p className="text-xs text-muted-foreground">
+                          {emsActive ? 'Actief — past laadvermogen automatisch aan op basis van meterdata' : 'Inactief — schakel in om automatisch te sturen'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {emsActive && (
+                        <span className="flex items-center gap-1.5">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+                          </span>
+                          <span className="text-xs text-primary font-medium">Actief</span>
+                        </span>
+                      )}
+                      <Switch checked={emsActive} onCheckedChange={setEmsActive} />
+                    </div>
+                  </div>
+                  <div className="px-5 py-4 space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Max laadvermogen (W)</Label>
+                        <Input
+                          type="number"
+                          value={emsMaxPower}
+                          onChange={e => setEmsMaxPower(Number(e.target.value))}
+                          className="font-mono text-sm"
+                        />
+                        <p className="text-[10px] text-muted-foreground">Max vermogen als het net het toelaat</p>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Min laadvermogen (W)</Label>
+                        <Input
+                          type="number"
+                          value={emsMinPower}
+                          onChange={e => setEmsMinPower(Number(e.target.value))}
+                          className="font-mono text-sm"
+                        />
+                        <p className="text-[10px] text-muted-foreground">Ondergrens (6A = 1380W)</p>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Laadpaal</Label>
+                      <Select value={selectedCp || chargePoints?.[0]?.id || ''} onValueChange={setSelectedCp}>
+                        <SelectTrigger className="text-xs">
+                          <SelectValue placeholder="Selecteer laadpaal" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {chargePoints?.map(cp => (
+                            <SelectItem key={cp.id} value={cp.id}>{cp.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Live status */}
+                    {emsActive && meters?.find(m => m.enabled)?.last_reading?.channels && (
+                      <div className="rounded-lg bg-muted/30 p-3 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <RefreshCw className="h-3 w-3 text-primary animate-spin" style={{ animationDuration: '3s' }} />
+                          <span className="text-xs font-semibold text-foreground">Live status</span>
+                        </div>
+                        {(() => {
+                          const ch = (meters?.find(m => m.enabled)?.last_reading?.channels as any[]) || [];
+                          const gridW = ch.reduce((s: number, c: any) => s + (c.active_power || 0), 0);
+                          const target = gridW > 0
+                            ? Math.max(emsMinPower, emsMaxPower - gridW)
+                            : emsMaxPower;
+                          return (
+                            <div className="grid grid-cols-3 gap-3 text-center">
+                              <div>
+                                <p className="font-mono text-lg font-bold text-foreground">{(gridW / 1000).toFixed(1)}</p>
+                                <p className="text-[10px] text-muted-foreground">Grid (kW)</p>
+                              </div>
+                              <div>
+                                <p className="font-mono text-lg font-bold text-primary">{(target / 1000).toFixed(1)}</p>
+                                <p className="text-[10px] text-muted-foreground">Doel laden (kW)</p>
+                              </div>
+                              <div>
+                                <p className="font-mono text-lg font-bold text-foreground">{(emsMaxPower / 1000).toFixed(1)}</p>
+                                <p className="text-[10px] text-muted-foreground">Max (kW)</p>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                        <p className="text-[10px] text-muted-foreground">Stuurt elke 30 seconden via OCPP SetChargingProfile</p>
+                      </div>
+                    )}
+
+                    {!emsActive && (
+                      <div className="rounded-lg border border-dashed border-border p-4 text-center">
+                        <Power className="h-6 w-6 text-muted-foreground/40 mx-auto mb-2" />
+                        <p className="text-xs text-muted-foreground">Schakel de auto-sturing in om automatisch het laadvermogen aan te passen op basis van je grid-import.</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">Vereist: een actieve energiemeter en een verbonden laadpaal</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
