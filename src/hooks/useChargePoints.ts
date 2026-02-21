@@ -39,6 +39,7 @@ export function useChargePoints() {
       if (error) throw error;
       return data as DbChargePoint[];
     },
+    refetchInterval: 30_000,
   });
 }
 
