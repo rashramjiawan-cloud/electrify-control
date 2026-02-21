@@ -11,7 +11,8 @@ const SmartChargingVisualization = () => {
   const { data: profiles } = useChargingProfiles();
   const { getSetting } = useSystemSettings();
 
-  const gridMeter = meters?.find(m => m.enabled && m.meter_type === 'grid');
+  const gridMeter = meters?.filter(m => m.enabled && m.meter_type === 'grid')
+    .sort((a, b) => ((b.last_reading as any)?.channels ? 1 : 0) - ((a.last_reading as any)?.channels ? 1 : 0))[0];
   const pvMeter = meters?.find(m => m.enabled && m.meter_type === 'pv');
   const batMeter = meters?.find(m => m.enabled && m.meter_type === 'battery');
 
