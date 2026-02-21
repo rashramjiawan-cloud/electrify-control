@@ -33,6 +33,56 @@ Deno.serve(async (req) => {
       return {};
     };
 
+    // Helper: check GTV exceedance and insert record if exceeded
+    const checkGtvExceedance = async (meterId: string | null, channels: any[], meterType: string) => {
+      // Only check grid meters
+      if (meterType !== 'grid') return;
+      
+      try {
+        // Fetch GTV limits from system_settings
+        const { data: settings } = await supabase
+          .from('system_settings')
+          .select('key, value')
+          .in('key', ['gtv_import_limit', 'gtv_export_limit']);
+
+        if (!settings?.length) return;
+
+        const importLimit = settings.find((s: any) => s.key === 'gtv_import_limit');
+        const exportLimit = settings.find((s: any) => s.key === 'gtv_export_limit');
+
+        // Sum active power across all channels (Watts → kW)
+        const totalPowerW = channels.reduce((sum: number, ch: any) => sum + (ch.active_power ?? 0), 0);
+        const totalPowerKw = Math.abs(totalPowerW) / 1000;
+
+        // Positive power = import (afname), negative = export (teruglevering)
+        if (totalPowerW > 0 && importLimit) {
+          const limitKw = parseFloat(importLimit.value);
+          if (limitKw > 0 && totalPowerKw > limitKw) {
+            console.log(`GTV import exceedance: ${totalPowerKw.toFixed(2)} kW > ${limitKw} kW`);
+            await supabase.from('gtv_exceedances').insert({
+              direction: 'import',
+              power_kw: totalPowerKw,
+              limit_kw: limitKw,
+              meter_id: meterId,
+            });
+          }
+        } else if (totalPowerW < 0 && exportLimit) {
+          const limitKw = parseFloat(exportLimit.value);
+          if (limitKw > 0 && totalPowerKw > limitKw) {
+            console.log(`GTV export exceedance: ${totalPowerKw.toFixed(2)} kW > ${limitKw} kW`);
+            await supabase.from('gtv_exceedances').insert({
+              direction: 'export',
+              power_kw: totalPowerKw,
+              limit_kw: limitKw,
+              meter_id: meterId,
+            });
+          }
+        }
+      } catch (err) {
+        console.error('GTV exceedance check failed:', err);
+      }
+    };
+
     // Action: poll — fetch live data from Shelly device via HTTP RPC
     if (action === 'poll') {
       if (!host) {
@@ -108,6 +158,11 @@ Deno.serve(async (req) => {
           last_reading: { channels, raw: shellyData.sys || {} },
           last_poll_at: new Date().toISOString(),
         }).eq('id', meter_id);
+
+        // Check GTV exceedance
+        // Fetch meter_type to know if it's a grid meter
+        const { data: meterInfo } = await supabase.from('energy_meters').select('meter_type').eq('id', meter_id).single();
+        await checkGtvExceedance(meter_id, channels, meterInfo?.meter_type || 'grid');
       }
 
       return jsonRes({
@@ -248,6 +303,9 @@ Deno.serve(async (req) => {
               last_reading: { channels, raw: shellyData.sys || {} },
               last_poll_at: new Date().toISOString(),
             }).eq('id', meter.id);
+
+            // Check GTV exceedance for grid meters
+            await checkGtvExceedance(meter.id, channels, meter.meter_type || 'grid');
 
             results.push({ meter_id: meter.id, name: meter.name, ok: true, channels: channels.length });
           } catch (err) {
