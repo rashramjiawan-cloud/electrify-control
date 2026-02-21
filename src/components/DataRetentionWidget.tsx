@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useSystemSettings } from '@/hooks/useSystemSettings';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Database, HardDrive, ShieldAlert, FileText, Zap, Heart, Trash2, Loader2 } from 'lucide-react';
+import { Database, HardDrive, ShieldAlert, FileText, Zap, Heart, Trash2, Loader2, Scale } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -19,12 +19,13 @@ const useTableCounts = () =>
   useQuery({
     queryKey: ['data-retention-counts'],
     queryFn: async () => {
-      const [mr, ga, al, mv, hb] = await Promise.all([
+      const [mr, ga, al, mv, hb, lb] = await Promise.all([
         supabase.from('meter_readings').select('id', { count: 'exact', head: true }),
         supabase.from('grid_alerts').select('id', { count: 'exact', head: true }),
         supabase.from('ocpp_audit_log').select('id', { count: 'exact', head: true }),
         supabase.from('meter_values').select('id', { count: 'exact', head: true }),
         supabase.from('heartbeats').select('id', { count: 'exact', head: true }),
+        supabase.from('load_balance_logs' as any).select('id', { count: 'exact', head: true }),
       ]);
       return {
         meter_readings: mr.count ?? 0,
@@ -32,6 +33,7 @@ const useTableCounts = () =>
         audit_log: al.count ?? 0,
         meter_values: mv.count ?? 0,
         heartbeats: hb.count ?? 0,
+        load_balance_logs: lb.count ?? 0,
       };
     },
     refetchInterval: 60_000,
@@ -64,6 +66,7 @@ const DataRetentionWidget = () => {
   const meterDays = Number(getSetting('meter_data_retention_days')?.value ?? 90);
   const alertDays = Number(getSetting('grid_alerts_retention_days')?.value ?? 180);
   const auditDays = Number(getSetting('audit_log_retention_days')?.value ?? 365);
+  const lbDays = Number(getSetting('load_balance_logs_retention_days')?.value ?? 30);
 
   const tables: TableCount[] = counts
     ? [
@@ -72,6 +75,7 @@ const DataRetentionWidget = () => {
         { label: 'Grid Alerts', count: counts.grid_alerts, retentionDays: alertDays, icon: ShieldAlert },
         { label: 'Audit Log', count: counts.audit_log, retentionDays: auditDays, icon: FileText },
         { label: 'Heartbeats', count: counts.heartbeats, retentionDays: meterDays, icon: Heart },
+        { label: 'Load Balance Logs', count: counts.load_balance_logs, retentionDays: lbDays, icon: Scale },
       ]
     : [];
 
@@ -124,7 +128,7 @@ const DataRetentionWidget = () => {
             {/* Retention legend + cleanup */}
             <div className="mt-4 pt-3 border-t border-border flex items-center justify-between gap-2">
               <p className="text-xs text-muted-foreground">
-                Meterdata <span className="font-mono">{meterDays}d</span> · Alerts <span className="font-mono">{alertDays}d</span> · Audit <span className="font-mono">{auditDays}d</span>
+                Meterdata <span className="font-mono">{meterDays}d</span> · Alerts <span className="font-mono">{alertDays}d</span> · Audit <span className="font-mono">{auditDays}d</span> · LB Logs <span className="font-mono">{lbDays}d</span>
               </p>
               <CleanupConfirmDialog
                 onConfirm={handleCleanup}
