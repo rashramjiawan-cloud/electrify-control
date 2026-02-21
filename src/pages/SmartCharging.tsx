@@ -7,8 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { useChargePoints } from '@/hooks/useChargePoints';
 import { useChargingProfiles, useSetChargingProfile, useClearChargingProfile, type SchedulePeriod } from '@/hooks/useChargingProfiles';
+import { useChargingTariffs } from '@/hooks/useChargingTariffs';
 import { toast } from 'sonner';
-import { Zap, Plus, Trash2, Clock, Gauge, Play, Sun, BatteryCharging, Cable, Bolt } from 'lucide-react';
+import { Zap, Plus, Trash2, Clock, Gauge, Play, Sun, BatteryCharging, Cable, Bolt, Euro } from 'lucide-react';
 import PowerChart from '@/components/PowerChart';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
@@ -582,6 +583,7 @@ interface AdvSimContentProps {
 }
 
 const AdvancedSimContent = ({ chargePoints, onApply, onBack, isPending }: AdvSimContentProps) => {
+  const { data: tariffs } = useChargingTariffs();
   const [numCps, setNumCps] = useState(3);
   const [gridPower, setGridPower] = useState(25);
   const [hasSolar, setHasSolar] = useState(true);
@@ -625,6 +627,24 @@ const AdvancedSimContent = ({ chargePoints, onApply, onBack, isPending }: AdvSim
 
     return periods;
   }, [numCps, gridPower, hasSolar, solarPeak, hasBattery, batteryCapacity, batteryPower]);
+
+  // Cost calculation based on default tariff
+  const defaultTariff = tariffs?.find(t => t.is_default && t.active) || tariffs?.[0];
+  const pricePerKwh = defaultTariff?.price_per_kwh ?? 0.30;
+
+  const dailyCost = useMemo(() => {
+    let totalWhPerDay = 0;
+    for (let i = 0; i < generatedProfile.length; i++) {
+      const nextStart = i < generatedProfile.length - 1
+        ? generatedProfile[i + 1].startPeriod
+        : 86400;
+      const durationHours = (nextStart - generatedProfile[i].startPeriod) / 3600;
+      // Assume average 60% utilization of the limit per charge point
+      totalWhPerDay += generatedProfile[i].limit * 0.6 * durationHours;
+    }
+    const totalKwhPerDay = (totalWhPerDay / 1000) * numCps;
+    return { kwhPerDay: totalKwhPerDay, costPerDay: totalKwhPerDay * pricePerKwh };
+  }, [generatedProfile, numCps, pricePerKwh]);
 
   const maxLimit = Math.max(...generatedProfile.map(p => p.limit), 1);
 
@@ -746,6 +766,31 @@ const AdvancedSimContent = ({ chargePoints, onApply, onBack, isPending }: AdvSim
           <div className="flex justify-between text-[10px] font-mono text-muted-foreground">
             <span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span>
           </div>
+        </div>
+
+        {/* Cost indication */}
+        <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-2">
+          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <Euro className="h-4 w-4 text-primary" />
+            Geschatte kosten (60% bezetting)
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <span className="text-xs text-muted-foreground">Energie / dag</span>
+              <p className="font-mono text-sm font-bold text-foreground">{dailyCost.kwhPerDay.toFixed(0)} kWh</p>
+            </div>
+            <div>
+              <span className="text-xs text-muted-foreground">Kosten / dag</span>
+              <p className="font-mono text-sm font-bold text-primary">€{dailyCost.costPerDay.toFixed(2)}</p>
+            </div>
+            <div>
+              <span className="text-xs text-muted-foreground">Kosten / maand</span>
+              <p className="font-mono text-sm font-bold text-primary">€{(dailyCost.costPerDay * 30).toFixed(2)}</p>
+            </div>
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Tarief: €{pricePerKwh.toFixed(2)}/kWh{defaultTariff ? ` (${defaultTariff.name})` : ' (standaard)'} · {numCps} laadpalen
+          </p>
         </div>
 
         {/* Target charge point */}
