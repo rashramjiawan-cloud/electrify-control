@@ -20,6 +20,7 @@ import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import AlertHistory from "./pages/AlertHistory";
 import ZonneEnergie from "./pages/ZonneEnergie";
+import VirtualGrids from "./pages/VirtualGrids";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -64,6 +65,7 @@ const AppRoutes = () => (
     <Route path="/firmware" element={<ProtectedRoute><Firmware /></ProtectedRoute>} />
     <Route path="/reserveringen" element={<ProtectedRoute><Reserveringen /></ProtectedRoute>} />
     <Route path="/alerts" element={<ProtectedRoute><AlertHistory /></ProtectedRoute>} />
+    <Route path="/virtual-grids" element={<ProtectedRoute><VirtualGrids /></ProtectedRoute>} />
     <Route path="/reset-password" element={<ResetPassword />} />
     <Route path="*" element={<NotFound />} />
   </Routes>

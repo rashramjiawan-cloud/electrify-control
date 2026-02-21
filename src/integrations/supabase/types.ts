@@ -911,6 +911,95 @@ export type Database = {
         }
         Relationships: []
       }
+      virtual_grid_members: {
+        Row: {
+          config: Json
+          created_at: string
+          enabled: boolean
+          grid_id: string
+          id: string
+          max_power_kw: number | null
+          member_id: string
+          member_name: string | null
+          member_type: string
+          priority: number
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          enabled?: boolean
+          grid_id: string
+          id?: string
+          max_power_kw?: number | null
+          member_id: string
+          member_name?: string | null
+          member_type: string
+          priority?: number
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          enabled?: boolean
+          grid_id?: string
+          id?: string
+          max_power_kw?: number | null
+          member_id?: string
+          member_name?: string | null
+          member_type?: string
+          priority?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "virtual_grid_members_grid_id_fkey"
+            columns: ["grid_id"]
+            isOneToOne: false
+            referencedRelation: "virtual_grids"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      virtual_grids: {
+        Row: {
+          balancing_strategy: string
+          config: Json
+          created_at: string
+          description: string | null
+          enabled: boolean
+          gtv_limit_kw: number
+          id: string
+          location: string | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          balancing_strategy?: string
+          config?: Json
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          gtv_limit_kw?: number
+          id?: string
+          location?: string | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          balancing_strategy?: string
+          config?: Json
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          gtv_limit_kw?: number
+          id?: string
+          location?: string | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
