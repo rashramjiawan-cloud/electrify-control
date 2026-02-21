@@ -37,6 +37,16 @@ export const useRealtimeSubscription = () => {
         { event: '*', schema: 'public', table: 'status_notifications' },
         () => queryClient.invalidateQueries({ queryKey: ['charge-points'] })
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'meter_readings' },
+        () => queryClient.invalidateQueries({ queryKey: ['meter-readings'] })
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'energy_meters' },
+        () => queryClient.invalidateQueries({ queryKey: ['energy-meters'] })
+      )
       .subscribe();
 
     return () => {
