@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { useChargePoints } from '@/hooks/useChargePoints';
 import { useChargingProfiles, useSetChargingProfile, useClearChargingProfile, type SchedulePeriod } from '@/hooks/useChargingProfiles';
 import { toast } from 'sonner';
-import { Zap, Plus, Trash2, Clock, Gauge } from 'lucide-react';
+import { Zap, Plus, Trash2, Clock, Gauge, Play } from 'lucide-react';
 
 const SmartCharging = () => {
   const { data: chargePoints } = useChargePoints();
@@ -17,6 +17,7 @@ const SmartCharging = () => {
   const clearProfile = useClearChargingProfile();
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [simDialogOpen, setSimDialogOpen] = useState(false);
   const [selectedCp, setSelectedCp] = useState('');
   const [connectorId, setConnectorId] = useState('0');
   const [stackLevel, setStackLevel] = useState('0');
@@ -75,6 +76,93 @@ const SmartCharging = () => {
     }
   };
 
+  const simScenarios = [
+    {
+      name: 'Piekuren beperken',
+      desc: 'Vermogen verlagen tijdens piekuren (17:00-21:00)',
+      purpose: 'ChargePointMaxProfile',
+      kind: 'Absolute',
+      unit: 'W',
+      duration: 86400,
+      periods: [
+        { startPeriod: 0, limit: 11000 },
+        { startPeriod: 61200, limit: 3700 },
+        { startPeriod: 75600, limit: 11000 },
+      ],
+    },
+    {
+      name: 'Nachtladen',
+      desc: 'Alleen laden tussen 23:00-07:00 met max vermogen',
+      purpose: 'ChargePointMaxProfile',
+      kind: 'Absolute',
+      unit: 'W',
+      duration: 86400,
+      periods: [
+        { startPeriod: 0, limit: 0 },
+        { startPeriod: 82800, limit: 11000 },
+      ],
+    },
+    {
+      name: 'Geleidelijke opbouw',
+      desc: 'Start laag en bouw vermogen geleidelijk op',
+      purpose: 'TxDefaultProfile',
+      kind: 'Relative',
+      unit: 'W',
+      duration: 7200,
+      periods: [
+        { startPeriod: 0, limit: 2300 },
+        { startPeriod: 1800, limit: 5000 },
+        { startPeriod: 3600, limit: 7400 },
+        { startPeriod: 5400, limit: 11000 },
+      ],
+    },
+    {
+      name: 'Zonnepanelen prioriteit',
+      desc: 'Overdag hoog vermogen (zonuren), avond laag',
+      purpose: 'ChargePointMaxProfile',
+      kind: 'Absolute',
+      unit: 'W',
+      duration: 86400,
+      periods: [
+        { startPeriod: 0, limit: 3700 },
+        { startPeriod: 28800, limit: 11000 },
+        { startPeriod: 57600, limit: 7400 },
+        { startPeriod: 72000, limit: 3700 },
+      ],
+    },
+  ];
+
+  const handleSimulate = async (scenario: typeof simScenarios[0]) => {
+    if (!selectedCp && chargePoints?.length) {
+      setSelectedCp(chargePoints[0].id);
+    }
+    const cpId = selectedCp || chargePoints?.[0]?.id;
+    if (!cpId) {
+      toast.error('Geen laadpaal beschikbaar');
+      return;
+    }
+    try {
+      await setProfile.mutateAsync({
+        chargePointId: cpId,
+        connectorId: 0,
+        profile: {
+          stackLevel: 0,
+          chargingProfilePurpose: scenario.purpose,
+          chargingProfileKind: scenario.kind,
+          chargingSchedule: {
+            chargingRateUnit: scenario.unit,
+            duration: scenario.duration,
+            chargingSchedulePeriod: scenario.periods,
+          },
+        },
+      });
+      toast.success(`Simulatie "${scenario.name}" geactiveerd`);
+      setSimDialogOpen(false);
+    } catch {
+      toast.error('Fout bij starten simulatie');
+    }
+  };
+
   const handleClear = async (profile: { id: number; charge_point_id: string }) => {
     try {
       await clearProfile.mutateAsync({
@@ -113,10 +201,16 @@ const SmartCharging = () => {
               </p>
             </div>
           </div>
-          <Button className="gap-2" onClick={() => setDialogOpen(true)}>
-            <Plus className="h-4 w-4" />
-            Nieuw profiel
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" className="gap-2" onClick={() => setSimDialogOpen(true)}>
+              <Play className="h-4 w-4" />
+              Simulatie
+            </Button>
+            <Button className="gap-2" onClick={() => setDialogOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Nieuw profiel
+            </Button>
+          </div>
         </div>
 
         {/* Profiles list */}
@@ -342,6 +436,68 @@ const SmartCharging = () => {
               {setProfile.isPending ? 'Instellen...' : 'Profiel instellen'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Simulation Dialog */}
+      <Dialog open={simDialogOpen} onOpenChange={setSimDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Play className="h-5 w-5 text-primary" />
+              Simulatie scenario's
+            </DialogTitle>
+            <DialogDescription>
+              Kies een scenario om direct een laadprofiel te simuleren
+              {chargePoints?.length ? ` op ${selectedCp ? getCpName(selectedCp) : getCpName(chargePoints[0].id)}` : ''}
+            </DialogDescription>
+          </DialogHeader>
+
+          {chargePoints && chargePoints.length > 1 && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Laadpaal</Label>
+              <Select value={selectedCp || chargePoints[0]?.id} onValueChange={setSelectedCp}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {chargePoints.map(cp => (
+                    <SelectItem key={cp.id} value={cp.id}>{cp.name} ({cp.id})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            {simScenarios.map((scenario, idx) => (
+              <button
+                key={idx}
+                onClick={() => handleSimulate(scenario)}
+                disabled={setProfile.isPending}
+                className="w-full text-left rounded-xl border border-border bg-card p-4 hover:border-primary/50 hover:bg-primary/5 transition-colors disabled:opacity-50"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <h4 className="text-sm font-semibold text-foreground">{scenario.name}</h4>
+                  <span className="text-[10px] font-mono text-muted-foreground">
+                    {scenario.periods.length} perioden
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">{scenario.desc}</p>
+                <div className="flex gap-1 mt-2">
+                  {scenario.periods.map((p, i) => {
+                    const maxLim = Math.max(...scenario.periods.map(x => x.limit));
+                    const h = maxLim > 0 ? Math.max((p.limit / maxLim) * 20, 2) : 2;
+                    return (
+                      <div
+                        key={i}
+                        className="flex-1 rounded-sm bg-primary/30"
+                        style={{ height: `${h}px` }}
+                      />
+                    );
+                  })}
+                </div>
+              </button>
+            ))}
+          </div>
         </DialogContent>
       </Dialog>
     </AppLayout>
