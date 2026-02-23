@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Zap, LayoutDashboard, BatteryCharging, Cpu, Activity, Play, LogOut, Tag, Euro, Receipt, Settings, Gauge, HardDrive, CalendarClock, AlertTriangle, Sun, X, Network } from 'lucide-react';
+import { Zap, LayoutDashboard, BatteryCharging, Cpu, Activity, Play, LogOut, Tag, Euro, Receipt, Settings, Gauge, HardDrive, CalendarClock, AlertTriangle, Sun, X, Network, BookOpen } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -20,6 +20,7 @@ const navItems = [
   { to: '/alerts', label: 'Alerts', icon: AlertTriangle },
   { to: '/simulator', label: 'Simulator', icon: Play, adminOnly: true },
   { to: '/instellingen', label: 'Instellingen', icon: Settings },
+  { to: '/setup-guide', label: 'Setup Guide', icon: BookOpen },
 ];
 
 interface AppSidebarProps {
