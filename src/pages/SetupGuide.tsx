@@ -97,8 +97,8 @@ const SetupGuide = () => {
   const nodeServerCode = `const { RPCServer } = require('ocpp-rpc');
 const http = require('http');
 
-const INGEST_URL = '${INGEST_URL}';
-const API_KEY = '${apiKey}';
+const INGEST_URL = process.env.INGEST_URL || '${INGEST_URL}';
+const API_KEY = process.env.API_KEY || '${apiKey}';
 
 // Forward OCPP event naar je dashboard
 async function forward(event, chargePointId, data = {}, connectorId) {
@@ -456,6 +456,7 @@ services:
   ocpp-server:
     build: .
     restart: always
+    env_file: .env
     ports:
       - "9000:9000"
     environment:
@@ -490,7 +491,13 @@ volumes:
     reverse_proxy ocpp-server:9000
 }`} />
 
-            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-2">6. Starten</h4>
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-2">6. .env bestand aanmaken</h4>
+            <p className="text-xs text-muted-foreground">
+              Maak een <code className="font-mono text-foreground">.env</code> bestand in de root van je Docker project zodat secrets niet in de code staan:
+            </p>
+            <CopyBlock code={`INGEST_URL=${INGEST_URL}\nAPI_KEY=${apiKey}`} />
+
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-2">7. Starten</h4>
             <CopyBlock code={`docker compose up -d --build
 
 # Logs bekijken
