@@ -9,6 +9,7 @@ import AlertThresholdsSettings from '@/components/AlertThresholdsSettings';
 import DataRetentionSettings from '@/components/DataRetentionSettings';
 import NotificationChannelsSettings from '@/components/NotificationChannelsSettings';
 import GtvSettings from '@/components/GtvSettings';
+import IngestApiSettings from '@/components/IngestApiSettings';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const WS_URL = SUPABASE_URL?.replace('https://', 'wss://') + '/functions/v1/ocpp-ws';
@@ -85,6 +86,9 @@ const Instellingen = () => {
             </div>
           </div>
         </div>
+
+        {/* Ingest API */}
+        <IngestApiSettings />
 
         {/* System Info */}
         <div className="rounded-xl border border-border bg-card">
