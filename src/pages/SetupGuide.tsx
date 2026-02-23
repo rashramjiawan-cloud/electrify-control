@@ -393,6 +393,90 @@ npm install -g pm2
 pm2 start server.js --name ocpp-server
 pm2 save
 pm2 startup`} />
+
+
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-3 mt-2">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider flex items-center gap-2">
+                🐳 Alternatief: Docker Compose
+              </h4>
+              <span className="text-[10px] font-mono uppercase tracking-wider bg-primary/10 text-primary rounded-md px-2 py-0.5">
+                Optioneel
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Gebruik Docker voor een reproduceerbare setup met automatische restarts en SSL via Caddy:
+            </p>
+
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">1. Projectstructuur</h4>
+            <CopyBlock code={`mkdir ocpp-docker && cd ocpp-docker
+mkdir app
+# Kopieer server.js (hierboven) naar app/server.js`} />
+
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-2">2. Dockerfile</h4>
+            <CopyBlock code={`FROM node:20-alpine
+WORKDIR /app
+COPY app/package*.json ./
+RUN npm ci --omit=dev
+COPY app/ .
+EXPOSE 9000
+CMD ["node", "server.js"]`} lang="dockerfile" />
+
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-2">3. app/package.json</h4>
+            <CopyBlock code={`{
+  "name": "ocpp-server",
+  "version": "1.0.0",
+  "dependencies": {
+    "ocpp-rpc": "^1.2.0"
+  }
+}`} lang="json" />
+
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-2">4. docker-compose.yml</h4>
+            <CopyBlock code={`version: "3.8"
+
+services:
+  ocpp-server:
+    build: .
+    restart: always
+    ports:
+      - "9000:9000"
+    environment:
+      - NODE_ENV=production
+
+  caddy:
+    image: caddy:2-alpine
+    restart: always
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:`} lang="yaml" />
+
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-2">5. Caddyfile (automatisch SSL)</h4>
+            <CopyBlock code={`ocpp.jouwdomein.nl {
+    reverse_proxy ocpp-server:9000
+}`} />
+
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-2">6. Starten</h4>
+            <CopyBlock code={`docker compose up -d --build
+
+# Logs bekijken
+docker compose logs -f ocpp-server
+
+# Herstarten na update
+docker compose up -d --build`} />
+
+            <p className="text-xs text-muted-foreground">
+              <strong className="text-foreground">Voordeel:</strong> Caddy regelt automatisch SSL-certificaten (Let's Encrypt), geen nginx/certbot configuratie nodig. 
+              Als je Docker gebruikt kun je <strong className="text-foreground">stap 4 (SSL/TLS)</strong> overslaan.
+            </p>
+          </div>
         </StepCard>
 
         {/* Step 4: SSL/TLS */}
