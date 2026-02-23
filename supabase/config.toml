@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.check-gtv-exceedance]
 verify_jwt = false
+
+[functions.ocpp-handler]
+verify_jwt = false
+
+[functions.ocpp-ws]
+verify_jwt = false
