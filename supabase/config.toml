@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.ocpp-ws]
 verify_jwt = false
+
+[functions.ocpp-ingest]
+verify_jwt = false
