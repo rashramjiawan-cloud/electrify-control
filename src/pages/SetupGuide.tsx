@@ -217,10 +217,28 @@ server.on('client', async (client) => {
   });
 });
 
-const httpServer = http.createServer();
+// Health-check endpoint voor Docker & monitoring
+const startedAt = new Date().toISOString();
+
+const httpServer = http.createServer((req, res) => {
+  if (req.url === '/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      status: 'ok',
+      uptime: process.uptime(),
+      startedAt,
+      memoryMB: Math.round(process.memoryUsage().rss / 1024 / 1024),
+    }));
+    return;
+  }
+  res.writeHead(404);
+  res.end();
+});
+
 httpServer.on('upgrade', server.handleUpgrade);
 httpServer.listen(9000, () => {
   console.log('⚡ OCPP Server draait op ws://0.0.0.0:9000');
+  console.log('🩺 Health-check: http://localhost:9000/health');
 });`;
 
   const nginxConfig = `server {
@@ -442,10 +460,19 @@ services:
       - "9000:9000"
     environment:
       - NODE_ENV=production
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   caddy:
     image: caddy:2-alpine
     restart: always
+    depends_on:
+      ocpp-server:
+        condition: service_healthy
     ports:
       - "443:443"
       - "80:80"
