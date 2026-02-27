@@ -169,6 +169,81 @@ export type Database = {
         }
         Relationships: []
       }
+      charging_invoices: {
+        Row: {
+          charge_point_id: string
+          created_at: string
+          currency: string
+          duration_min: number
+          energy_cost: number
+          energy_kwh: number
+          id: string
+          idle_cost: number
+          idle_min: number
+          notes: string | null
+          start_fee: number
+          status: string
+          tariff_id: string | null
+          total_cost: number
+          transaction_id: number
+          updated_at: string
+          vehicle_id: string | null
+        }
+        Insert: {
+          charge_point_id: string
+          created_at?: string
+          currency?: string
+          duration_min?: number
+          energy_cost?: number
+          energy_kwh?: number
+          id?: string
+          idle_cost?: number
+          idle_min?: number
+          notes?: string | null
+          start_fee?: number
+          status?: string
+          tariff_id?: string | null
+          total_cost?: number
+          transaction_id: number
+          updated_at?: string
+          vehicle_id?: string | null
+        }
+        Update: {
+          charge_point_id?: string
+          created_at?: string
+          currency?: string
+          duration_min?: number
+          energy_cost?: number
+          energy_kwh?: number
+          id?: string
+          idle_cost?: number
+          idle_min?: number
+          notes?: string | null
+          start_fee?: number
+          status?: string
+          tariff_id?: string | null
+          total_cost?: number
+          transaction_id?: number
+          updated_at?: string
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "charging_invoices_tariff_id_fkey"
+            columns: ["tariff_id"]
+            isOneToOne: false
+            referencedRelation: "charging_tariffs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "charging_invoices_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: true
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       charging_profiles: {
         Row: {
           active: boolean
