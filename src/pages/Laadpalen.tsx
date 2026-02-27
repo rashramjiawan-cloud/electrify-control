@@ -566,7 +566,7 @@ const Laadpalen = () => {
                       chargePointName={cp.name}
                       maxPower={cp.max_power}
                       currentPower={
-                        (cp.connectors || []).reduce((sum: number, c: any) => sum + (Number(c.current_power) || 0), 0) / 1000
+                        (cp.connectors || []).reduce((sum: number, c: any) => sum + (Number(c.current_power) || 0), 0)
                       }
                       status={cp.status}
                     />
