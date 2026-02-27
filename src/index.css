@@ -310,3 +310,8 @@
   0%, 100% { opacity: 0.3; width: 8px; }
   50% { opacity: 0.8; width: 12px; }
 }
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
