@@ -81,7 +81,7 @@ const Auth = () => {
               <Activity className="h-6 w-6 text-primary" />
             </div>
           </div>
-          <h1 className="font-mono text-xl font-bold text-foreground tracking-wider">ENERGY BACKOFFICE</h1>
+          <h1 className="font-mono text-xl font-bold text-foreground tracking-wider">VOLTCONTROL BV</h1>
           <p className="text-sm text-muted-foreground">
             {forgotPassword ? 'Vul je email in om een reset-link te ontvangen' : isLogin ? 'Log in om door te gaan' : 'Maak een account aan'}
           </p>
