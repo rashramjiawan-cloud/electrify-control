@@ -23,6 +23,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { ChargePointStatus } from '@/types/energy';
 import MqttStatusBadge from '@/components/MqttStatusBadge';
 import MqttConfigDialog from '@/components/MqttConfigDialog';
+import ChargePointLoadBalance from '@/components/ChargePointLoadBalance';
 import { useMqttConfigForAsset } from '@/hooks/useMqttConfigurations';
 
 const OCPP_ENDPOINT = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ocpp-handler`;
@@ -556,6 +557,19 @@ const Laadpalen = () => {
                           : '—'}
                       </p>
                     </div>
+                  </div>
+
+                  {/* Load Balance Visualization */}
+                  <div className="mt-4">
+                    <ChargePointLoadBalance
+                      chargePointId={cp.id}
+                      chargePointName={cp.name}
+                      maxPower={cp.max_power}
+                      currentPower={
+                        (cp.connectors || []).reduce((sum: number, c: any) => sum + (Number(c.current_power) || 0), 0) / 1000
+                      }
+                      status={cp.status}
+                    />
                   </div>
 
                   {/* Active transactions */}
