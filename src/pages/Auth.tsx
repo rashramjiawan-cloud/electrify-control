@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { lovable } from '@/integrations/lovable/index';
+import VoltControlLogo from '@/components/VoltControlLogo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -75,13 +76,10 @@ const Auth = () => {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-sm space-y-6">
         {/* Header */}
-        <div className="text-center space-y-2">
+        <div className="text-center space-y-3">
           <div className="flex justify-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 glow-primary">
-              <Activity className="h-6 w-6 text-primary" />
-            </div>
+            <VoltControlLogo size="lg" />
           </div>
-          <h1 className="font-mono text-xl font-bold text-foreground tracking-wider">VOLTCONTROL BV</h1>
           <p className="text-sm text-muted-foreground">
             {forgotPassword ? 'Vul je email in om een reset-link te ontvangen' : isLogin ? 'Log in om door te gaan' : 'Maak een account aan'}
           </p>
