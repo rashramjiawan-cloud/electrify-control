@@ -1057,6 +1057,48 @@ export type Database = {
         }
         Relationships: []
       }
+      vehicle_whitelist: {
+        Row: {
+          auto_start: boolean
+          brand: string | null
+          charge_point_ids: string[] | null
+          created_at: string
+          enabled: boolean
+          id: string
+          label: string | null
+          max_power_kw: number | null
+          model: string | null
+          updated_at: string
+          vehicle_id: string
+        }
+        Insert: {
+          auto_start?: boolean
+          brand?: string | null
+          charge_point_ids?: string[] | null
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          label?: string | null
+          max_power_kw?: number | null
+          model?: string | null
+          updated_at?: string
+          vehicle_id: string
+        }
+        Update: {
+          auto_start?: boolean
+          brand?: string | null
+          charge_point_ids?: string[] | null
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          label?: string | null
+          max_power_kw?: number | null
+          model?: string | null
+          updated_at?: string
+          vehicle_id?: string
+        }
+        Relationships: []
+      }
       virtual_grid_members: {
         Row: {
           config: Json
