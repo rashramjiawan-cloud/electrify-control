@@ -21,6 +21,9 @@ import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { ChargePointStatus } from '@/types/energy';
+import MqttStatusBadge from '@/components/MqttStatusBadge';
+import MqttConfigDialog from '@/components/MqttConfigDialog';
+import { useMqttConfigForAsset } from '@/hooks/useMqttConfigurations';
 
 const OCPP_ENDPOINT = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ocpp-handler`;
 const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -76,6 +79,9 @@ const Laadpalen = () => {
   const [deleteCpId, setDeleteCpId] = useState('');
   const [deleteCpName, setDeleteCpName] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [mqttDialogOpen, setMqttDialogOpen] = useState(false);
+  const [mqttCpId, setMqttCpId] = useState('');
+  const [mqttCpName, setMqttCpName] = useState('');
   const queryClient = useQueryClient();
 
   const handleDeleteChargePoint = async () => {
@@ -438,6 +444,7 @@ const Laadpalen = () => {
                           {online ? <Wifi className="h-2.5 w-2.5" /> : <WifiOff className="h-2.5 w-2.5" />}
                           {online ? 'Online' : 'Offline'}
                         </span>
+                        <MqttStatusBadge assetType="charge_point" assetId={cp.id} onClick={() => { setMqttCpId(cp.id); setMqttCpName(cp.name); setMqttDialogOpen(true); }} />
                       </div>
                       <p className="font-mono text-xs text-muted-foreground">{cp.id} · {cp.vendor} {cp.model}</p>
                     </div>
@@ -997,6 +1004,15 @@ const Laadpalen = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* MQTT Config Dialog */}
+      <MqttConfigDialog
+        open={mqttDialogOpen}
+        onOpenChange={setMqttDialogOpen}
+        assetType="charge_point"
+        assetId={mqttCpId}
+        assetName={mqttCpName}
+      />
     </AppLayout>
   );
 };

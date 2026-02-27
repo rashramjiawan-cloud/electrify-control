@@ -727,6 +727,72 @@ export type Database = {
           },
         ]
       }
+      mqtt_configurations: {
+        Row: {
+          asset_id: string
+          asset_name: string | null
+          asset_type: string
+          broker_host: string
+          broker_port: number
+          client_id: string | null
+          connection_status: string
+          created_at: string
+          enabled: boolean
+          id: string
+          keep_alive_sec: number
+          last_connected_at: string | null
+          password: string | null
+          publish_topics: Json
+          qos: number
+          subscribe_topics: Json
+          updated_at: string
+          use_tls: boolean
+          username: string | null
+        }
+        Insert: {
+          asset_id: string
+          asset_name?: string | null
+          asset_type: string
+          broker_host?: string
+          broker_port?: number
+          client_id?: string | null
+          connection_status?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          keep_alive_sec?: number
+          last_connected_at?: string | null
+          password?: string | null
+          publish_topics?: Json
+          qos?: number
+          subscribe_topics?: Json
+          updated_at?: string
+          use_tls?: boolean
+          username?: string | null
+        }
+        Update: {
+          asset_id?: string
+          asset_name?: string | null
+          asset_type?: string
+          broker_host?: string
+          broker_port?: number
+          client_id?: string | null
+          connection_status?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          keep_alive_sec?: number
+          last_connected_at?: string | null
+          password?: string | null
+          publish_topics?: Json
+          qos?: number
+          subscribe_topics?: Json
+          updated_at?: string
+          use_tls?: boolean
+          username?: string | null
+        }
+        Relationships: []
+      }
       notification_channels: {
         Row: {
           config: Json

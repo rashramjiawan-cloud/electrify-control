@@ -10,6 +10,7 @@ import DataRetentionSettings from '@/components/DataRetentionSettings';
 import NotificationChannelsSettings from '@/components/NotificationChannelsSettings';
 import GtvSettings from '@/components/GtvSettings';
 import IngestApiSettings from '@/components/IngestApiSettings';
+import MqttSettingsPanel from '@/components/MqttSettingsPanel';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const WS_URL = SUPABASE_URL?.replace('https://', 'wss://') + '/functions/v1/ocpp-ws';
@@ -86,6 +87,9 @@ const Instellingen = () => {
             </div>
           </div>
         </div>
+
+        {/* MQTT Connections */}
+        <MqttSettingsPanel />
 
         {/* Ingest API */}
         <IngestApiSettings />
