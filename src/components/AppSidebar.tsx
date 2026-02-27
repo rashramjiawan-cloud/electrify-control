@@ -2,6 +2,7 @@ import { useState, useRef, DragEvent } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Zap, LayoutDashboard, BatteryCharging, Cpu, Activity, Play, LogOut, Tag, Euro, Receipt, Settings, Gauge, HardDrive, CalendarClock, AlertTriangle, Sun, X, Network, BookOpen, ChevronRight, GripVertical, Plus, Trash2, Pencil, RotateCcw, Check } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import VoltControlLogo from '@/components/VoltControlLogo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -158,16 +159,8 @@ const AppSidebar = ({ open, onClose }: AppSidebarProps) => {
       )}
     >
       {/* Logo */}
-      <div className="flex h-16 items-center justify-between border-b border-border px-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 glow-primary">
-            <Activity className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <h1 className="font-mono text-sm font-bold text-foreground tracking-wider">VOLTCONTROL</h1>
-            <p className="font-mono text-[10px] text-muted-foreground tracking-widest">BV</p>
-          </div>
-        </div>
+      <div className="flex h-16 items-center justify-between border-b border-border px-5">
+        <VoltControlLogo size="sm" />
         <Button variant="ghost" size="icon" className="md:hidden h-8 w-8" onClick={onClose}>
           <X className="h-4 w-4" />
         </Button>

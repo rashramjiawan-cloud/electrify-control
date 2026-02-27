@@ -254,3 +254,59 @@
   right: 25%;
   animation: zen-float-1 40s ease-in-out infinite reverse;
 }
+
+/* VoltControl Logo Animations */
+@keyframes volt-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 hsl(160 70% 45% / 0); }
+  50% { box-shadow: 0 0 12px 2px hsl(160 70% 45% / 0.3); }
+}
+
+@keyframes volt-flicker {
+  0%, 100% { opacity: 1; filter: brightness(1); }
+  5% { opacity: 0.8; filter: brightness(1.3); }
+  10% { opacity: 1; filter: brightness(1); }
+  50% { opacity: 1; filter: brightness(1.1); }
+  52% { opacity: 0.85; filter: brightness(1.4); }
+  54% { opacity: 1; filter: brightness(1); }
+}
+
+@keyframes volt-spark {
+  0%, 90%, 100% { opacity: 0; transform: scale(0); }
+  92% { opacity: 1; transform: scale(1.5); }
+  96% { opacity: 0.5; transform: scale(1); }
+}
+
+@keyframes volt-letter {
+  0%, 100% { transform: translateY(0); }
+  3% { transform: translateY(-1px); }
+  6% { transform: translateY(0); }
+}
+
+@keyframes volt-arc-down {
+  0%, 80%, 100% { opacity: 0; height: 0; }
+  85% { opacity: 1; height: 8px; }
+  95% { opacity: 0; height: 0; }
+}
+
+@keyframes volt-arc-up {
+  0%, 80%, 100% { opacity: 0; height: 0; }
+  85% { opacity: 1; height: 8px; }
+  95% { opacity: 0; height: 0; }
+}
+
+@keyframes volt-arc-right {
+  0%, 80%, 100% { opacity: 0; width: 0; }
+  85% { opacity: 1; width: 8px; }
+  95% { opacity: 0; width: 0; }
+}
+
+@keyframes volt-arc-left {
+  0%, 80%, 100% { opacity: 0; width: 0; }
+  85% { opacity: 1; width: 8px; }
+  95% { opacity: 0; width: 0; }
+}
+
+@keyframes volt-line {
+  0%, 100% { opacity: 0.3; width: 8px; }
+  50% { opacity: 0.8; width: 12px; }
+}
