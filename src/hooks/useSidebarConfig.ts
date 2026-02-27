@@ -37,7 +37,7 @@ const DEFAULT_GROUPS: SidebarGroup[] = [
   {
     id: 'management',
     label: 'Beheer',
-    items: ['/rfid', '/tarieven', '/smart-charging', '/firmware', '/reserveringen'],
+    items: ['/rfid', '/plug-and-charge', '/tarieven', '/smart-charging', '/firmware', '/reserveringen'],
     collapsed: false,
   },
   {
