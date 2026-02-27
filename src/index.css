@@ -6,6 +6,64 @@
 
 @layer base {
   :root {
+    --background: 0 0% 98%;
+    --foreground: 220 20% 14%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 14%;
+
+    --primary: 160 70% 38%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 14% 93%;
+    --secondary-foreground: 220 20% 25%;
+
+    --muted: 220 14% 95%;
+    --muted-foreground: 215 15% 45%;
+
+    --accent: 160 60% 34%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 220 20% 7%;
+
+    --success: 160 70% 38%;
+    --success-foreground: 0 0% 100%;
+
+    --border: 220 13% 88%;
+    --input: 220 13% 88%;
+    --ring: 160 70% 38%;
+
+    --chart-1: 160 70% 38%;
+    --chart-2: 200 70% 50%;
+    --chart-3: 30 80% 55%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 99%;
+    --sidebar-foreground: 220 15% 35%;
+    --sidebar-primary: 160 70% 38%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 14% 95%;
+    --sidebar-accent-foreground: 220 20% 14%;
+    --sidebar-border: 220 13% 90%;
+    --sidebar-ring: 160 70% 38%;
+
+    --glow-primary: 0 0 20px hsl(160 70% 38% / 0.15);
+    --glow-warning: 0 0 20px hsl(38 92% 50% / 0.15);
+    --glow-destructive: 0 0 20px hsl(0 72% 51% / 0.15);
+
+    --font-mono: 'JetBrains Mono', monospace;
+    --font-sans: 'Inter', sans-serif;
+  }
+
+  .dark {
     --background: 220 20% 7%;
     --foreground: 210 20% 92%;
 
@@ -44,8 +102,6 @@
     --chart-2: 200 70% 50%;
     --chart-3: 30 80% 55%;
 
-    --radius: 0.5rem;
-
     --sidebar-background: 220 20% 5%;
     --sidebar-foreground: 210 15% 70%;
     --sidebar-primary: 160 70% 45%;
@@ -58,9 +114,6 @@
     --glow-primary: 0 0 20px hsl(160 70% 45% / 0.3);
     --glow-warning: 0 0 20px hsl(38 92% 50% / 0.3);
     --glow-destructive: 0 0 20px hsl(0 72% 51% / 0.3);
-
-    --font-mono: 'JetBrains Mono', monospace;
-    --font-sans: 'Inter', sans-serif;
   }
 }
 
@@ -156,6 +209,14 @@
   border-radius: 50%;
   filter: blur(80px);
   opacity: 0.12;
+}
+
+.dark .zen-orb {
+  opacity: 0.12;
+}
+
+:root:not(.dark) .zen-orb {
+  opacity: 0.06;
 }
 
 .zen-orb-1 {
