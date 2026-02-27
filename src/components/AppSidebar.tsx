@@ -3,6 +3,7 @@ import { Zap, LayoutDashboard, BatteryCharging, Cpu, Activity, Play, LogOut, Tag
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import ThemeToggle from '@/components/ThemeToggle';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -94,12 +95,15 @@ const AppSidebar = ({ open, onClose }: AppSidebarProps) => {
 
         {user && (
           <div className="flex items-center justify-between">
-            <span className="font-mono text-xs text-muted-foreground truncate max-w-[140px]" title={user.email}>
+            <span className="font-mono text-xs text-muted-foreground truncate max-w-[120px]" title={user.email}>
               {user.email}
             </span>
-            <Button variant="ghost" size="sm" onClick={signOut} className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive">
-              <LogOut className="h-3.5 w-3.5" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <ThemeToggle />
+              <Button variant="ghost" size="sm" onClick={signOut} className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive">
+                <LogOut className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
         )}
       </div>
