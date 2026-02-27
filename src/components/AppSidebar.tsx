@@ -49,8 +49,8 @@ const AppSidebar = ({ open, onClose }: AppSidebarProps) => {
             <Activity className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="font-mono text-sm font-bold text-foreground tracking-wider">ENERGY</h1>
-            <p className="font-mono text-[10px] text-muted-foreground tracking-widest">BACKOFFICE</p>
+            <h1 className="font-mono text-sm font-bold text-foreground tracking-wider">VOLTCONTROL</h1>
+            <p className="font-mono text-[10px] text-muted-foreground tracking-widest">BV</p>
           </div>
         </div>
         <Button variant="ghost" size="icon" className="md:hidden h-8 w-8" onClick={onClose}>
