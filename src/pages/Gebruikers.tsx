@@ -8,12 +8,14 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { Users, Shield, Building2, Blocks, Plus, ChevronRight, X, UserPlus, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const ALL_MODULES = [
   { path: '/', label: 'Dashboard' },
@@ -50,13 +52,13 @@ const Gebruikers = () => {
   const updateCustomer = useUpdateUserCustomer();
   const createCustomer = useCreateCustomer();
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
 
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [newCustomerOpen, setNewCustomerOpen] = useState(false);
   const [newCustomerName, setNewCustomerName] = useState('');
   const [newCustomerEmail, setNewCustomerEmail] = useState('');
 
-  // Invite state
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteName, setInviteName] = useState('');
@@ -94,29 +96,39 @@ const Gebruikers = () => {
     }
   };
 
+  const detailContent = selectedUser ? (
+    <UserDetailPanel
+      user={selectedUser}
+      customers={customers || []}
+      onClose={() => setSelectedUserId(null)}
+      onUpdateRole={(role) => updateRole.mutate({ userId: selectedUser.user_id, role })}
+      onUpdateCustomer={(customerId) => updateCustomer.mutate({ profileId: selectedUser.id, customerId })}
+    />
+  ) : null;
+
   return (
     <AppLayout title="Gebruikersbeheer" subtitle="Beheer gebruikers, rollen, modules en klanten">
-      <div className="flex gap-6 h-[calc(100vh-10rem)]">
+      <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 h-auto lg:h-[calc(100vh-10rem)]">
         {/* Users table */}
         <div className="flex-1 min-w-0">
-          <div className="rounded-xl border border-border bg-card h-full flex flex-col">
-            <div className="border-b border-border px-5 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+          <div className="rounded-xl border border-border bg-card flex flex-col lg:h-full">
+            <div className="border-b border-border px-4 sm:px-5 py-3 sm:py-4 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 shrink-0">
                   <Users className="h-4 w-4 text-primary" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <h2 className="text-sm font-semibold text-foreground">Gebruikers</h2>
                   <p className="text-xs text-muted-foreground">{users?.length || 0} gebruikers</p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm" className="gap-1.5">
                       <UserPlus className="h-3.5 w-3.5" />
-                      Uitnodigen
+                      <span className="hidden sm:inline">Uitnodigen</span>
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
@@ -159,7 +171,7 @@ const Gebruikers = () => {
                     <Button variant="outline" size="sm" className="gap-1.5">
                       <Building2 className="h-3.5 w-3.5" />
                       <Plus className="h-3 w-3" />
-                      Klant
+                      <span className="hidden sm:inline">Klant</span>
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
@@ -187,8 +199,8 @@ const Gebruikers = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Gebruiker</TableHead>
-                    <TableHead>Rol</TableHead>
-                    <TableHead>Klant</TableHead>
+                    <TableHead className="hidden sm:table-cell">Rol</TableHead>
+                    <TableHead className="hidden md:table-cell">Klant</TableHead>
                     <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -206,15 +218,21 @@ const Gebruikers = () => {
                         <TableCell>
                           <div>
                             <p className="text-sm font-medium text-foreground">{user.display_name || '—'}</p>
-                            <p className="text-xs text-muted-foreground font-mono">{user.email}</p>
+                            <p className="text-xs text-muted-foreground font-mono truncate max-w-[200px]">{user.email}</p>
+                            {/* Show role inline on mobile */}
+                            <div className="sm:hidden mt-1">
+                              <Badge variant="secondary" className={cn('text-[10px] font-semibold', roleInfo.color)}>
+                                {roleInfo.label}
+                              </Badge>
+                            </div>
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden sm:table-cell">
                           <Badge variant="secondary" className={cn('text-[10px] font-semibold', roleInfo.color)}>
                             {roleInfo.label}
                           </Badge>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden md:table-cell">
                           <span className="text-xs text-muted-foreground">{user.customer_name || '—'}</span>
                         </TableCell>
                         <TableCell>
@@ -229,19 +247,24 @@ const Gebruikers = () => {
           </div>
         </div>
 
-        {/* Detail panel */}
-        {selectedUser ? (
-          <UserDetailPanel
-            user={selectedUser}
-            customers={customers || []}
-            onClose={() => setSelectedUserId(null)}
-            onUpdateRole={(role) => updateRole.mutate({ userId: selectedUser.user_id, role })}
-            onUpdateCustomer={(customerId) => updateCustomer.mutate({ profileId: selectedUser.id, customerId })}
-          />
+        {/* Detail panel — Sheet on mobile/tablet, inline on desktop */}
+        {isMobile ? (
+          <Sheet open={!!selectedUser} onOpenChange={(open) => { if (!open) setSelectedUserId(null); }}>
+            <SheetContent side="right" className="w-full sm:w-[400px] p-0 overflow-y-auto">
+              <SheetHeader className="sr-only">
+                <SheetTitle>Gebruiker details</SheetTitle>
+              </SheetHeader>
+              {detailContent}
+            </SheetContent>
+          </Sheet>
         ) : (
-          <div className="w-96 shrink-0 rounded-xl border border-border bg-card flex items-center justify-center">
-            <p className="text-sm text-muted-foreground">Selecteer een gebruiker</p>
-          </div>
+          selectedUser ? (
+            <div className="w-96 shrink-0">{detailContent}</div>
+          ) : (
+            <div className="hidden lg:flex w-96 shrink-0 rounded-xl border border-border bg-card items-center justify-center">
+              <p className="text-sm text-muted-foreground">Selecteer een gebruiker</p>
+            </div>
+          )
         )}
       </div>
     </AppLayout>
@@ -263,18 +286,18 @@ const UserDetailPanel = ({ user, customers, onClose, onUpdateRole, onUpdateCusto
   const permissionMap = new Map(permissions?.map(p => [p.module_path, p.enabled]) || []);
 
   const isModuleEnabled = (path: string) => {
-    return permissionMap.has(path) ? permissionMap.get(path)! : true; // default enabled
+    return permissionMap.has(path) ? permissionMap.get(path)! : true;
   };
 
   return (
-    <div className="w-96 shrink-0 rounded-xl border border-border bg-card flex flex-col h-full overflow-hidden">
+    <div className="rounded-xl border border-border bg-card flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div className="border-b border-border px-5 py-4 flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-semibold text-foreground">{user.display_name || user.email}</h3>
-          <p className="text-xs text-muted-foreground font-mono">{user.email}</p>
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold text-foreground truncate">{user.display_name || user.email}</h3>
+          <p className="text-xs text-muted-foreground font-mono truncate">{user.email}</p>
         </div>
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
+        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={onClose}>
           <X className="h-4 w-4" />
         </Button>
       </div>
