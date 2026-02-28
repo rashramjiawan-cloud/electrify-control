@@ -10,6 +10,7 @@ import { Zap, BatteryCharging, Sun, Activity, AlertTriangle, Gauge } from 'lucid
 import EnergyHistoryChart from '@/components/EnergyHistoryChart';
 import DataRetentionWidget from '@/components/DataRetentionWidget';
 import GtvMonitorWidget from '@/components/GtvMonitorWidget';
+import EnergyFlowRendering from '@/components/EnergyFlowRendering';
 
 const Dashboard = () => {
   const { data: dbChargePoints } = useChargePoints();
@@ -46,6 +47,11 @@ const Dashboard = () => {
 
   return (
     <AppLayout title="Dashboard" subtitle="Overzicht van je energiesysteem">
+      {/* Animated Energy Flow Rendering */}
+      <div className="mb-8">
+        <EnergyFlowRendering />
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         <StatCard title="Actief laden" value={chargingCount} unit={`/ ${cpList.length}`} icon={Zap} variant="primary" />
         <StatCard title="Huidig vermogen" value={totalPower.toFixed(1)} unit="kW" icon={Activity} variant="primary" />
