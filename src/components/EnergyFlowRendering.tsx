@@ -38,7 +38,7 @@ const EnergyFlowRendering = () => {
   const isCharging = chargingCps.length > 0 || mockChargePoints.some(cp => cp.status === 'Charging');
 
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
+    <div className="rounded-xl border border-border bg-card overflow-hidden border-pulse">
       {/* Header */}
       <div className="border-b border-border px-4 md:px-5 py-3 md:py-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
