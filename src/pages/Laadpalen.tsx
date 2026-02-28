@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { useChargePoints, useConnectors } from '@/hooks/useChargePoints';
+import { useChargePoints, useConnectors, useUpdateChargePointCustomer } from '@/hooks/useChargePoints';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useAuditLog } from '@/hooks/useAuditLog';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
@@ -25,6 +25,10 @@ import MqttStatusBadge from '@/components/MqttStatusBadge';
 import MqttConfigDialog from '@/components/MqttConfigDialog';
 import ChargePointLoadBalance from '@/components/ChargePointLoadBalance';
 import { useMqttConfigForAsset } from '@/hooks/useMqttConfigurations';
+import { useCustomers } from '@/hooks/useUsers';
+import { useAuth } from '@/hooks/useAuth';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Building2 } from 'lucide-react';
 
 const OCPP_ENDPOINT = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ocpp-handler`;
 const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -54,6 +58,9 @@ const Laadpalen = () => {
   const { data: dbTransactions } = useTransactions(100);
   const { data: auditLogs } = useAuditLog(200);
   useRealtimeSubscription();
+  const { data: customers } = useCustomers();
+  const { isAdmin } = useAuth();
+  const updateCustomer = useUpdateChargePointCustomer();
 
   const [startDialogOpen, setStartDialogOpen] = useState(false);
   const [stopDialogOpen, setStopDialogOpen] = useState(false);
@@ -532,7 +539,7 @@ const Laadpalen = () => {
                 </div>
 
                 <div className="px-6 py-4">
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+                  <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-sm">
                     <div>
                       <span className="text-muted-foreground text-xs">Locatie</span>
                       <p className="text-foreground font-medium">{cp.location || '—'}</p>
@@ -557,6 +564,31 @@ const Laadpalen = () => {
                           : '—'}
                       </p>
                     </div>
+                    {isAdmin && (
+                      <div>
+                        <span className="text-muted-foreground text-xs flex items-center gap-1">
+                          <Building2 className="h-3 w-3" />
+                          Klant
+                        </span>
+                        <Select
+                          value={(cp as any).customer_id || '__none__'}
+                          onValueChange={(v) => updateCustomer.mutate({
+                            chargePointId: cp.id,
+                            customerId: v === '__none__' ? null : v,
+                          })}
+                        >
+                          <SelectTrigger className="h-7 mt-1 text-xs">
+                            <SelectValue placeholder="Geen klant" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">Geen klant</SelectItem>
+                            {customers?.map(c => (
+                              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
 
                   {/* Load Balance Visualization */}

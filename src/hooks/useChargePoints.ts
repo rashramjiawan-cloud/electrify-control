@@ -1,5 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export interface DbChargePoint {
   id: string;
@@ -15,6 +16,7 @@ export interface DbChargePoint {
   last_heartbeat: string | null;
   created_at: string;
   updated_at: string;
+  customer_id: string | null;
 }
 
 export interface DbConnector {
@@ -54,5 +56,23 @@ export function useConnectors(chargePointId?: string) {
       return data as DbConnector[];
     },
     refetchInterval: 30_000,
+  });
+}
+
+export function useUpdateChargePointCustomer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ chargePointId, customerId }: { chargePointId: string; customerId: string | null }) => {
+      const { error } = await supabase
+        .from('charge_points')
+        .update({ customer_id: customerId } as any)
+        .eq('id', chargePointId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['charge-points'] });
+      toast.success('Klant bijgewerkt');
+    },
+    onError: (e: any) => toast.error(`Fout: ${e.message}`),
   });
 }
