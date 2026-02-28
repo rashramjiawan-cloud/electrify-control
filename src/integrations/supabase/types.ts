@@ -88,6 +88,7 @@ export type Database = {
       charge_points: {
         Row: {
           created_at: string
+          customer_id: string | null
           energy_delivered: number | null
           firmware_version: string | null
           id: string
@@ -103,6 +104,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          customer_id?: string | null
           energy_delivered?: number | null
           firmware_version?: string | null
           id: string
@@ -118,6 +120,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          customer_id?: string | null
           energy_delivered?: number | null
           firmware_version?: string | null
           id?: string
@@ -131,7 +134,15 @@ export type Database = {
           updated_at?: string
           vendor?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "charge_points_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       charging_behavior_analyses: {
         Row: {
@@ -1339,6 +1350,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_my_customer_id: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
