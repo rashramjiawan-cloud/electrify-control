@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Users, Shield, Building2, Blocks, Plus, ChevronRight, X, UserPlus, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import UserDashboardStats from '@/components/UserDashboardStats';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -108,7 +109,8 @@ const Gebruikers = () => {
 
   return (
     <AppLayout title="Gebruikersbeheer" subtitle="Beheer gebruikers, rollen, modules en klanten">
-      <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 h-auto lg:h-[calc(100vh-10rem)]">
+      {users && users.length > 0 && <UserDashboardStats users={users} />}
+      <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 h-auto lg:h-[calc(100vh-14rem)] mt-4">
         {/* Users table */}
         <div className="flex-1 min-w-0">
           <div className="rounded-xl border border-border bg-card flex flex-col lg:h-full">
