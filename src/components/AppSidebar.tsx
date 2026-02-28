@@ -162,7 +162,7 @@ const AppSidebar = ({ open, onClose }: AppSidebarProps) => {
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-border bg-sidebar transition-transform duration-300 ease-in-out",
+        "fixed left-0 top-0 z-40 flex h-screen w-64 flex-col border-r bg-sidebar transition-transform duration-300 ease-in-out border-pulse-sidebar",
         "md:translate-x-0",
         open ? "translate-x-0" : "-translate-x-full"
       )}
