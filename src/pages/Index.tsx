@@ -11,6 +11,8 @@ import EnergyHistoryChart from '@/components/EnergyHistoryChart';
 import DataRetentionWidget from '@/components/DataRetentionWidget';
 import GtvMonitorWidget from '@/components/GtvMonitorWidget';
 import EnergyFlowRendering from '@/components/EnergyFlowRendering';
+import DashboardGrid from '@/components/DashboardGrid';
+import { useMemo } from 'react';
 
 const Dashboard = () => {
   const { data: dbChargePoints } = useChargePoints();
@@ -21,7 +23,6 @@ const Dashboard = () => {
   const hasDbCp = dbChargePoints && dbChargePoints.length > 0;
   const hasDbTx = dbTransactions && dbTransactions.length > 0;
 
-  // Charge points data
   const cpList = hasDbCp
     ? dbChargePoints.map(cp => ({ id: cp.id, name: cp.name, vendor: cp.vendor || '', status: cp.status, power: 0 }))
     : mockChargePoints.map(cp => ({ id: cp.id, name: cp.name, vendor: cp.vendor, status: cp.status, power: cp.connectors.reduce((a, c) => a + c.currentPower, 0) }));
@@ -30,7 +31,6 @@ const Dashboard = () => {
   const faultedCount = cpList.filter(cp => cp.status === 'Faulted').length;
   const totalPower = hasDbCp ? 0 : mockChargePoints.reduce((acc, cp) => acc + cp.connectors.reduce((a, c) => a + c.currentPower, 0), 0);
 
-  // GTV usage
   const gtvImport = Number(getSetting('gtv_import_kw')?.value ?? 150);
   const gtvExport = Number(getSetting('gtv_export_kw')?.value ?? 150);
   const gridFlow = flows.find(f => f.type === 'grid');
@@ -40,130 +40,156 @@ const Dashboard = () => {
   const gtvUsagePct = activeGtvLimit > 0 ? Math.round((Math.abs(currentPowerKw) / activeGtvLimit) * 100) : 0;
   const gtvVariant = gtvUsagePct >= 100 ? 'destructive' : gtvUsagePct >= 80 ? 'warning' : 'default';
 
-  // Transactions
   const txList = hasDbTx
     ? dbTransactions.map(tx => ({ id: tx.id, idTag: tx.id_tag, startTime: tx.start_time, energyDelivered: tx.energy_delivered, cost: tx.cost, status: tx.status }))
     : mockTransactions;
 
-  return (
-    <AppLayout title="Dashboard" subtitle="Overzicht van je energiesysteem">
-      {/* Animated Energy Flow Rendering */}
-      <div className="mb-8">
-        <EnergyFlowRendering />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-        <StatCard title="Actief laden" value={chargingCount} unit={`/ ${cpList.length}`} icon={Zap} variant="primary" />
-        <StatCard title="Huidig vermogen" value={totalPower.toFixed(1)} unit="kW" icon={Activity} variant="primary" />
-        <StatCard title="Zonne-energie" value={mockEMS.solarPower} unit="kW" icon={Sun} trend={{ value: 8, label: 'vandaag' }} />
-        <StatCard title="Storingen" value={faultedCount} icon={AlertTriangle} variant={faultedCount > 0 ? 'destructive' : 'default'} />
-        <StatCard title="GTV-gebruik" value={gtvUsagePct} unit={`% / ${activeGtvLimit} kW`} icon={Gauge} variant={gtvVariant as any} />
-      </div>
-      {/* Energy History Chart */}
-      <div className="mb-8">
-        <EnergyHistoryChart />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Charge Points Status */}
-        <div className="lg:col-span-2 rounded-xl border border-border bg-card">
-          <div className="border-b border-border px-5 py-4">
-            <h2 className="text-sm font-semibold text-foreground">Laadpalen Status</h2>
-          </div>
-          <div className="divide-y divide-border">
-            {cpList.map((cp) => (
-              <div key={cp.id} className="flex items-center justify-between px-5 py-3.5 hover:bg-muted/30 transition-colors">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                    <Zap className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{cp.name}</p>
-                    <p className="font-mono text-xs text-muted-foreground">{cp.id} · {cp.vendor}</p>
-                  </div>
+  const widgets = useMemo(() => [
+    {
+      id: 'energy-flow',
+      title: 'Energiestroom',
+      defaultLayout: { x: 0, y: 0, w: 12, h: 5, minW: 6, minH: 4 },
+      children: <EnergyFlowRendering />,
+    },
+    {
+      id: 'stat-charging',
+      title: 'Actief laden',
+      defaultLayout: { x: 0, y: 5, w: 2, h: 2, minW: 2, minH: 2 },
+      children: <StatCard title="Actief laden" value={chargingCount} unit={`/ ${cpList.length}`} icon={Zap} variant="primary" />,
+    },
+    {
+      id: 'stat-power',
+      title: 'Huidig vermogen',
+      defaultLayout: { x: 2, y: 5, w: 3, h: 2, minW: 2, minH: 2 },
+      children: <StatCard title="Huidig vermogen" value={totalPower.toFixed(1)} unit="kW" icon={Activity} variant="primary" />,
+    },
+    {
+      id: 'stat-solar',
+      title: 'Zonne-energie',
+      defaultLayout: { x: 5, y: 5, w: 3, h: 2, minW: 2, minH: 2 },
+      children: <StatCard title="Zonne-energie" value={mockEMS.solarPower} unit="kW" icon={Sun} trend={{ value: 8, label: 'vandaag' }} />,
+    },
+    {
+      id: 'stat-faults',
+      title: 'Storingen',
+      defaultLayout: { x: 8, y: 5, w: 2, h: 2, minW: 2, minH: 2 },
+      children: <StatCard title="Storingen" value={faultedCount} icon={AlertTriangle} variant={faultedCount > 0 ? 'destructive' : 'default'} />,
+    },
+    {
+      id: 'stat-gtv',
+      title: 'GTV-gebruik',
+      defaultLayout: { x: 10, y: 5, w: 2, h: 2, minW: 2, minH: 2 },
+      children: <StatCard title="GTV-gebruik" value={gtvUsagePct} unit={`% / ${activeGtvLimit} kW`} icon={Gauge} variant={gtvVariant as any} />,
+    },
+    {
+      id: 'energy-history',
+      title: 'Energiegeschiedenis',
+      defaultLayout: { x: 0, y: 7, w: 12, h: 5, minW: 6, minH: 3 },
+      children: <EnergyHistoryChart />,
+    },
+    {
+      id: 'charge-points',
+      title: 'Laadpalen Status',
+      defaultLayout: { x: 0, y: 12, w: 8, h: 6, minW: 4, minH: 3 },
+      children: (
+        <div className="divide-y divide-border -mx-4 -mt-4">
+          {cpList.map((cp) => (
+            <div key={cp.id} className="flex items-center justify-between px-5 py-3.5 hover:bg-muted/30 transition-colors">
+              <div className="flex items-center gap-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                  <Zap className="h-4 w-4 text-muted-foreground" />
                 </div>
-                <div className="flex items-center gap-4">
-                  {cp.power > 0 && (
-                    <span className="font-mono text-sm text-primary font-medium">{cp.power.toFixed(1)} kW</span>
-                  )}
-                  <StatusBadge status={cp.status as any} />
+                <div>
+                  <p className="text-sm font-medium text-foreground">{cp.name}</p>
+                  <p className="font-mono text-xs text-muted-foreground">{cp.id} · {cp.vendor}</p>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Right Column */}
-        <div className="space-y-6">
-          {/* Battery Summary */}
-          <div className="rounded-xl border border-border bg-card">
-            <div className="border-b border-border px-5 py-4">
-              <h2 className="text-sm font-semibold text-foreground">Batterijen</h2>
+              <div className="flex items-center gap-4">
+                {cp.power > 0 && (
+                  <span className="font-mono text-sm text-primary font-medium">{cp.power.toFixed(1)} kW</span>
+                )}
+                <StatusBadge status={cp.status as any} />
+              </div>
             </div>
-            <div className="p-5 space-y-4">
-              {mockBatteries.map((bat) => (
-                <div key={bat.id} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-foreground">{bat.name}</span>
-                    <span className="font-mono text-xs text-muted-foreground">{bat.soc}%</span>
-                  </div>
-                  <div className="h-2 rounded-full bg-muted overflow-hidden">
-                    <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${bat.soc}%` }} />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <StatusBadge status={bat.status} />
-                    <span className="font-mono text-xs text-muted-foreground">{bat.power > 0 ? '+' : ''}{bat.power} kW</span>
-                  </div>
-                </div>
-              ))}
+          ))}
+        </div>
+      ),
+    },
+    {
+      id: 'batteries',
+      title: 'Batterijen',
+      defaultLayout: { x: 8, y: 12, w: 4, h: 4, minW: 3, minH: 3 },
+      children: (
+        <div className="space-y-4">
+          {mockBatteries.map((bat) => (
+            <div key={bat.id} className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-foreground">{bat.name}</span>
+                <span className="font-mono text-xs text-muted-foreground">{bat.soc}%</span>
+              </div>
+              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${bat.soc}%` }} />
+              </div>
+              <div className="flex items-center justify-between">
+                <StatusBadge status={bat.status} />
+                <span className="font-mono text-xs text-muted-foreground">{bat.power > 0 ? '+' : ''}{bat.power} kW</span>
+              </div>
             </div>
-          </div>
-
-          {/* Energy Flow Summary */}
-          <div className="rounded-xl border border-border bg-card p-5">
-            <h2 className="text-sm font-semibold text-foreground mb-4">Energieflow</h2>
-            <div className="space-y-3">
-              {flows.map((flow) => {
-                const labels: Record<string, string> = { grid: 'Grid', pv: 'Zon', battery: 'Batterij' };
-                const colorClass = flow.type === 'pv' ? 'text-primary' : 'text-foreground';
-                return (
-                  <div key={flow.type} className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">{labels[flow.type] || flow.label}</span>
-                    <span className={`font-mono text-sm ${colorClass}`}>{flow.totalPowerKw.toFixed(1)} kW</span>
-                  </div>
-                );
-              })}
-              {(() => {
-                const pvFlow = flows.find(f => f.type === 'pv');
-                const gridFlow = flows.find(f => f.type === 'grid');
-                const pvKw = Math.abs(pvFlow?.totalPowerKw ?? 0);
-                const gridKw = gridFlow?.totalPowerKw ?? 0;
-                const totalConsumption = gridKw + pvKw;
-                const selfConsumption = totalConsumption > 0 ? Math.round((pvKw / totalConsumption) * 100) : 0;
-                return (
-                  <div className="border-t border-border pt-3 flex items-center justify-between">
-                    <span className="text-sm font-medium text-foreground">Eigen verbruik</span>
-                    <span className="font-mono text-sm font-bold text-primary">{selfConsumption}%</span>
-                  </div>
-                );
-              })()}
-          </div>
-
-          {/* GTV Monitor */}
-          <GtvMonitorWidget />
-
-          {/* Data Retention Widget */}
-          <DataRetentionWidget />
+          ))}
         </div>
-      </div>
-      </div>
-
-      {/* Recent Transactions */}
-      <div className="mt-8 rounded-xl border border-border bg-card">
-        <div className="border-b border-border px-5 py-4">
-          <h2 className="text-sm font-semibold text-foreground">Recente Transacties</h2>
+      ),
+    },
+    {
+      id: 'energy-flow-summary',
+      title: 'Energieflow',
+      defaultLayout: { x: 8, y: 16, w: 4, h: 4, minW: 3, minH: 3 },
+      children: (
+        <div className="space-y-3">
+          {flows.map((flow) => {
+            const labels: Record<string, string> = { grid: 'Grid', pv: 'Zon', battery: 'Batterij' };
+            const colorClass = flow.type === 'pv' ? 'text-primary' : 'text-foreground';
+            return (
+              <div key={flow.type} className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">{labels[flow.type] || flow.label}</span>
+                <span className={`font-mono text-sm ${colorClass}`}>{flow.totalPowerKw.toFixed(1)} kW</span>
+              </div>
+            );
+          })}
+          {(() => {
+            const pvFlow = flows.find(f => f.type === 'pv');
+            const gridFlow = flows.find(f => f.type === 'grid');
+            const pvKw = Math.abs(pvFlow?.totalPowerKw ?? 0);
+            const gridKw = gridFlow?.totalPowerKw ?? 0;
+            const totalConsumption = gridKw + pvKw;
+            const selfConsumption = totalConsumption > 0 ? Math.round((pvKw / totalConsumption) * 100) : 0;
+            return (
+              <div className="border-t border-border pt-3 flex items-center justify-between">
+                <span className="text-sm font-medium text-foreground">Eigen verbruik</span>
+                <span className="font-mono text-sm font-bold text-primary">{selfConsumption}%</span>
+              </div>
+            );
+          })()}
         </div>
-        <div className="overflow-x-auto">
+      ),
+    },
+    {
+      id: 'gtv-monitor',
+      title: 'GTV Monitor',
+      defaultLayout: { x: 8, y: 20, w: 4, h: 3, minW: 3, minH: 2 },
+      children: <GtvMonitorWidget />,
+    },
+    {
+      id: 'data-retention',
+      title: 'Data Retentie',
+      defaultLayout: { x: 8, y: 23, w: 4, h: 3, minW: 3, minH: 2 },
+      children: <DataRetentionWidget />,
+    },
+    {
+      id: 'recent-transactions',
+      title: 'Recente Transacties',
+      defaultLayout: { x: 0, y: 18, w: 8, h: 5, minW: 6, minH: 3 },
+      children: (
+        <div className="overflow-x-auto -mx-4 -mt-4">
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
@@ -191,7 +217,13 @@ const Dashboard = () => {
             </tbody>
           </table>
         </div>
-      </div>
+      ),
+    },
+  ], [cpList, chargingCount, totalPower, faultedCount, gtvUsagePct, activeGtvLimit, gtvVariant, flows, txList]);
+
+  return (
+    <AppLayout title="Dashboard" subtitle="Overzicht van je energiesysteem">
+      <DashboardGrid widgets={widgets} />
     </AppLayout>
   );
 };
