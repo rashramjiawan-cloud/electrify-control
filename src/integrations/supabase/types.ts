@@ -403,6 +403,39 @@ export type Database = {
           },
         ]
       }
+      customers: {
+        Row: {
+          address: string | null
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       energy_meters: {
         Row: {
           auth_pass: string | null
@@ -931,6 +964,7 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          customer_id: string | null
           display_name: string | null
           email: string | null
           id: string
@@ -939,6 +973,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          customer_id?: string | null
           display_name?: string | null
           email?: string | null
           id?: string
@@ -947,13 +982,22 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          customer_id?: string | null
           display_name?: string | null
           email?: string | null
           id?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       reservations: {
         Row: {
@@ -1113,6 +1157,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_module_permissions: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          module_path: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          module_path: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          module_path?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
@@ -1277,7 +1348,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "user"
+      app_role: "admin" | "user" | "manager" | "operator" | "viewer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1405,7 +1476,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user"],
+      app_role: ["admin", "user", "manager", "operator", "viewer"],
     },
   },
 } as const
