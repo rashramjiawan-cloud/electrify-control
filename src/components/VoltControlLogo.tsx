@@ -66,7 +66,7 @@ const VoltControlLogo = ({ size = 'md', className }: VoltControlLogoProps) => {
         <p className={cn('font-mono text-muted-foreground tracking-widest', s.sub)}>
           <span className="inline-flex items-center gap-1">
             <span className="h-[1px] w-2 bg-primary/40 animate-[volt-line_2s_ease-in-out_infinite]" />
-            BV
+            IO
             <span className="h-[1px] w-2 bg-primary/40 animate-[volt-line_2s_ease-in-out_infinite_0.5s]" />
           </span>
         </p>
