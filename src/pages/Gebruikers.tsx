@@ -9,8 +9,11 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Users, Shield, Building2, Blocks, Plus, ChevronRight, X } from 'lucide-react';
+import { Users, Shield, Building2, Blocks, Plus, ChevronRight, X, UserPlus, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 
 const ALL_MODULES = [
   { path: '/', label: 'Dashboard' },
@@ -46,11 +49,19 @@ const Gebruikers = () => {
   const updateRole = useUpdateUserRole();
   const updateCustomer = useUpdateUserCustomer();
   const createCustomer = useCreateCustomer();
+  const queryClient = useQueryClient();
 
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [newCustomerOpen, setNewCustomerOpen] = useState(false);
   const [newCustomerName, setNewCustomerName] = useState('');
   const [newCustomerEmail, setNewCustomerEmail] = useState('');
+
+  // Invite state
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteName, setInviteName] = useState('');
+  const [inviteRole, setInviteRole] = useState('user');
+  const [inviteLoading, setInviteLoading] = useState(false);
 
   const selectedUser = users?.find(u => u.user_id === selectedUserId);
 
@@ -59,6 +70,28 @@ const Gebruikers = () => {
     createCustomer.mutate({ name: newCustomerName.trim(), contact_email: newCustomerEmail || undefined }, {
       onSuccess: () => { setNewCustomerOpen(false); setNewCustomerName(''); setNewCustomerEmail(''); }
     });
+  };
+
+  const handleInviteUser = async () => {
+    if (!inviteEmail.trim()) return;
+    setInviteLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('invite-user', {
+        body: { email: inviteEmail.trim(), display_name: inviteName.trim() || undefined, role: inviteRole },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(data?.message || 'Gebruiker uitgenodigd');
+      setInviteOpen(false);
+      setInviteEmail('');
+      setInviteName('');
+      setInviteRole('user');
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+    } catch (e: any) {
+      toast.error(`Fout: ${e.message}`);
+    } finally {
+      setInviteLoading(false);
+    }
   };
 
   return (
@@ -78,31 +111,75 @@ const Gebruikers = () => {
                 </div>
               </div>
 
-              <Dialog open={newCustomerOpen} onOpenChange={setNewCustomerOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-1.5">
-                    <Building2 className="h-3.5 w-3.5" />
-                    <Plus className="h-3 w-3" />
-                    Klant
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Nieuwe klant aanmaken</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4 pt-2">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Naam</Label>
-                      <Input value={newCustomerName} onChange={e => setNewCustomerName(e.target.value)} placeholder="Bedrijfsnaam" />
+              <div className="flex items-center gap-2">
+                <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" className="gap-1.5">
+                      <UserPlus className="h-3.5 w-3.5" />
+                      Uitnodigen
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Gebruiker uitnodigen</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 pt-2">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">E-mailadres *</Label>
+                        <Input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="gebruiker@bedrijf.nl" type="email" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Naam</Label>
+                        <Input value={inviteName} onChange={e => setInviteName(e.target.value)} placeholder="Volledige naam" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Rol</Label>
+                        <Select value={inviteRole} onValueChange={setInviteRole}>
+                          <SelectTrigger className="h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ROLES.map(r => (
+                              <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button onClick={handleInviteUser} disabled={!inviteEmail.trim() || inviteLoading} className="w-full gap-2">
+                        {inviteLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+                        {inviteLoading ? 'Bezig...' : 'Uitnodigen'}
+                      </Button>
+                      <p className="text-[11px] text-muted-foreground">De gebruiker wordt aangemaakt en ontvangt een wachtwoord-reset link om een eigen wachtwoord in te stellen.</p>
                     </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Contact e-mail</Label>
-                      <Input value={newCustomerEmail} onChange={e => setNewCustomerEmail(e.target.value)} placeholder="info@bedrijf.nl" />
+                  </DialogContent>
+                </Dialog>
+
+                <Dialog open={newCustomerOpen} onOpenChange={setNewCustomerOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-1.5">
+                      <Building2 className="h-3.5 w-3.5" />
+                      <Plus className="h-3 w-3" />
+                      Klant
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Nieuwe klant aanmaken</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 pt-2">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Naam</Label>
+                        <Input value={newCustomerName} onChange={e => setNewCustomerName(e.target.value)} placeholder="Bedrijfsnaam" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Contact e-mail</Label>
+                        <Input value={newCustomerEmail} onChange={e => setNewCustomerEmail(e.target.value)} placeholder="info@bedrijf.nl" />
+                      </div>
+                      <Button onClick={handleCreateCustomer} disabled={!newCustomerName.trim()} className="w-full">Aanmaken</Button>
                     </div>
-                    <Button onClick={handleCreateCustomer} disabled={!newCustomerName.trim()} className="w-full">Aanmaken</Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </div>
 
             <div className="flex-1 overflow-auto">
