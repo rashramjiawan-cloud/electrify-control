@@ -2,9 +2,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { useMyModulePermissions } from "@/hooks/useMyModulePermissions";
 import Index from "./pages/Index";
 import Laadpalen from "./pages/Laadpalen";
 import Batterij from "./pages/Batterij";
@@ -32,6 +33,8 @@ const queryClient = new QueryClient();
 
 const ProtectedRoute = ({ children, adminOnly = false }: { children: React.ReactNode; adminOnly?: boolean }) => {
   const { user, loading, isAdmin } = useAuth();
+  const { data: disabledModules } = useMyModulePermissions();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -43,6 +46,7 @@ const ProtectedRoute = ({ children, adminOnly = false }: { children: React.React
 
   if (!user) return <Navigate to="/auth" replace />;
   if (adminOnly && !isAdmin) return <Navigate to="/" replace />;
+  if (!isAdmin && disabledModules?.has(location.pathname)) return <Navigate to="/" replace />;
   return <>{children}</>;
 };
 

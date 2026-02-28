@@ -2,6 +2,7 @@ import { useState, useRef, DragEvent } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Zap, LayoutDashboard, BatteryCharging, Cpu, Activity, Play, LogOut, Tag, Euro, Receipt, Settings, Gauge, HardDrive, CalendarClock, AlertTriangle, Sun, X, Network, BookOpen, ChevronRight, GripVertical, Plus, Trash2, Pencil, RotateCcw, Check, Car, FileText, Users } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useMyModulePermissions } from '@/hooks/useMyModulePermissions';
 import VoltControlLogo from '@/components/VoltControlLogo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -64,6 +65,7 @@ interface AppSidebarProps {
 const AppSidebar = ({ open, onClose }: AppSidebarProps) => {
   const location = useLocation();
   const { user, isAdmin, signOut } = useAuth();
+  const { data: disabledModules } = useMyModulePermissions();
   const { config, moveItem, addGroup, renameGroup, deleteGroup, toggleGroupCollapse, resetConfig } = useSidebarConfig();
 
   const [editMode, setEditMode] = useState(false);
@@ -118,6 +120,7 @@ const AppSidebar = ({ open, onClose }: AppSidebarProps) => {
 
   const renderNavItem = (path: string, groupId: string | null, index: number) => {
     if (adminOnlyRoutes.has(path) && !isAdmin) return null;
+    if (!isAdmin && disabledModules?.has(path)) return null;
     const Icon = iconMap[path] || LayoutDashboard;
     const label = labelMap[path] || path;
     const isActive = location.pathname === path;
