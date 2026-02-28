@@ -87,10 +87,12 @@ Deno.serve(async (req) => {
     }
 
     // Send password reset email so user can set their own password
-    await adminClient.auth.admin.generateLink({
-      type: 'recovery',
-      email,
+    const { error: resetError } = await adminClient.auth.resetPasswordForEmail(email, {
+      redirectTo: `${req.headers.get('origin') || Deno.env.get('SITE_URL') || 'https://electrify-control.lovable.app'}/reset-password`,
     });
+    if (resetError) {
+      console.error('Password reset email error:', resetError.message);
+    }
 
     return new Response(JSON.stringify({
       success: true,
