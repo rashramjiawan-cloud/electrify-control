@@ -1,13 +1,16 @@
 import AppLayout from '@/components/AppLayout';
-import StatusBadge from '@/components/StatusBadge';
 import StatCard from '@/components/StatCard';
-import { mockBatteries } from '@/data/mockData';
-import { BatteryCharging, Thermometer, Heart, RefreshCw } from 'lucide-react';
+import { BatteryCharging } from 'lucide-react';
 
 const Batterij = () => {
-  const totalCapacity = mockBatteries.reduce((a, b) => a + b.capacity, 0);
-  const avgSoc = Math.round(mockBatteries.reduce((a, b) => a + b.soc, 0) / mockBatteries.length);
-  const totalPower = mockBatteries.reduce((a, b) => a + b.power, 0);
+  return (
+    <AppLayout title="Batterij" subtitle="Battery Energy Storage System">
+      <div className="text-center py-12 text-muted-foreground">
+        Geen batterijdata beschikbaar. Verbind een batterijsysteem om live data te zien.
+      </div>
+    </AppLayout>
+  );
+};
 
   return (
     <AppLayout title="Batterij" subtitle="Battery Energy Storage System">

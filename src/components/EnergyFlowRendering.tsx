@@ -1,6 +1,6 @@
 import { useEnergyFlows } from '@/hooks/useEnergyFlows';
 import { useChargePoints } from '@/hooks/useChargePoints';
-import { mockChargePoints, mockBatteries, mockEMS } from '@/data/mockData';
+
 import { useIsMobile } from '@/hooks/use-mobile';
 
 /**
@@ -12,7 +12,7 @@ const EnergyFlowRendering = () => {
   const { data: dbChargePoints } = useChargePoints();
   const isMobile = useIsMobile();
 
-  const hasDbCp = dbChargePoints && dbChargePoints.length > 0;
+  
 
   const gridFlow = flows.find(f => f.type === 'grid');
   const pvFlow = flows.find(f => f.type === 'pv');
@@ -22,20 +22,17 @@ const EnergyFlowRendering = () => {
   const pvKw = pvFlow?.totalPowerKw ?? 0;
   const batKw = batFlow?.totalPowerKw ?? 0;
 
-  const cpList = hasDbCp
-    ? dbChargePoints.map(cp => ({ id: cp.id, name: cp.name, status: cp.status }))
-    : mockChargePoints.map(cp => ({ id: cp.id, name: cp.name, status: cp.status }));
+  const cpList = (dbChargePoints || []).map(cp => ({ id: cp.id, name: cp.name, status: cp.status }));
 
   const chargingCps = cpList.filter(cp => cp.status === 'Charging');
   const availableCps = cpList.filter(cp => cp.status === 'Available');
   const faultedCps = cpList.filter(cp => cp.status === 'Faulted');
 
-  const batteryData = mockBatteries[0];
-  const solarPower = pvKw || mockEMS.solarPower;
-  const isGridActive = Math.abs(gridKw) > 0 || !hasAnyLive;
-  const isPvActive = pvKw > 0 || mockEMS.solarPower > 0;
-  const isBatActive = Math.abs(batKw) > 0 || (batteryData && Math.abs(batteryData.power) > 0);
-  const isCharging = chargingCps.length > 0 || mockChargePoints.some(cp => cp.status === 'Charging');
+  const solarPower = pvKw;
+  const isGridActive = Math.abs(gridKw) > 0;
+  const isPvActive = pvKw > 0;
+  const isBatActive = Math.abs(batKw) > 0;
+  const isCharging = chargingCps.length > 0;
 
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden border-pulse">

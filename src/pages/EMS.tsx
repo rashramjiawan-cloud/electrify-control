@@ -6,7 +6,7 @@ import EnergyFlowWidget from '@/components/EnergyFlowWidget';
 import GtvMonitorWidget from '@/components/GtvMonitorWidget';
 import LoadBalanceStatusWidget from '@/components/LoadBalanceStatusWidget';
 import LoadBalanceHistoryWidget from '@/components/LoadBalanceHistoryWidget';
-import { mockEMS } from '@/data/mockData';
+
 import { useEnergyMeters, useMeterReadings } from '@/hooks/useEnergyMeters';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 import { useEnergyFlows } from '@/hooks/useEnergyFlows';
@@ -66,10 +66,10 @@ const EMS = () => {
   const pvFlow = flows.find(f => f.type === 'pv');
   const batFlow = flows.find(f => f.type === 'battery');
 
-  const gridPower = gridFlow?.totalPowerKw ?? (liveGridPower ?? mockEMS.gridPower);
-  const solarPower = pvFlow?.totalPowerKw ?? mockEMS.solarPower;
-  const batteryPower = batFlow?.totalPowerKw ?? mockEMS.batteryPower;
-  const evPower = mockEMS.evPower;
+  const gridPower = gridFlow?.totalPowerKw ?? (liveGridPower ?? 0);
+  const solarPower = pvFlow?.totalPowerKw ?? 0;
+  const batteryPower = batFlow?.totalPowerKw ?? 0;
+  const evPower = 0;
   const totalConsumption = solarPower + Math.abs(batteryPower) + gridPower;
   const selfConsumption = totalConsumption > 0 ? Math.round(((solarPower + Math.abs(batteryPower)) / totalConsumption) * 100) : 0;
 
