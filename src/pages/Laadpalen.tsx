@@ -435,7 +435,7 @@ const Laadpalen = () => {
                   </div>
                   <div className="flex items-center gap-3">
                     {/* Remote Start/Stop buttons */}
-                    {hasDbData && (
+                    {dbChargePoints && dbChargePoints.length > 0 && (
                       <div className="flex items-center gap-2">
                         <Button
                           size="sm"
@@ -666,7 +666,7 @@ const Laadpalen = () => {
       )}
 
       {/* Audit Log Section */}
-      {hasDbData && auditLogs && auditLogs.length > 0 && (
+      {auditLogs && auditLogs.length > 0 && (
         <AuditLogTable
           logs={auditLogs as any}
           chargePointIds={chargePoints.map(cp => cp.id)}
