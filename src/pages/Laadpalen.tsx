@@ -11,7 +11,7 @@ import { useChargePoints, useConnectors, useUpdateChargePointCustomer } from '@/
 import { useTransactions } from '@/hooks/useTransactions';
 import { useAuditLog } from '@/hooks/useAuditLog';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
-import { mockChargePoints } from '@/data/mockData';
+
 import { Zap, Plug, AlertTriangle, CheckCircle, Play, Square, Settings, Lock, Unlock, Loader2, RotateCcw, Radio, Trash2, Wifi, WifiOff } from 'lucide-react';
 import { downloadAsCsv } from '@/lib/csvExport';
 import AuditLogTable from '@/components/AuditLogTable';
@@ -113,34 +113,10 @@ const Laadpalen = () => {
     }
   };
 
-  const hasDbData = dbChargePoints && dbChargePoints.length > 0;
-
-  const chargePoints = hasDbData
-    ? dbChargePoints.map(cp => ({
-        ...cp,
-        connectors: (dbConnectors || []).filter(c => c.charge_point_id === cp.id),
-      }))
-    : mockChargePoints.map(cp => ({
-        id: cp.id,
-        name: cp.name,
-        model: cp.model,
-        vendor: cp.vendor,
-        serial_number: cp.serialNumber,
-        status: cp.status,
-        firmware_version: cp.firmwareVersion,
-        location: cp.location,
-        max_power: cp.power,
-        energy_delivered: cp.energyDelivered,
-        last_heartbeat: cp.lastHeartbeat,
-        connectors: cp.connectors.map(c => ({
-          connector_id: c.id,
-          status: c.status,
-          current_power: c.currentPower,
-          meter_value: c.meterValue,
-          charge_point_id: cp.id,
-          activeTransaction: c.activeTransaction,
-        })),
-      }));
+  const chargePoints = (dbChargePoints || []).map(cp => ({
+    ...cp,
+    connectors: (dbConnectors || []).filter(c => c.charge_point_id === cp.id),
+  }));
 
   const available = chargePoints.filter(cp => cp.status === 'Available').length;
   const charging = chargePoints.filter(cp => cp.status === 'Charging').length;
@@ -376,9 +352,9 @@ const Laadpalen = () => {
 
   return (
     <AppLayout title="Laadpalen" subtitle="OCPP 1.6J Charge Point Management">
-      {!hasDbData && (
+      {chargePoints.length === 0 && !cpLoading && (
         <div className="mb-4 rounded-lg border border-border bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
-          📡 Demo modus — verbind een laadpaal via de OCPP endpoint of gebruik de Simulator om live data te zien
+          📡 Geen laadpalen gevonden — verbind een laadpaal via de OCPP endpoint of gebruik de Simulator
         </div>
       )}
 
@@ -459,7 +435,7 @@ const Laadpalen = () => {
                   </div>
                   <div className="flex items-center gap-3">
                     {/* Remote Start/Stop buttons */}
-                    {hasDbData && (
+                    {dbChargePoints && dbChargePoints.length > 0 && (
                       <div className="flex items-center gap-2">
                         <Button
                           size="sm"
@@ -690,7 +666,7 @@ const Laadpalen = () => {
       )}
 
       {/* Audit Log Section */}
-      {hasDbData && auditLogs && auditLogs.length > 0 && (
+      {auditLogs && auditLogs.length > 0 && (
         <AuditLogTable
           logs={auditLogs as any}
           chargePointIds={chargePoints.map(cp => cp.id)}

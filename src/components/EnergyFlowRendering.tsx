@@ -1,6 +1,6 @@
 import { useEnergyFlows } from '@/hooks/useEnergyFlows';
 import { useChargePoints } from '@/hooks/useChargePoints';
-import { mockChargePoints, mockBatteries, mockEMS } from '@/data/mockData';
+
 import { useIsMobile } from '@/hooks/use-mobile';
 
 /**
@@ -12,7 +12,7 @@ const EnergyFlowRendering = () => {
   const { data: dbChargePoints } = useChargePoints();
   const isMobile = useIsMobile();
 
-  const hasDbCp = dbChargePoints && dbChargePoints.length > 0;
+  
 
   const gridFlow = flows.find(f => f.type === 'grid');
   const pvFlow = flows.find(f => f.type === 'pv');
@@ -22,20 +22,17 @@ const EnergyFlowRendering = () => {
   const pvKw = pvFlow?.totalPowerKw ?? 0;
   const batKw = batFlow?.totalPowerKw ?? 0;
 
-  const cpList = hasDbCp
-    ? dbChargePoints.map(cp => ({ id: cp.id, name: cp.name, status: cp.status }))
-    : mockChargePoints.map(cp => ({ id: cp.id, name: cp.name, status: cp.status }));
+  const cpList = (dbChargePoints || []).map(cp => ({ id: cp.id, name: cp.name, status: cp.status }));
 
   const chargingCps = cpList.filter(cp => cp.status === 'Charging');
   const availableCps = cpList.filter(cp => cp.status === 'Available');
   const faultedCps = cpList.filter(cp => cp.status === 'Faulted');
 
-  const batteryData = mockBatteries[0];
-  const solarPower = pvKw || mockEMS.solarPower;
-  const isGridActive = Math.abs(gridKw) > 0 || !hasAnyLive;
-  const isPvActive = pvKw > 0 || mockEMS.solarPower > 0;
-  const isBatActive = Math.abs(batKw) > 0 || (batteryData && Math.abs(batteryData.power) > 0);
-  const isCharging = chargingCps.length > 0 || mockChargePoints.some(cp => cp.status === 'Charging');
+  const solarPower = pvKw;
+  const isGridActive = Math.abs(gridKw) > 0;
+  const isPvActive = pvKw > 0;
+  const isBatActive = Math.abs(batKw) > 0;
+  const isCharging = chargingCps.length > 0;
 
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden border-pulse">
@@ -79,14 +76,14 @@ const EnergyFlowRendering = () => {
         {isMobile ? (
           <MobileLayout
             gridKw={gridKw} pvKw={pvKw} batKw={batKw}
-            solarPower={solarPower} batteryData={batteryData}
+            solarPower={solarPower} batteryData={null}
             isGridActive={isGridActive} isPvActive={isPvActive} isBatActive={isBatActive}
             hasAnyLive={hasAnyLive} chargingCps={chargingCps} availableCps={availableCps} faultedCps={faultedCps}
           />
         ) : (
           <DesktopLayout
             gridKw={gridKw} pvKw={pvKw} batKw={batKw}
-            solarPower={solarPower} batteryData={batteryData}
+            solarPower={solarPower} batteryData={null}
             isGridActive={isGridActive} isPvActive={isPvActive} isBatActive={isBatActive}
             hasAnyLive={hasAnyLive} chargingCps={chargingCps} availableCps={availableCps} faultedCps={faultedCps}
           />
@@ -262,20 +259,16 @@ const MobileLayout = ({ gridKw, solarPower, batteryData, batKw, isGridActive, is
 
     {/* Consumers */}
     <div className="space-y-2">
-      {chargingCps.length > 0 ? (
+      {chargingCps.length > 0 && (
         chargingCps.slice(0, 3).map(cp => (
           <NodeCard key={cp.id} label={cp.name} subtitle="Laden" color="primary" active small icon={<BoltIcon small />} />
         ))
-      ) : (
-        mockChargePoints.filter(cp => cp.status === 'Charging').slice(0, 2).map(cp => (
-          <NodeCard key={cp.id} label={cp.name} subtitle={`${cp.connectors.reduce((a, c) => a + c.currentPower, 0).toFixed(1)} kW`} color="primary" active small icon={<BoltIcon small />} />
-        ))
       )}
-      {(availableCps.length > 0 || mockChargePoints.filter(cp => cp.status === 'Available').length > 0) && (
+      {availableCps.length > 0 && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border border-border">
           <div className="h-2 w-2 rounded-full bg-muted-foreground" />
           <span className="text-[10px] text-muted-foreground">
-            {availableCps.length || mockChargePoints.filter(cp => cp.status === 'Available').length} beschikbaar
+            {availableCps.length} beschikbaar
           </span>
         </div>
       )}
@@ -306,20 +299,16 @@ const DesktopLayout = ({ gridKw, solarPower, batteryData, batKw, isGridActive, i
 
     {/* Right: Consumers */}
     <div className="col-span-1 col-start-5 space-y-3">
-      {chargingCps.length > 0 ? (
+      {chargingCps.length > 0 && (
         chargingCps.slice(0, 3).map(cp => (
           <NodeCard key={cp.id} label={cp.name} subtitle="Laden" color="primary" active small icon={<BoltIcon small />} />
         ))
-      ) : (
-        mockChargePoints.filter(cp => cp.status === 'Charging').slice(0, 3).map(cp => (
-          <NodeCard key={cp.id} label={cp.name} subtitle={`${cp.connectors.reduce((a, c) => a + c.currentPower, 0).toFixed(1)} kW`} color="primary" active small icon={<BoltIcon small />} />
-        ))
       )}
-      {(availableCps.length > 0 || mockChargePoints.filter(cp => cp.status === 'Available').length > 0) && (
+      {availableCps.length > 0 && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border border-border">
           <div className="h-2 w-2 rounded-full bg-muted-foreground" />
           <span className="text-[10px] text-muted-foreground">
-            {availableCps.length || mockChargePoints.filter(cp => cp.status === 'Available').length} beschikbaar
+            {availableCps.length} beschikbaar
           </span>
         </div>
       )}

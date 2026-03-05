@@ -5,7 +5,7 @@ import { useChargePoints } from '@/hooks/useChargePoints';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useSystemSettings } from '@/hooks/useSystemSettings';
 import { useEnergyFlows } from '@/hooks/useEnergyFlows';
-import { mockChargePoints, mockBatteries, mockEMS, mockTransactions } from '@/data/mockData';
+import { useConnectors } from '@/hooks/useChargePoints';
 import { Zap, BatteryCharging, Sun, Activity, AlertTriangle, Gauge } from 'lucide-react';
 import EnergyHistoryChart from '@/components/EnergyHistoryChart';
 import DataRetentionWidget from '@/components/DataRetentionWidget';
@@ -16,20 +16,20 @@ import { useMemo } from 'react';
 
 const Dashboard = () => {
   const { data: dbChargePoints } = useChargePoints();
+  const { data: dbConnectors } = useConnectors();
   const { data: dbTransactions } = useTransactions(5);
   const { getSetting } = useSystemSettings();
   const { flows } = useEnergyFlows();
 
-  const hasDbCp = dbChargePoints && dbChargePoints.length > 0;
-  const hasDbTx = dbTransactions && dbTransactions.length > 0;
-
-  const cpList = hasDbCp
-    ? dbChargePoints.map(cp => ({ id: cp.id, name: cp.name, vendor: cp.vendor || '', status: cp.status, power: 0 }))
-    : mockChargePoints.map(cp => ({ id: cp.id, name: cp.name, vendor: cp.vendor, status: cp.status, power: cp.connectors.reduce((a, c) => a + c.currentPower, 0) }));
+  const cpList = (dbChargePoints || []).map(cp => {
+    const connectors = (dbConnectors || []).filter(c => c.charge_point_id === cp.id);
+    const power = connectors.reduce((a, c) => a + (c.current_power || 0), 0);
+    return { id: cp.id, name: cp.name, vendor: cp.vendor || '', status: cp.status, power };
+  });
 
   const chargingCount = cpList.filter(cp => cp.status === 'Charging').length;
   const faultedCount = cpList.filter(cp => cp.status === 'Faulted').length;
-  const totalPower = hasDbCp ? 0 : mockChargePoints.reduce((acc, cp) => acc + cp.connectors.reduce((a, c) => a + c.currentPower, 0), 0);
+  const totalPower = cpList.reduce((acc, cp) => acc + cp.power, 0);
 
   const gtvImport = Number(getSetting('gtv_import_kw')?.value ?? 150);
   const gtvExport = Number(getSetting('gtv_export_kw')?.value ?? 150);
@@ -40,9 +40,7 @@ const Dashboard = () => {
   const gtvUsagePct = activeGtvLimit > 0 ? Math.round((Math.abs(currentPowerKw) / activeGtvLimit) * 100) : 0;
   const gtvVariant = gtvUsagePct >= 100 ? 'destructive' : gtvUsagePct >= 80 ? 'warning' : 'default';
 
-  const txList = hasDbTx
-    ? dbTransactions.map(tx => ({ id: tx.id, idTag: tx.id_tag, startTime: tx.start_time, energyDelivered: tx.energy_delivered, cost: tx.cost, status: tx.status }))
-    : mockTransactions;
+  const txList = (dbTransactions || []).map(tx => ({ id: tx.id, idTag: tx.id_tag, startTime: tx.start_time, energyDelivered: tx.energy_delivered, cost: tx.cost, status: tx.status }));
 
   const widgets = useMemo(() => [
     {
@@ -67,7 +65,7 @@ const Dashboard = () => {
       id: 'stat-solar',
       title: 'Zonne-energie',
       defaultLayout: { x: 5, y: 5, w: 3, h: 2, minW: 2, minH: 2 },
-      children: <StatCard title="Zonne-energie" value={mockEMS.solarPower} unit="kW" icon={Sun} trend={{ value: 8, label: 'vandaag' }} />,
+      children: <StatCard title="Zonne-energie" value={flows.find(f => f.type === 'pv')?.totalPowerKw?.toFixed(1) ?? 0} unit="kW" icon={Sun} />,
     },
     {
       id: 'stat-faults',
@@ -120,23 +118,7 @@ const Dashboard = () => {
       title: 'Batterijen',
       defaultLayout: { x: 8, y: 12, w: 4, h: 4, minW: 3, minH: 3 },
       children: (
-        <div className="space-y-4">
-          {mockBatteries.map((bat) => (
-            <div key={bat.id} className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-foreground">{bat.name}</span>
-                <span className="font-mono text-xs text-muted-foreground">{bat.soc}%</span>
-              </div>
-              <div className="h-2 rounded-full bg-muted overflow-hidden">
-                <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${bat.soc}%` }} />
-              </div>
-              <div className="flex items-center justify-between">
-                <StatusBadge status={bat.status} />
-                <span className="font-mono text-xs text-muted-foreground">{bat.power > 0 ? '+' : ''}{bat.power} kW</span>
-              </div>
-            </div>
-          ))}
-        </div>
+        <div className="text-sm text-muted-foreground text-center py-6">Geen batterijdata beschikbaar</div>
       ),
     },
     {
