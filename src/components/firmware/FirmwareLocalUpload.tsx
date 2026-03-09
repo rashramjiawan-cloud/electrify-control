@@ -4,8 +4,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import { Upload, File, CheckCircle2, XCircle, HardDrive } from 'lucide-react';
+import { Upload, File, CheckCircle2, XCircle, HardDrive, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface ChargePoint {
   id: string;
@@ -22,12 +24,28 @@ const FirmwareLocalUpload = ({ chargePoints }: FirmwareLocalUploadProps) => {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const qc = useQueryClient();
+
+  const { data: uploadedFiles, isLoading: filesLoading } = useQuery({
+    queryKey: ['firmware-files'],
+    queryFn: async () => {
+      const { data, error } = await supabase.storage.from('firmware').list('', {
+        sortBy: { column: 'created_at', order: 'desc' },
+      });
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (f) {
-      if (!f.name.match(/\.(bin|fw|hex|img|tar\.gz|zip)$/i)) {
+      if (!f.name.match(/\.(bin|fw|hex|img|gz|zip)$/i)) {
         toast.error('Ongeldig bestandstype. Ondersteund: .bin, .fw, .hex, .img, .tar.gz, .zip');
+        return;
+      }
+      if (f.size > 100 * 1024 * 1024) {
+        toast.error('Bestand is te groot (max 100MB)');
         return;
       }
       setFile(f);
@@ -46,26 +64,56 @@ const FirmwareLocalUpload = ({ chargePoints }: FirmwareLocalUploadProps) => {
     }
 
     setUploading(true);
-    setProgress(0);
+    setProgress(10);
 
-    // Simulate upload progress
-    const interval = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 95) {
-          clearInterval(interval);
-          return 95;
-        }
-        return prev + Math.random() * 15;
+    try {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filePath = `${selectedCp}/${timestamp}_${file.name}`;
+
+      setProgress(30);
+
+      const { error } = await supabase.storage
+        .from('firmware')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false,
+        });
+
+      if (error) throw error;
+
+      setProgress(90);
+
+      // Also create a firmware_updates record
+      await supabase.from('firmware_updates').insert({
+        charge_point_id: selectedCp,
+        type: 'Firmware',
+        location: `storage://firmware/${filePath}`,
+        status: 'Downloaded',
+        retries: 0,
+        retry_interval: 0,
       });
-    }, 500);
 
-    // Simulate upload completion
-    setTimeout(() => {
-      clearInterval(interval);
       setProgress(100);
+      toast.success(`Firmware "${file.name}" geüpload voor ${chargePoints?.find(cp => cp.id === selectedCp)?.name || selectedCp}`);
+      setFile(null);
+      qc.invalidateQueries({ queryKey: ['firmware-files'] });
+      qc.invalidateQueries({ queryKey: ['firmware-updates'] });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Upload mislukt';
+      toast.error(message);
+    } finally {
       setUploading(false);
-      toast.success(`Firmware bestand "${file.name}" klaargezet voor ${chargePoints?.find(cp => cp.id === selectedCp)?.name || selectedCp}`);
-    }, 3000);
+    }
+  };
+
+  const handleDelete = async (fileName: string) => {
+    const { error } = await supabase.storage.from('firmware').remove([fileName]);
+    if (error) {
+      toast.error('Verwijderen mislukt');
+    } else {
+      toast.success('Bestand verwijderd');
+      qc.invalidateQueries({ queryKey: ['firmware-files'] });
+    }
   };
 
   const formatFileSize = (bytes: number) => {
@@ -74,8 +122,14 @@ const FirmwareLocalUpload = ({ chargePoints }: FirmwareLocalUploadProps) => {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  const formatDate = (d: string) => new Date(d).toLocaleString('nl-NL', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+
   return (
     <div className="space-y-6">
+      {/* Upload form */}
       <div className="rounded-xl border border-border bg-card p-6">
         <div className="flex items-center gap-3 mb-6">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
@@ -83,7 +137,7 @@ const FirmwareLocalUpload = ({ chargePoints }: FirmwareLocalUploadProps) => {
           </div>
           <div>
             <h3 className="text-sm font-semibold text-foreground">Lokaal firmware bestand uploaden</h3>
-            <p className="text-xs text-muted-foreground">Upload een firmware bestand vanaf je computer naar een laadpaal</p>
+            <p className="text-xs text-muted-foreground">Upload een firmware bestand vanaf je computer naar de opslag</p>
           </div>
         </div>
 
@@ -132,7 +186,7 @@ const FirmwareLocalUpload = ({ chargePoints }: FirmwareLocalUploadProps) => {
                 <>
                   <Upload className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
                   <p className="text-sm text-muted-foreground">Klik om een bestand te selecteren</p>
-                  <p className="text-[10px] text-muted-foreground mt-1">Ondersteund: .bin, .fw, .hex, .img, .tar.gz, .zip</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">Ondersteund: .bin, .fw, .hex, .img, .tar.gz, .zip (max 100MB)</p>
                 </>
               )}
             </div>
@@ -160,6 +214,41 @@ const FirmwareLocalUpload = ({ chargePoints }: FirmwareLocalUploadProps) => {
             {uploading ? 'Uploaden...' : 'Firmware uploaden'}
           </Button>
         </div>
+      </div>
+
+      {/* Uploaded files list */}
+      <div className="rounded-xl border border-border bg-card p-6">
+        <h3 className="text-sm font-semibold text-foreground mb-4">Opgeslagen firmware bestanden</h3>
+        {filesLoading ? (
+          <p className="text-sm text-muted-foreground">Laden...</p>
+        ) : !uploadedFiles || uploadedFiles.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border p-8 text-center">
+            <File className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">Nog geen firmware bestanden geüpload</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {uploadedFiles.map(f => (
+              <div key={f.id} className="flex items-center justify-between rounded-lg border border-border bg-muted/20 px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <File className="h-4 w-4 text-primary" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground font-mono">{f.name}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {f.metadata && typeof f.metadata === 'object' && 'size' in f.metadata
+                        ? formatFileSize(f.metadata.size as number)
+                        : '—'}{' '}
+                      · {formatDate(f.created_at)}
+                    </p>
+                  </div>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => handleDelete(f.name)}>
+                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
