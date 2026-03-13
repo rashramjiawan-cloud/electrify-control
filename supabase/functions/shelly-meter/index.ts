@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
       if (!authKey) throw new Error('SHELLY_CLOUD_AUTH_KEY is niet geconfigureerd');
 
       const cloudServer = server || 'shelly-api-eu.shelly.cloud';
-      const url = `https://${cloudServer}:6012/device/rpc`;
+      const url = `https://${cloudServer}:6022/jrpc`;
 
       console.log(`Shelly Cloud JRPC: ${method} → ${deviceId} via ${cloudServer}`);
 
