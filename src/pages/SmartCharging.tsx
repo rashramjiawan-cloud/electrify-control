@@ -1090,7 +1090,7 @@ const SmartCharging = () => {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Shelly Device ID</Label>
-                  <Input value={meterShellyDeviceId} onChange={e => setMeterShellyDeviceId(e.target.value)} placeholder="shellyproem50-A4F00FCFA140" className="font-mono text-sm" />
+                  <Input value={meterShellyDeviceId} onChange={e => setMeterShellyDeviceId(e.target.value)} placeholder={meterDeviceType === 'shelly_pro_3em' ? 'shellypro3em-A4F00FCFA140' : 'shellyproem50-A4F00FCFA140'} className="font-mono text-sm" />
                   <p className="text-[10px] text-muted-foreground">Het Device ID wordt gebruikt om binnenkomende data te koppelen aan deze meter.</p>
                 </div>
                 <div className="rounded-md bg-muted/50 p-3 space-y-2">
@@ -1106,7 +1106,8 @@ const SmartCharging = () => {
                   <p className="text-[10px] font-semibold text-foreground">📋 Shelly Script (kopieer & plak):</p>
                   <div className="relative">
                     <pre className="text-[9px] font-mono text-muted-foreground whitespace-pre-wrap break-all max-h-[200px] overflow-y-auto select-all cursor-pointer" onClick={() => {
-                      const script = `// Shelly PRO 3EM → Webhook Push Script
+                      const scriptTitle = meterDeviceType === 'shelly_pro_3em' ? 'Shelly PRO 3EM' : 'Shelly PRO EM-50';
+                      const script = `// ${scriptTitle} → Webhook Push Script
 let CONFIG = {
   ENDPOINT: "https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/shelly-ingest",
   DEVICE_ID: "${meterShellyDeviceId || '<JE_DEVICE_ID>'}",
@@ -1142,7 +1143,7 @@ sendData();
 print("Webhook script gestart, interval: " + CONFIG.INTERVAL_SEC + "s");`;
                       navigator.clipboard.writeText(script);
                       toast.success('Script gekopieerd naar klembord!');
-                    }}>{`// Shelly PRO 3EM → Webhook Push Script
+                    }}>{`// ${meterDeviceType === 'shelly_pro_3em' ? 'Shelly PRO 3EM' : 'Shelly PRO EM-50'} → Webhook Push Script
 let CONFIG = {
   ENDPOINT: "https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/shelly-ingest",
   DEVICE_ID: "${meterShellyDeviceId || '<JE_DEVICE_ID>'}",
