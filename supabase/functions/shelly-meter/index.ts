@@ -397,6 +397,11 @@ Deno.serve(async (req) => {
             let shellyData: any;
             let source = 'local';
 
+            // Skip webhook meters — they push data themselves
+            if (meter.connection_type === 'webhook') {
+              continue;
+            }
+
             // Try cloud first if device_id is configured
             if (meter.shelly_device_id) {
               source = 'cloud';
