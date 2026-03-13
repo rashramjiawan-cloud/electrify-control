@@ -1255,7 +1255,7 @@ print("Webhook script gestart");`}</pre>
             )}
 
             {/* HTTP Basic Auth (optional) - only for Shelly */}
-            {meterDeviceType !== 'smartstuff_ultra_x2' && meterConnType !== 'webhook' && (
+            {meterDeviceType !== 'smartstuff_ultra_x2' && meterConnType !== 'webhook' && meterConnType !== 'outbound_ws' && (
               <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <Label className="text-xs font-semibold">HTTP Authenticatie (optioneel)</Label>
