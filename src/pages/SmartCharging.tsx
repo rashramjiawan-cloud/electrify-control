@@ -56,7 +56,9 @@ const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt }: { meter: E
           <div>
             <p className="text-sm font-medium text-foreground">{meter.name}</p>
             <p className="font-mono text-xs text-muted-foreground">
-              {meter.shelly_device_id
+              {meter.shelly_device_id && meter.connection_type === 'webhook'
+                ? `Webhook · ${meter.shelly_device_id}`
+                : meter.shelly_device_id
                 ? `Cloud · ${meter.shelly_device_id}`
                 : meter.connection_type === 'tcp_ip' ? `TCP/IP ${meter.host}:${meter.port}` : `RS485 addr ${meter.modbus_address}`}
               {meter.last_poll_at && ` · Laatste poll: ${new Date(meter.last_poll_at).toLocaleTimeString('nl-NL')}`}
@@ -115,7 +117,7 @@ const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt }: { meter: E
             }}
           >
             <Zap className="h-3 w-3" />
-            {pollMeter.isPending ? 'Ophalen...' : meter.shelly_device_id ? 'Cloud Poll' : 'Server Poll'}
+            {pollMeter.isPending ? 'Ophalen...' : meter.connection_type === 'webhook' ? 'Webhook' : meter.shelly_device_id ? 'Cloud Poll' : 'Server Poll'}
           </Button>
           <MqttStatusBadge assetType="energy_meter" assetId={meter.id} onClick={() => onMqtt(meter)} />
           <Button
@@ -977,6 +979,7 @@ const SmartCharging = () => {
                     <SelectContent>
                       <SelectItem value="tcp_ip">TCP/IP (WiFi / Ethernet)</SelectItem>
                       <SelectItem value="rs485">RS485 (Modbus RTU)</SelectItem>
+                      <SelectItem value="webhook">Webhook (Outbound Push)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1015,6 +1018,46 @@ const SmartCharging = () => {
                   💡 Configureer je API key via Instellingen → Ingest API. Dezelfde key als voor OCPP ingest.
                 </p>
               </div>
+            ) : meterConnType === 'webhook' ? (
+              <div className="rounded-lg border border-chart-2/20 bg-chart-2/5 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Wifi className="h-3.5 w-3.5 text-chart-2" />
+                  <h4 className="text-xs font-semibold text-foreground">Shelly Outbound Webhook</h4>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Configureer je Shelly om periodiek een HTTP POST te sturen met meterdata. 
+                  Geen cloud key nodig — de Shelly stuurt zelf data naar jouw endpoint.
+                </p>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Webhook URL</Label>
+                  <div className="rounded-md bg-muted p-2.5 cursor-pointer" onClick={() => {
+                    navigator.clipboard.writeText(`https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/shelly-ingest`);
+                    toast.success('Webhook URL gekopieerd!');
+                  }}>
+                    <code className="text-xs font-mono text-foreground break-all select-all">
+                      {`https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/shelly-ingest`}
+                    </code>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Shelly Device ID</Label>
+                  <Input value={meterShellyDeviceId} onChange={e => setMeterShellyDeviceId(e.target.value)} placeholder="shellyproem50-A4F00FCFA140" className="font-mono text-sm" />
+                  <p className="text-[10px] text-muted-foreground">Het Device ID wordt gebruikt om binnenkomende data te koppelen aan deze meter.</p>
+                </div>
+                <div className="rounded-md bg-muted/50 p-3 space-y-2">
+                  <p className="text-[10px] font-semibold text-foreground">Configuratie op de Shelly:</p>
+                  <ol className="text-[10px] text-muted-foreground space-y-1 list-decimal list-inside">
+                    <li>Open de Shelly web UI (http://&lt;shelly-ip&gt;)</li>
+                    <li>Ga naar <strong>Scripts</strong> → maak een nieuw script</li>
+                    <li>Gebruik <code className="bg-muted px-1 rounded">Shelly.GetStatus</code> en stuur het resultaat via <code className="bg-muted px-1 rounded">HTTP.POST</code></li>
+                    <li>Voeg headers toe: <code className="bg-muted px-1 rounded">x-api-key: &lt;jouw API key&gt;</code></li>
+                    <li>Body: <code className="bg-muted px-1 rounded">{`{"device_id":"<DEVICE_ID>","status":<STATUS_DATA>}`}</code></li>
+                  </ol>
+                  <p className="text-[10px] text-muted-foreground">
+                    💡 API key instellen via <strong>Instellingen → Ingest API</strong>.
+                  </p>
+                </div>
+              </div>
             ) : meterConnType === 'tcp_ip' ? (
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2 space-y-1.5">
@@ -1047,7 +1090,7 @@ const SmartCharging = () => {
             )}
 
             {/* HTTP Basic Auth (optional) - only for Shelly */}
-            {meterDeviceType !== 'smartstuff_ultra_x2' && (
+            {meterDeviceType !== 'smartstuff_ultra_x2' && meterConnType !== 'webhook' && (
               <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <Label className="text-xs font-semibold">HTTP Authenticatie (optioneel)</Label>
@@ -1067,7 +1110,7 @@ const SmartCharging = () => {
             )}
 
             {/* Shelly Cloud API (optional) - only for Shelly */}
-            {meterDeviceType !== 'smartstuff_ultra_x2' && (
+            {meterDeviceType !== 'smartstuff_ultra_x2' && meterConnType !== 'webhook' && (
               <div className="rounded-lg border border-chart-2/20 bg-chart-2/5 p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <Wifi className="h-3.5 w-3.5 text-chart-2" />
@@ -1125,14 +1168,14 @@ const SmartCharging = () => {
               </Button>
             )}
             <Button
-              disabled={(meterDeviceType !== 'smartstuff_ultra_x2' && !meterHost && !meterShellyDeviceId) || createMeter.isPending || updateMeter.isPending}
+              disabled={(meterDeviceType !== 'smartstuff_ultra_x2' && meterConnType !== 'webhook' && !meterHost && !meterShellyDeviceId) || createMeter.isPending || updateMeter.isPending}
               onClick={() => {
                 const meterData: any = {
                   name: meterName,
                   device_type: meterDeviceType,
                   connection_type: meterConnType,
-                  host: meterDeviceType === 'smartstuff_ultra_x2' ? 'webhook' : meterHost,
-                  port: meterDeviceType === 'smartstuff_ultra_x2' ? 443 : Number(meterPort),
+                  host: meterDeviceType === 'smartstuff_ultra_x2' ? 'webhook' : meterConnType === 'webhook' ? 'webhook' : meterHost,
+                  port: meterDeviceType === 'smartstuff_ultra_x2' ? 443 : meterConnType === 'webhook' ? 443 : Number(meterPort),
                   auth_user: meterAuthUser || null,
                   auth_pass: meterAuthPass || null,
                   meter_type: meterType,
