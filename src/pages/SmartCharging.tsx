@@ -802,6 +802,8 @@ const SmartCharging = () => {
                           setMeterAuthUser(m.auth_user || '');
                           setMeterAuthPass(m.auth_pass || '');
                           setMeterType(m.meter_type || 'grid');
+                          setMeterShellyDeviceId(m.shelly_device_id || '');
+                          setMeterShellyCloudServer(m.shelly_cloud_server || 'shelly-api-eu.shelly.cloud');
                           setMeterDialogOpen(true);
                         }}
                         onMqtt={(m) => { setMqttMeter(m); setMqttMeterDialogOpen(true); }}
