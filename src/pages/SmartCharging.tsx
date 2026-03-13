@@ -1126,6 +1126,19 @@ const SmartCharging = () => {
         </DialogContent>
       </Dialog>
 
+      {/* MQTT Config Dialog for meters */}
+      {mqttMeter && (
+        <MqttConfigDialog
+          open={mqttMeterDialogOpen}
+          onOpenChange={setMqttMeterDialogOpen}
+          assetType="energy_meter"
+          assetId={mqttMeter.id}
+          assetName={mqttMeter.name}
+          existing={mqttConfig.data?.[0] || null}
+          deviceType={mqttMeter.device_type}
+        />
+      )}
+
       {/* Create Profile Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg">
