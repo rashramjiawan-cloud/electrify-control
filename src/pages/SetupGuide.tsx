@@ -677,7 +677,64 @@ sudo certbot --nginx -d ocpp.jouwdomein.nl`} />
           </p>
         </StepCard>
 
-        {/* Checklist */}
+        {/* Step 7: SmartStuff forwarder */}
+        <StepCard step={7} title="SmartStuff Ultra X2 – MQTT → HTTP Bridge">
+          <p className="text-sm text-muted-foreground">
+            De SmartStuff Ultra X2 (P1/DSMR dongle) publiceert meterdata via MQTT. Gebruik een van onderstaande forwarder-scripts om de data door te sturen naar je dashboard.
+          </p>
+
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
+            <strong className="text-foreground">Vereist:</strong> De SmartStuff moet draaien met{' '}
+            <a href="https://github.com/rvdbreemen/DSMRloggerAPI" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">
+              DSMR-API firmware <ExternalLink className="h-3 w-3" />
+            </a>{' '}
+            en MQTT ingeschakeld hebben naar een lokale broker (bijv. Mosquitto).
+          </div>
+
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-2 flex items-center gap-2">
+            <Terminal className="h-3.5 w-3.5 text-primary" />
+            Optie A: Python
+          </h4>
+          <CopyBlock code="pip install paho-mqtt requests" />
+          <CopyBlock code={smartstuffForwarderPython} lang="python" />
+
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-2 flex items-center gap-2">
+            <FileCode className="h-3.5 w-3.5 text-primary" />
+            Optie B: Node.js
+          </h4>
+          <CopyBlock code="npm install mqtt node-fetch" />
+          <CopyBlock code={smartstuffForwarderNode} lang="javascript" />
+
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-2">Draaien als service</h4>
+          <CopyBlock code={`# Python (systemd)
+sudo cp forwarder.py /opt/smartstuff-forwarder.py
+sudo tee /etc/systemd/system/smartstuff-forwarder.service <<EOF
+[Unit]
+Description=SmartStuff MQTT Forwarder
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /opt/smartstuff-forwarder.py
+Restart=always
+EnvironmentFile=/opt/smartstuff-forwarder.env
+
+[Install]
+WantedBy=multi-user.target
+EOF
+sudo systemctl enable --now smartstuff-forwarder
+
+# Node.js (pm2)
+pm2 start forwarder.js --name smartstuff-forwarder
+pm2 save && pm2 startup`} />
+
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-2">.env bestand</h4>
+          <CopyBlock code={`MQTT_HOST=192.168.1.100
+MQTT_PORT=1883
+MQTT_TOPIC=dsmr/json
+INGEST_URL=${INGEST_URL}
+API_KEY=${apiKey}
+METER_ID=smartstuff-01`} />
+        </StepCard>
         <div className="rounded-xl border border-border bg-card">
           <div className="border-b border-border px-5 py-4 flex items-center gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
