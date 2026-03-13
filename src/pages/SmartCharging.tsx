@@ -1333,14 +1333,14 @@ print("Webhook script gestart");`}</pre>
               </Button>
             )}
             <Button
-              disabled={(meterDeviceType !== 'smartstuff_ultra_x2' && meterConnType !== 'webhook' && !meterHost && !meterShellyDeviceId) || createMeter.isPending || updateMeter.isPending}
+              disabled={(meterDeviceType !== 'smartstuff_ultra_x2' && meterConnType !== 'webhook' && meterConnType !== 'outbound_ws' && !meterHost && !meterShellyDeviceId) || createMeter.isPending || updateMeter.isPending}
               onClick={() => {
                 const meterData: any = {
                   name: meterName,
                   device_type: meterDeviceType,
                   connection_type: meterConnType,
-                  host: meterDeviceType === 'smartstuff_ultra_x2' ? 'webhook' : meterConnType === 'webhook' ? 'webhook' : meterHost,
-                  port: meterDeviceType === 'smartstuff_ultra_x2' ? 443 : meterConnType === 'webhook' ? 443 : Number(meterPort),
+                  host: meterDeviceType === 'smartstuff_ultra_x2' ? 'webhook' : (meterConnType === 'webhook' || meterConnType === 'outbound_ws') ? 'webhook' : meterHost,
+                  port: meterDeviceType === 'smartstuff_ultra_x2' ? 443 : (meterConnType === 'webhook' || meterConnType === 'outbound_ws') ? 443 : Number(meterPort),
                   auth_user: meterAuthUser || null,
                   auth_pass: meterAuthPass || null,
                   meter_type: meterType,
