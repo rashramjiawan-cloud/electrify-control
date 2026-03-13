@@ -80,7 +80,7 @@ const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt }: { meter: E
                   ? `Cloud · ${meter.shelly_device_id}`
                   : meter.connection_type === 'tcp_ip' ? `TCP/IP ${meter.host}:${meter.port}` : `RS485 addr ${meter.modbus_address}`}
               </p>
-              {meter.connection_type === 'webhook' && (
+              {(meter.connection_type === 'webhook' || meter.connection_type === 'outbound_ws') && (
                 <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
                   !meter.last_poll_at
                     ? 'bg-muted text-muted-foreground'
