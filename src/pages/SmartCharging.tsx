@@ -56,7 +56,9 @@ const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt }: { meter: E
           <div>
             <p className="text-sm font-medium text-foreground">{meter.name}</p>
             <p className="font-mono text-xs text-muted-foreground">
-              {meter.shelly_device_id
+              {meter.shelly_device_id && meter.connection_type === 'webhook'
+                ? `Webhook · ${meter.shelly_device_id}`
+                : meter.shelly_device_id
                 ? `Cloud · ${meter.shelly_device_id}`
                 : meter.connection_type === 'tcp_ip' ? `TCP/IP ${meter.host}:${meter.port}` : `RS485 addr ${meter.modbus_address}`}
               {meter.last_poll_at && ` · Laatste poll: ${new Date(meter.last_poll_at).toLocaleTimeString('nl-NL')}`}
