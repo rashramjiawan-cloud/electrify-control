@@ -57,7 +57,7 @@ const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt }: { meter: E
     return () => clearInterval(iv);
   }, [meter.connection_type]);
 
-  const webhookStale = meter.connection_type === 'webhook' && meter.last_poll_at
+  const webhookStale = (meter.connection_type === 'webhook' || meter.connection_type === 'outbound_ws') && meter.last_poll_at
     ? (Date.now() - new Date(meter.last_poll_at).getTime()) > 60_000
     : false;
   const webhookAgeSec = meter.last_poll_at
