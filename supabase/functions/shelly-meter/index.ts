@@ -33,24 +33,53 @@ Deno.serve(async (req) => {
       return {};
     };
 
-    // Helper: call Shelly Cloud JRPC API
+    // Helper: call Shelly Cloud API (v2 REST on port 443, no TLS issues)
     const callShellyCloud = async (deviceId: string, method: string, server?: string) => {
       const authKey = Deno.env.get('SHELLY_CLOUD_AUTH_KEY');
       if (!authKey) throw new Error('SHELLY_CLOUD_AUTH_KEY is niet geconfigureerd');
 
       const cloudServer = server || 'shelly-api-eu.shelly.cloud';
-      const url = `https://${cloudServer}:6012/device/rpc`;
 
-      console.log(`Shelly Cloud JRPC: ${method} → ${deviceId} via ${cloudServer}`);
+      if (method === 'Shelly.GetDeviceInfo') {
+        // Use v2 API for device info
+        const url = `https://${cloudServer}/v2/devices/api/get?auth_key=${authKey}`;
+        console.log(`Shelly Cloud v2 API: GetDeviceInfo → ${deviceId} via ${cloudServer}`);
+
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ids: [deviceId],
+            select: ['settings'],
+          }),
+          signal: AbortSignal.timeout(10000),
+        });
+
+        if (!resp.ok) {
+          const text = await resp.text();
+          throw new Error(`Shelly Cloud HTTP ${resp.status}: ${text}`);
+        }
+
+        const result = await resp.json();
+        if (!result.isok && result.errors) {
+          throw new Error(`Shelly Cloud error: ${JSON.stringify(result.errors)}`);
+        }
+
+        // Return first device data
+        const devices = result.data?.devices || {};
+        const deviceData = devices[deviceId];
+        if (!deviceData) throw new Error(`Device ${deviceId} niet gevonden in cloud response`);
+        return deviceData.settings || deviceData;
+      }
+
+      // Use legacy /device/status endpoint for GetStatus (returns device_status with em1 data)
+      const url = `https://${cloudServer}/device/status`;
+      console.log(`Shelly Cloud API: GetStatus → ${deviceId} via ${cloudServer}`);
 
       const resp = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: deviceId,
-          method,
-          auth_key: authKey,
-        }),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `id=${encodeURIComponent(deviceId)}&auth_key=${encodeURIComponent(authKey)}`,
         signal: AbortSignal.timeout(10000),
       });
 
@@ -60,6 +89,8 @@ Deno.serve(async (req) => {
       }
 
       const result = await resp.json();
+      console.log('Shelly Cloud response:', JSON.stringify(result).substring(0, 500));
+
       if (!result.isok) {
         throw new Error(`Shelly Cloud error: ${JSON.stringify(result.errors || result)}`);
       }
