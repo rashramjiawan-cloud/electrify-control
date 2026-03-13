@@ -1275,7 +1275,7 @@ print("Webhook script gestart");`}</pre>
             )}
 
             {/* Shelly Cloud API (optional) - only for Shelly */}
-            {meterDeviceType !== 'smartstuff_ultra_x2' && meterConnType !== 'webhook' && (
+            {meterDeviceType !== 'smartstuff_ultra_x2' && meterConnType !== 'webhook' && meterConnType !== 'outbound_ws' && (
               <div className="rounded-lg border border-chart-2/20 bg-chart-2/5 p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <Wifi className="h-3.5 w-3.5 text-chart-2" />
