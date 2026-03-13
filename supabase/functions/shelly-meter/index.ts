@@ -46,11 +46,12 @@ Deno.serve(async (req) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          jsonrpc: '2.0',
           id: 1,
           src: 'voltcontrol',
+          dst: deviceId,
           method,
           params: {
-            id: deviceId,
             auth_key: authKey,
           },
         }),
