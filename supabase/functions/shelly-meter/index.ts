@@ -309,8 +309,8 @@ Deno.serve(async (req) => {
 
     // ─── Action: poll — fetch live data from Shelly device via HTTP RPC (local) ───
     if (action === 'poll') {
-      if (!host) {
-        return jsonRes({ success: false, error: 'Host is vereist' }, 400);
+      if (!host || host === 'webhook') {
+        return jsonRes({ success: false, error: 'Host is vereist (webhook meters gebruiken push, niet poll)' }, 400);
       }
 
       const shellyPort = port || 80;
