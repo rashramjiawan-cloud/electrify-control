@@ -991,11 +991,15 @@ const SmartCharging = () => {
             {/* Device type selector */}
             <div className="space-y-1.5">
               <Label className="text-xs">Apparaat</Label>
-              <Select value={meterDeviceType} onValueChange={(v: 'shelly_pro_em_50' | 'smartstuff_ultra_x2') => {
+              <Select value={meterDeviceType} onValueChange={(v: 'shelly_pro_em_50' | 'shelly_pro_3em' | 'smartstuff_ultra_x2') => {
                 setMeterDeviceType(v);
                 if (v === 'smartstuff_ultra_x2') {
                   setMeterName('SmartStuff Ultra X2');
                   setMeterConnType('mqtt_http');
+                } else if (v === 'shelly_pro_3em') {
+                  setMeterName('Shelly Pro 3EM');
+                  setMeterConnType('tcp_ip');
+                  setMeterPort('80');
                 } else {
                   setMeterName('Shelly PRO EM-50');
                   setMeterConnType('tcp_ip');
@@ -1005,6 +1009,7 @@ const SmartCharging = () => {
                 <SelectTrigger className="text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="shelly_pro_em_50">Shelly PRO EM-50</SelectItem>
+                  <SelectItem value="shelly_pro_3em">Shelly Pro 3EM</SelectItem>
                   <SelectItem value="smartstuff_ultra_x2">SmartStuff Ultra X2 (P1/DSMR)</SelectItem>
                 </SelectContent>
               </Select>
