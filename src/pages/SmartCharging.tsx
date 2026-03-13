@@ -220,6 +220,7 @@ const SmartCharging = () => {
   const [meterPort, setMeterPort] = useState('80');
   const [meterName, setMeterName] = useState('Shelly PRO EM-50');
   const [meterConnType, setMeterConnType] = useState('tcp_ip');
+  const [meterDeviceType, setMeterDeviceType] = useState<'shelly_pro_em_50' | 'smartstuff_ultra_x2'>('shelly_pro_em_50');
   const [meterAuthUser, setMeterAuthUser] = useState('');
   const [meterAuthPass, setMeterAuthPass] = useState('');
   const [meterType, setMeterType] = useState('grid');
@@ -737,13 +738,14 @@ const SmartCharging = () => {
                         <Activity className="h-4 w-4 text-primary" />
                       </div>
                       <div>
-                        <h3 className="text-sm font-semibold text-foreground">Shelly Energiemeter</h3>
-                        <p className="text-xs text-muted-foreground">PRO EM-50 · TCP/IP of RS485</p>
+                        <h3 className="text-sm font-semibold text-foreground">Energiemeters</h3>
+                        <p className="text-xs text-muted-foreground">Shelly PRO EM-50 · SmartStuff Ultra X2</p>
                       </div>
                     </div>
                     <Button size="sm" className="gap-1.5 text-xs" onClick={() => {
                       setEditingMeter(null);
                       setMeterName('Shelly PRO EM-50');
+                      setMeterDeviceType('shelly_pro_em_50');
                       setMeterConnType('tcp_ip');
                       setMeterHost('');
                       setMeterPort('80');
@@ -772,6 +774,7 @@ const SmartCharging = () => {
                         onEdit={(m) => {
                           setEditingMeter(m);
                           setMeterName(m.name);
+                          setMeterDeviceType(m.device_type === 'smartstuff_ultra_x2' ? 'smartstuff_ultra_x2' : 'shelly_pro_em_50');
                           setMeterConnType(m.connection_type);
                           setMeterHost(m.host || '');
                           setMeterPort(String(m.port || 80));
@@ -906,30 +909,54 @@ const SmartCharging = () => {
       }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+         <DialogTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5 text-primary" />
-              {editingMeter ? 'Meter bewerken' : 'Shelly PRO EM-50 toevoegen'}
+              {editingMeter ? 'Meter bewerken' : 'Energiemeter toevoegen'}
             </DialogTitle>
             <DialogDescription>
-              {editingMeter ? 'Wijzig de verbindingsinstellingen van deze meter' : 'Verbind een energiemeter via TCP/IP (WiFi/Ethernet) of RS485 (Modbus)'}
+              {editingMeter ? 'Wijzig de verbindingsinstellingen van deze meter' : 'Kies een apparaattype en configureer de verbinding'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {/* Device type selector */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Apparaat</Label>
+              <Select value={meterDeviceType} onValueChange={(v: 'shelly_pro_em_50' | 'smartstuff_ultra_x2') => {
+                setMeterDeviceType(v);
+                if (v === 'smartstuff_ultra_x2') {
+                  setMeterName('SmartStuff Ultra X2');
+                  setMeterConnType('mqtt_http');
+                } else {
+                  setMeterName('Shelly PRO EM-50');
+                  setMeterConnType('tcp_ip');
+                  setMeterPort('80');
+                }
+              }}>
+                <SelectTrigger className="text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="shelly_pro_em_50">Shelly PRO EM-50</SelectItem>
+                  <SelectItem value="smartstuff_ultra_x2">SmartStuff Ultra X2 (P1/DSMR)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="space-y-1.5">
               <Label className="text-xs">Naam</Label>
               <Input value={meterName} onChange={e => setMeterName(e.target.value)} className="font-mono text-sm" />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Verbinding</Label>
-                <Select value={meterConnType} onValueChange={setMeterConnType}>
-                  <SelectTrigger className="text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="tcp_ip">TCP/IP (WiFi / Ethernet)</SelectItem>
-                    <SelectItem value="rs485">RS485 (Modbus RTU)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {meterDeviceType !== 'smartstuff_ultra_x2' && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Verbinding</Label>
+                  <Select value={meterConnType} onValueChange={setMeterConnType}>
+                    <SelectTrigger className="text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="tcp_ip">TCP/IP (WiFi / Ethernet)</SelectItem>
+                      <SelectItem value="rs485">RS485 (Modbus RTU)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label className="text-xs">Meter type</Label>
                 <Select value={meterType} onValueChange={setMeterType}>
@@ -942,7 +969,29 @@ const SmartCharging = () => {
                 </Select>
               </div>
             </div>
-            {meterConnType === 'tcp_ip' ? (
+
+            {/* SmartStuff Ultra X2: show webhook URL */}
+            {meterDeviceType === 'smartstuff_ultra_x2' ? (
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-3">
+                <h4 className="text-xs font-semibold text-foreground">MQTT → HTTP Bridge</h4>
+                <p className="text-xs text-muted-foreground">
+                  De SmartStuff Ultra X2 publiceert DSMR-data via MQTT. Gebruik een forwarder-script 
+                  (bijv. op een Raspberry Pi of Node-RED) om de MQTT berichten als HTTP POST door te sturen naar:
+                </p>
+                <div className="rounded-md bg-muted p-2.5">
+                  <code className="text-xs font-mono text-foreground break-all select-all">
+                    {`https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/smartstuff-ingest`}
+                  </code>
+                </div>
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p><strong>Headers:</strong> <code className="text-[10px] bg-muted px-1 rounded">x-api-key: &lt;jouw ingest API key&gt;</code></p>
+                  <p><strong>Body:</strong> De DSMR JSON payload (power_delivered_l1, voltage_l1, etc.)</p>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  💡 Configureer je API key via Instellingen → Ingest API. Dezelfde key als voor OCPP ingest.
+                </p>
+              </div>
+            ) : meterConnType === 'tcp_ip' ? (
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2 space-y-1.5">
                   <Label className="text-xs">Host (IP-adres of tunnel URL)</Label>
@@ -973,54 +1022,58 @@ const SmartCharging = () => {
               </div>
             )}
 
-            {/* HTTP Basic Auth (optional) */}
-            <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <Label className="text-xs font-semibold">HTTP Authenticatie (optioneel)</Label>
-                <span className="text-[10px] text-muted-foreground">Voor Shelly achter een beveiligde tunnel</span>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Gebruikersnaam</Label>
-                  <Input value={meterAuthUser} onChange={e => setMeterAuthUser(e.target.value)} placeholder="admin" className="text-sm" autoComplete="off" />
+            {/* HTTP Basic Auth (optional) - only for Shelly */}
+            {meterDeviceType !== 'smartstuff_ultra_x2' && (
+              <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs font-semibold">HTTP Authenticatie (optioneel)</Label>
+                  <span className="text-[10px] text-muted-foreground">Voor Shelly achter een beveiligde tunnel</span>
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Wachtwoord</Label>
-                  <Input value={meterAuthPass} onChange={e => setMeterAuthPass(e.target.value)} placeholder="••••••••" type="password" className="text-sm" autoComplete="off" />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Gebruikersnaam</Label>
+                    <Input value={meterAuthUser} onChange={e => setMeterAuthUser(e.target.value)} placeholder="admin" className="text-sm" autoComplete="off" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Wachtwoord</Label>
+                    <Input value={meterAuthPass} onChange={e => setMeterAuthPass(e.target.value)} placeholder="••••••••" type="password" className="text-sm" autoComplete="off" />
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
           <DialogFooter className="flex-col sm:flex-row gap-2">
+            {meterDeviceType !== 'smartstuff_ultra_x2' && (
+              <Button
+                variant="outline"
+                className="gap-1.5"
+                disabled={!meterHost || testConnection.isPending}
+                onClick={() => testConnection.mutate(
+                  { host: meterHost, port: Number(meterPort), auth_user: meterAuthUser || undefined, auth_pass: meterAuthPass || undefined },
+                  {
+                    onSuccess: (res: any) => {
+                      if (res?.success) {
+                        toast.success(`Verbonden! ${res.data?.type || 'Shelly'} (${res.data?.mac || ''})`);
+                      } else {
+                        toast.error(res?.error || 'Verbinding mislukt');
+                      }
+                    },
+                    onError: () => toast.error('Kan niet verbinden'),
+                  }
+                )}
+              >
+                {testConnection.isPending ? 'Testen...' : 'Test verbinding'}
+              </Button>
+            )}
             <Button
-              variant="outline"
-              className="gap-1.5"
-              disabled={!meterHost || testConnection.isPending}
-              onClick={() => testConnection.mutate(
-                { host: meterHost, port: Number(meterPort), auth_user: meterAuthUser || undefined, auth_pass: meterAuthPass || undefined },
-                {
-                  onSuccess: (res: any) => {
-                    if (res?.success) {
-                      toast.success(`Verbonden! ${res.data?.type || 'Shelly'} (${res.data?.mac || ''})`);
-                    } else {
-                      toast.error(res?.error || 'Verbinding mislukt');
-                    }
-                  },
-                  onError: () => toast.error('Kan niet verbinden'),
-                }
-              )}
-            >
-              {testConnection.isPending ? 'Testen...' : 'Test verbinding'}
-            </Button>
-            <Button
-              disabled={!meterHost || createMeter.isPending || updateMeter.isPending}
+              disabled={(meterDeviceType !== 'smartstuff_ultra_x2' && !meterHost) || createMeter.isPending || updateMeter.isPending}
               onClick={() => {
                 const meterData: any = {
                   name: meterName,
-                  device_type: 'shelly_pro_em_50',
+                  device_type: meterDeviceType,
                   connection_type: meterConnType,
-                  host: meterHost,
-                  port: Number(meterPort),
+                  host: meterDeviceType === 'smartstuff_ultra_x2' ? 'webhook' : meterHost,
+                  port: meterDeviceType === 'smartstuff_ultra_x2' ? 443 : Number(meterPort),
                   auth_user: meterAuthUser || null,
                   auth_pass: meterAuthPass || null,
                   meter_type: meterType,
