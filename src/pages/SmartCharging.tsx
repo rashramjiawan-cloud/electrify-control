@@ -1106,7 +1106,8 @@ const SmartCharging = () => {
                   <p className="text-[10px] font-semibold text-foreground">📋 Shelly Script (kopieer & plak):</p>
                   <div className="relative">
                     <pre className="text-[9px] font-mono text-muted-foreground whitespace-pre-wrap break-all max-h-[200px] overflow-y-auto select-all cursor-pointer" onClick={() => {
-                      const script = `// Shelly PRO 3EM → Webhook Push Script
+                      const scriptTitle = meterDeviceType === 'shelly_pro_3em' ? 'Shelly PRO 3EM' : 'Shelly PRO EM-50';
+                      const script = `// ${scriptTitle} → Webhook Push Script
 let CONFIG = {
   ENDPOINT: "https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/shelly-ingest",
   DEVICE_ID: "${meterShellyDeviceId || '<JE_DEVICE_ID>'}",
