@@ -228,6 +228,9 @@ const SmartCharging = () => {
   const [meterAuthUser, setMeterAuthUser] = useState('');
   const [meterAuthPass, setMeterAuthPass] = useState('');
   const [meterType, setMeterType] = useState('grid');
+  const [mqttMeterDialogOpen, setMqttMeterDialogOpen] = useState(false);
+  const [mqttMeter, setMqttMeter] = useState<EnergyMeter | null>(null);
+  const mqttConfig = useMqttConfigForAsset('energy_meter', mqttMeter?.id || '');
   const [simDialogOpen, setSimDialogOpen] = useState(false);
   const [simView, setSimView] = useState<'list' | 'advanced'>('list');
   const [selectedCp, setSelectedCp] = useState('');
