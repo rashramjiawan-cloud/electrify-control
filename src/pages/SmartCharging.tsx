@@ -1166,7 +1166,7 @@ const SmartCharging = () => {
               </Button>
             )}
             <Button
-              disabled={(meterDeviceType !== 'smartstuff_ultra_x2' && !meterHost && !meterShellyDeviceId) || createMeter.isPending || updateMeter.isPending}
+              disabled={(meterDeviceType !== 'smartstuff_ultra_x2' && meterConnType !== 'webhook' && !meterHost && !meterShellyDeviceId) || createMeter.isPending || updateMeter.isPending}
               onClick={() => {
                 const meterData: any = {
                   name: meterName,
