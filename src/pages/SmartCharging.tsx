@@ -841,7 +841,7 @@ const SmartCharging = () => {
                         onEdit={(m) => {
                           setEditingMeter(m);
                           setMeterName(m.name);
-                          setMeterDeviceType(m.device_type === 'smartstuff_ultra_x2' ? 'smartstuff_ultra_x2' : 'shelly_pro_em_50');
+                          setMeterDeviceType(m.device_type === 'smartstuff_ultra_x2' ? 'smartstuff_ultra_x2' : m.device_type === 'shelly_pro_3em' ? 'shelly_pro_3em' : 'shelly_pro_em_50');
                           setMeterConnType(m.connection_type);
                           setMeterHost(m.host || '');
                           setMeterPort(String(m.port || 80));
