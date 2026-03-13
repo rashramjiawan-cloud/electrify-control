@@ -69,16 +69,35 @@ const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt }: { meter: E
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div>
-            <p className="text-sm font-medium text-foreground">{meter.name}</p>
+            <p className="text-sm font-medium text-foreground flex items-center gap-2">
+              {meter.name}
+              <span className={`inline-flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${
+                meter.connection_type === 'outbound_ws'
+                  ? 'bg-chart-4/10 text-chart-4'
+                  : meter.connection_type === 'webhook'
+                  ? 'bg-chart-2/10 text-chart-2'
+                  : meter.shelly_device_id
+                  ? 'bg-chart-1/10 text-chart-1'
+                  : meter.connection_type === 'tcp_ip'
+                  ? 'bg-chart-3/10 text-chart-3'
+                  : 'bg-muted text-muted-foreground'
+              }`}>
+                {meter.connection_type === 'outbound_ws' ? '⚡ WS'
+                  : meter.connection_type === 'webhook' ? '📡 Webhook'
+                  : meter.shelly_device_id ? '☁️ Cloud'
+                  : meter.connection_type === 'tcp_ip' ? '🏠 Lokaal'
+                  : '🔌 RS485'}
+              </span>
+            </p>
             <div className="flex items-center gap-2">
               <p className="font-mono text-xs text-muted-foreground">
                {meter.connection_type === 'outbound_ws'
-                  ? `WebSocket · ${meter.shelly_device_id || 'niet geconfigureerd'}`
-                  : meter.shelly_device_id && meter.connection_type === 'webhook'
-                  ? `Webhook · ${meter.shelly_device_id}`
+                  ? meter.shelly_device_id || 'niet geconfigureerd'
+                  : meter.connection_type === 'webhook'
+                  ? meter.shelly_device_id || 'niet geconfigureerd'
                   : meter.shelly_device_id
-                  ? `Cloud · ${meter.shelly_device_id}`
-                  : meter.connection_type === 'tcp_ip' ? `TCP/IP ${meter.host}:${meter.port}` : `RS485 addr ${meter.modbus_address}`}
+                  ? meter.shelly_device_id
+                  : meter.connection_type === 'tcp_ip' ? `${meter.host}:${meter.port}` : `addr ${meter.modbus_address}`}
               </p>
               {(meter.connection_type === 'webhook' || meter.connection_type === 'outbound_ws') && (
                 <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
