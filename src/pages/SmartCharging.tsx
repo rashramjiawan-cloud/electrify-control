@@ -280,7 +280,7 @@ const SmartCharging = () => {
   const [meterPort, setMeterPort] = useState('80');
   const [meterName, setMeterName] = useState('Shelly PRO EM-50');
   const [meterConnType, setMeterConnType] = useState('tcp_ip');
-  const [meterDeviceType, setMeterDeviceType] = useState<'shelly_pro_em_50' | 'smartstuff_ultra_x2'>('shelly_pro_em_50');
+  const [meterDeviceType, setMeterDeviceType] = useState<'shelly_pro_em_50' | 'shelly_pro_3em' | 'smartstuff_ultra_x2'>('shelly_pro_em_50');
   const [meterAuthUser, setMeterAuthUser] = useState('');
   const [meterAuthPass, setMeterAuthPass] = useState('');
   const [meterType, setMeterType] = useState('grid');
@@ -841,7 +841,7 @@ const SmartCharging = () => {
                         onEdit={(m) => {
                           setEditingMeter(m);
                           setMeterName(m.name);
-                          setMeterDeviceType(m.device_type === 'smartstuff_ultra_x2' ? 'smartstuff_ultra_x2' : 'shelly_pro_em_50');
+                          setMeterDeviceType(m.device_type === 'smartstuff_ultra_x2' ? 'smartstuff_ultra_x2' : m.device_type === 'shelly_pro_3em' ? 'shelly_pro_3em' : 'shelly_pro_em_50');
                           setMeterConnType(m.connection_type);
                           setMeterHost(m.host || '');
                           setMeterPort(String(m.port || 80));
@@ -991,11 +991,15 @@ const SmartCharging = () => {
             {/* Device type selector */}
             <div className="space-y-1.5">
               <Label className="text-xs">Apparaat</Label>
-              <Select value={meterDeviceType} onValueChange={(v: 'shelly_pro_em_50' | 'smartstuff_ultra_x2') => {
+              <Select value={meterDeviceType} onValueChange={(v: 'shelly_pro_em_50' | 'shelly_pro_3em' | 'smartstuff_ultra_x2') => {
                 setMeterDeviceType(v);
                 if (v === 'smartstuff_ultra_x2') {
                   setMeterName('SmartStuff Ultra X2');
                   setMeterConnType('mqtt_http');
+                } else if (v === 'shelly_pro_3em') {
+                  setMeterName('Shelly Pro 3EM');
+                  setMeterConnType('tcp_ip');
+                  setMeterPort('80');
                 } else {
                   setMeterName('Shelly PRO EM-50');
                   setMeterConnType('tcp_ip');
@@ -1005,6 +1009,7 @@ const SmartCharging = () => {
                 <SelectTrigger className="text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="shelly_pro_em_50">Shelly PRO EM-50</SelectItem>
+                  <SelectItem value="shelly_pro_3em">Shelly Pro 3EM</SelectItem>
                   <SelectItem value="smartstuff_ultra_x2">SmartStuff Ultra X2 (P1/DSMR)</SelectItem>
                 </SelectContent>
               </Select>
