@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
               channel: 0,
               meter_id: meter.id,
               threshold_min: 0,
-              threshold_max: STALE_THRESHOLD_MIN * 60,
+              threshold_max: staleThresholdMin * 60,
             }),
             signal: AbortSignal.timeout(10000),
           });
