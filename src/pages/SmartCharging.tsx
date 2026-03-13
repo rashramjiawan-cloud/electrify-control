@@ -52,7 +52,7 @@ const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt }: { meter: E
 
   // Force re-render every 15s so the webhook staleness indicator stays accurate
   useEffect(() => {
-    if (meter.connection_type !== 'webhook') return;
+    if (meter.connection_type !== 'webhook' && meter.connection_type !== 'outbound_ws') return;
     const iv = setInterval(() => forceUpdate(n => n + 1), 15_000);
     return () => clearInterval(iv);
   }, [meter.connection_type]);
