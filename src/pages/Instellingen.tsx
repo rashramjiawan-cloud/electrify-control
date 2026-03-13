@@ -216,6 +216,9 @@ const Instellingen = () => {
           </div>
         </div>
 
+        {/* Webhook Health Monitor */}
+        <WebhookHealthSettings />
+
         {/* GTV Settings */}
         <GtvSettings />
 
