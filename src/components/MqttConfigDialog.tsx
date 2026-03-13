@@ -120,6 +120,16 @@ const MqttConfigDialog = ({ open, onOpenChange, assetType, assetId, assetName, e
           </DialogTitle>
         </DialogHeader>
 
+        {isSmartStuff && (
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-1">
+            <p className="text-xs font-medium text-foreground">SmartStuff Ultra X2 · DSMR/P1</p>
+            <p className="text-[10px] text-muted-foreground">
+              Topics zijn vooraf ingevuld voor de DSMR-API firmware. Pas het broker-adres aan naar je eigen MQTT broker 
+              (bijv. Mosquitto op een Raspberry Pi). De Ultra X2 publiceert JSON telemetrie op <code className="bg-muted px-1 rounded">dsmr/json</code>.
+            </p>
+          </div>
+        )}
+
         <div className="space-y-5">
           {/* Enable toggle */}
           <div className="flex items-center justify-between rounded-lg bg-muted/50 p-3">
