@@ -16,6 +16,8 @@ export interface EnergyMeter {
   auth_user: string | null;
   auth_pass: string | null;
   meter_type: string;
+  shelly_device_id: string | null;
+  shelly_cloud_server: string | null;
   created_at: string;
   updated_at: string;
 }
