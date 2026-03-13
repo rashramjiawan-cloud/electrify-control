@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.smartstuff-ingest]
 verify_jwt = false
+
+[functions.check-webhook-health]
+verify_jwt = false
