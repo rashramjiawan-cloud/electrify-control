@@ -738,13 +738,14 @@ const SmartCharging = () => {
                         <Activity className="h-4 w-4 text-primary" />
                       </div>
                       <div>
-                        <h3 className="text-sm font-semibold text-foreground">Shelly Energiemeter</h3>
-                        <p className="text-xs text-muted-foreground">PRO EM-50 · TCP/IP of RS485</p>
+                        <h3 className="text-sm font-semibold text-foreground">Energiemeters</h3>
+                        <p className="text-xs text-muted-foreground">Shelly PRO EM-50 · SmartStuff Ultra X2</p>
                       </div>
                     </div>
                     <Button size="sm" className="gap-1.5 text-xs" onClick={() => {
                       setEditingMeter(null);
                       setMeterName('Shelly PRO EM-50');
+                      setMeterDeviceType('shelly_pro_em_50');
                       setMeterConnType('tcp_ip');
                       setMeterHost('');
                       setMeterPort('80');
