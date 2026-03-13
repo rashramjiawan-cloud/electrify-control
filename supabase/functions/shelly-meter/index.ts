@@ -15,7 +15,7 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    const { action, meter_id, host, port, channel, auth_user, auth_pass } = await req.json();
+    const { action, meter_id, host, port, channel, auth_user, auth_pass, shelly_device_id, shelly_cloud_server } = await req.json();
 
     // Helper: build base URL — use https for hostnames (tunnel), http for IPs
     const buildBaseUrl = (h: string, p: number) => {
@@ -33,13 +33,92 @@ Deno.serve(async (req) => {
       return {};
     };
 
+    // Helper: call Shelly Cloud JRPC API
+    const callShellyCloud = async (deviceId: string, method: string, server?: string) => {
+      const authKey = Deno.env.get('SHELLY_CLOUD_AUTH_KEY');
+      if (!authKey) throw new Error('SHELLY_CLOUD_AUTH_KEY is niet geconfigureerd');
+
+      const cloudServer = server || 'shelly-api-eu.shelly.cloud';
+      const url = `https://${cloudServer}:6012/device/rpc`;
+
+      console.log(`Shelly Cloud JRPC: ${method} → ${deviceId} via ${cloudServer}`);
+
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: deviceId,
+          method,
+          auth_key: authKey,
+        }),
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(`Shelly Cloud HTTP ${resp.status}: ${text}`);
+      }
+
+      const result = await resp.json();
+      if (!result.isok) {
+        throw new Error(`Shelly Cloud error: ${JSON.stringify(result.errors || result)}`);
+      }
+
+      return result.data?.device_status || result.data || result;
+    };
+
+    // Helper: parse Shelly EM1 channels from status data
+    const parseEM1Channels = (shellyData: any) => {
+      const channels: any[] = [];
+      for (const ch of [0, 1, 2]) {
+        const emKey = `em1:${ch}`;
+        const emData = shellyData[emKey];
+        if (emData) {
+          const chData: any = {
+            channel: ch,
+            voltage: emData.voltage ?? null,
+            current: emData.current ?? null,
+            active_power: emData.act_power ?? null,
+            apparent_power: emData.aprt_power ?? null,
+            power_factor: emData.pf ?? null,
+            frequency: emData.freq ?? null,
+          };
+          const dataKey = `em1data:${ch}`;
+          if (shellyData[dataKey]) {
+            chData.total_energy = (shellyData[dataKey].total_act_energy ?? 0) / 1000;
+          }
+          channels.push(chData);
+        }
+      }
+      return channels;
+    };
+
+    // Helper: save channels to DB
+    const saveChannelsToDB = async (meterId: string, channels: any[], shellyData: any) => {
+      for (const ch of channels) {
+        await supabase.from('meter_readings').insert({
+          meter_id: meterId,
+          channel: ch.channel,
+          voltage: ch.voltage,
+          current: ch.current,
+          active_power: ch.active_power,
+          apparent_power: ch.apparent_power,
+          power_factor: ch.power_factor,
+          frequency: ch.frequency,
+          total_energy: ch.total_energy,
+        });
+      }
+      await supabase.from('energy_meters').update({
+        last_reading: { channels, raw: shellyData.sys || shellyData.wifi || {} },
+        last_poll_at: new Date().toISOString(),
+      }).eq('id', meterId);
+    };
+
     // Helper: check GTV exceedance and insert record if exceeded
     const checkGtvExceedance = async (meterId: string | null, channels: any[], meterType: string) => {
-      // Only check grid meters
       if (meterType !== 'grid') return;
       
       try {
-        // Fetch GTV limits from system_settings
         const { data: settings } = await supabase
           .from('system_settings')
           .select('key, value')
@@ -52,13 +131,10 @@ Deno.serve(async (req) => {
         const cooldownSetting = settings.find((s: any) => s.key === 'gtv_notification_cooldown_min');
         const cooldownMin = cooldownSetting ? parseInt(cooldownSetting.value, 10) || 15 : 15;
 
-        // Sum active power across all channels (Watts → kW)
         const totalPowerW = channels.reduce((sum: number, ch: any) => sum + (ch.active_power ?? 0), 0);
         const totalPowerKw = Math.abs(totalPowerW) / 1000;
 
-        // Helper to send notification for GTV exceedance (rate-limited per direction)
         const sendGtvNotification = async (direction: string, powerKw: number, limitKw: number) => {
-          // Check if a notification was sent within the cooldown period for this direction
           const cooldownAgo = new Date(Date.now() - cooldownMin * 60 * 1000).toISOString();
           const { data: recent } = await supabase
             .from('gtv_exceedances')
@@ -73,7 +149,6 @@ Deno.serve(async (req) => {
             return;
           }
           const dirLabel = direction === 'import' ? 'Afname' : 'Teruglevering';
-          const overshoot = powerKw - limitKw;
           try {
             await fetch(`${supabaseUrl}/functions/v1/send-alert-notification`, {
               method: 'POST',
@@ -94,13 +169,12 @@ Deno.serve(async (req) => {
               }),
               signal: AbortSignal.timeout(10000),
             });
-            console.log(`GTV notification sent: ${dirLabel} ${powerKw.toFixed(2)} kW (limiet ${limitKw} kW, overschrijding +${overshoot.toFixed(2)} kW)`);
+            console.log(`GTV notification sent: ${dirLabel} ${powerKw.toFixed(2)} kW (limiet ${limitKw} kW)`);
           } catch (notifErr) {
             console.error('GTV notification failed:', notifErr);
           }
         };
 
-        // Positive power = import (afname), negative = export (teruglevering)
         if (totalPowerW > 0 && importLimit) {
           const limitKw = parseFloat(importLimit.value);
           if (limitKw > 0 && totalPowerKw > limitKw) {
@@ -131,7 +205,69 @@ Deno.serve(async (req) => {
       }
     };
 
-    // Action: poll — fetch live data from Shelly device via HTTP RPC
+    // ─── Action: cloud-poll — fetch data via Shelly Cloud JRPC API ───
+    if (action === 'cloud-poll') {
+      const deviceId = shelly_device_id;
+      if (!deviceId) {
+        return jsonRes({ success: false, error: 'Shelly Device ID is vereist voor cloud polling' }, 400);
+      }
+
+      try {
+        const shellyData = await callShellyCloud(deviceId, 'Shelly.GetStatus', shelly_cloud_server);
+        const channels = parseEM1Channels(shellyData);
+
+        if (meter_id && channels.length > 0) {
+          await saveChannelsToDB(meter_id, channels, shellyData);
+          const { data: meterInfo } = await supabase.from('energy_meters').select('meter_type').eq('id', meter_id).single();
+          await checkGtvExceedance(meter_id, channels, meterInfo?.meter_type || 'grid');
+        }
+
+        return jsonRes({
+          success: true,
+          source: 'cloud',
+          data: {
+            channels,
+            device_info: {
+              id: shellyData.sys?.id,
+              mac: shellyData.sys?.mac,
+              fw_id: shellyData.sys?.fw_id,
+              uptime: shellyData.sys?.uptime,
+            },
+          },
+        });
+      } catch (err: any) {
+        console.error('Shelly Cloud poll failed:', err);
+        return jsonRes({ success: false, error: err.message || 'Cloud poll mislukt' }, 502);
+      }
+    }
+
+    // ─── Action: cloud-test — verify Shelly Cloud connection ───
+    if (action === 'cloud-test') {
+      const deviceId = shelly_device_id;
+      if (!deviceId) {
+        return jsonRes({ success: false, error: 'Shelly Device ID is vereist' }, 400);
+      }
+
+      try {
+        const shellyData = await callShellyCloud(deviceId, 'Shelly.GetDeviceInfo', shelly_cloud_server);
+        return jsonRes({
+          success: true,
+          source: 'cloud',
+          data: {
+            id: shellyData.id,
+            mac: shellyData.mac,
+            model: shellyData.model,
+            gen: shellyData.gen,
+            fw_id: shellyData.fw_id,
+            app: shellyData.app,
+          },
+        });
+      } catch (err: any) {
+        return jsonRes({ success: false, error: err.message || 'Cloud verbinding mislukt' }, 502);
+      }
+    }
+
+    // ─── Action: poll — fetch live data from Shelly device via HTTP RPC (local) ───
     if (action === 'poll') {
       if (!host) {
         return jsonRes({ success: false, error: 'Host is vereist' }, 400);
@@ -139,8 +275,6 @@ Deno.serve(async (req) => {
 
       const shellyPort = port || 80;
       const baseUrl = buildBaseUrl(host, shellyPort);
-
-      // Shelly PRO EM-50 Gen2 RPC: get status of all components
       const statusUrl = `${baseUrl}/rpc/Shelly.GetStatus`;
       console.log(`Polling Shelly at ${statusUrl}`);
 
@@ -158,63 +292,17 @@ Deno.serve(async (req) => {
         }, 502);
       }
 
-      // Parse EM1 data (PRO EM-50 has em1:0, em1:1, em1:2)
-      const channels: any[] = [];
-      for (const ch of [0, 1, 2]) {
-        const emKey = `em1:${ch}`;
-        const emData = shellyData[emKey];
-        if (emData) {
-          channels.push({
-            channel: ch,
-            voltage: emData.voltage ?? null,
-            current: emData.current ?? null,
-            active_power: emData.act_power ?? null,
-            apparent_power: emData.aprt_power ?? null,
-            power_factor: emData.pf ?? null,
-            frequency: emData.freq ?? null,
-          });
-        }
-      }
+      const channels = parseEM1Channels(shellyData);
 
-      // Also try em1data for total energy
-      for (const ch of channels) {
-        const dataKey = `em1data:${ch.channel}`;
-        const emDataComp = shellyData[dataKey];
-        if (emDataComp) {
-          ch.total_energy = (emDataComp.total_act_energy ?? 0) / 1000; // Wh → kWh
-        }
-      }
-
-      // If we have a meter_id, save readings to DB
       if (meter_id) {
-        for (const ch of channels) {
-          await supabase.from('meter_readings').insert({
-            meter_id,
-            channel: ch.channel,
-            voltage: ch.voltage,
-            current: ch.current,
-            active_power: ch.active_power,
-            apparent_power: ch.apparent_power,
-            power_factor: ch.power_factor,
-            frequency: ch.frequency,
-            total_energy: ch.total_energy,
-          });
-        }
-
-        // Update meter's last_reading
-        await supabase.from('energy_meters').update({
-          last_reading: { channels, raw: shellyData.sys || {} },
-          last_poll_at: new Date().toISOString(),
-        }).eq('id', meter_id);
-
-        // Check GTV exceedance
-        // Fetch meter_type to know if it's a grid meter
+        await saveChannelsToDB(meter_id, channels, shellyData);
         const { data: meterInfo } = await supabase.from('energy_meters').select('meter_type').eq('id', meter_id).single();
         await checkGtvExceedance(meter_id, channels, meterInfo?.meter_type || 'grid');
       }
 
       return jsonRes({
         success: true,
+        source: 'local',
         data: {
           channels,
           device_info: {
@@ -227,7 +315,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Action: test — verify connection to Shelly device
+    // ─── Action: test — verify local connection to Shelly device ───
     if (action === 'test') {
       if (!host) {
         return jsonRes({ success: false, error: 'Host is vereist' }, 400);
@@ -263,7 +351,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Action: get_em_data — get historical energy data
+    // ─── Action: get_em_data — get historical energy data ───
     if (action === 'get_em_data') {
       if (!host) {
         return jsonRes({ success: false, error: 'Host is vereist' }, 400);
@@ -285,7 +373,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Action: poll-all — poll ALL enabled meters in a loop (called by cron every minute)
+    // ─── Action: poll-all — poll ALL enabled meters (cron) ───
     if (action === 'poll-all') {
       const { data: meters } = await supabase
         .from('energy_meters')
@@ -299,63 +387,37 @@ Deno.serve(async (req) => {
       const pollOnce = async () => {
         const results: any[] = [];
         for (const meter of meters) {
-          if (!meter.host) continue;
           try {
-            const shellyPort = meter.port || 80;
-            const meterBaseUrl = buildBaseUrl(meter.host, shellyPort);
-            const meterHeaders = buildHeaders(meter.auth_user, meter.auth_pass);
-            const resp = await fetch(`${meterBaseUrl}/rpc/Shelly.GetStatus`, {
-              signal: AbortSignal.timeout(5000),
-              headers: meterHeaders,
-            });
-            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-            const shellyData = await resp.json();
+            let shellyData: any;
+            let source = 'local';
 
-            const channels: any[] = [];
-            for (const ch of [0, 1, 2]) {
-              const emKey = `em1:${ch}`;
-              const emData = shellyData[emKey];
-              if (emData) {
-                const chData: any = {
-                  channel: ch,
-                  voltage: emData.voltage ?? null,
-                  current: emData.current ?? null,
-                  active_power: emData.act_power ?? null,
-                  apparent_power: emData.aprt_power ?? null,
-                  power_factor: emData.pf ?? null,
-                  frequency: emData.freq ?? null,
-                };
-                const dataKey = `em1data:${ch}`;
-                if (shellyData[dataKey]) {
-                  chData.total_energy = (shellyData[dataKey].total_act_energy ?? 0) / 1000;
-                }
-                channels.push(chData);
-              }
-            }
-
-            for (const ch of channels) {
-              await supabase.from('meter_readings').insert({
-                meter_id: meter.id,
-                channel: ch.channel,
-                voltage: ch.voltage,
-                current: ch.current,
-                active_power: ch.active_power,
-                apparent_power: ch.apparent_power,
-                power_factor: ch.power_factor,
-                frequency: ch.frequency,
-                total_energy: ch.total_energy,
+            // Try cloud first if device_id is configured
+            if (meter.shelly_device_id) {
+              source = 'cloud';
+              shellyData = await callShellyCloud(
+                meter.shelly_device_id,
+                'Shelly.GetStatus',
+                meter.shelly_cloud_server || undefined,
+              );
+            } else if (meter.host) {
+              const shellyPort = meter.port || 80;
+              const meterBaseUrl = buildBaseUrl(meter.host, shellyPort);
+              const meterHeaders = buildHeaders(meter.auth_user, meter.auth_pass);
+              const resp = await fetch(`${meterBaseUrl}/rpc/Shelly.GetStatus`, {
+                signal: AbortSignal.timeout(5000),
+                headers: meterHeaders,
               });
+              if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+              shellyData = await resp.json();
+            } else {
+              continue;
             }
 
-            await supabase.from('energy_meters').update({
-              last_reading: { channels, raw: shellyData.sys || {} },
-              last_poll_at: new Date().toISOString(),
-            }).eq('id', meter.id);
-
-            // Check GTV exceedance for grid meters
+            const channels = parseEM1Channels(shellyData);
+            await saveChannelsToDB(meter.id, channels, shellyData);
             await checkGtvExceedance(meter.id, channels, meter.meter_type || 'grid');
 
-            results.push({ meter_id: meter.id, name: meter.name, ok: true, channels: channels.length });
+            results.push({ meter_id: meter.id, name: meter.name, ok: true, source, channels: channels.length });
           } catch (err) {
             console.error(`Poll failed for ${meter.name}:`, err);
             results.push({ meter_id: meter.id, name: meter.name, ok: false, error: String(err) });

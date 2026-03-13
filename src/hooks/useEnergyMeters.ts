@@ -16,6 +16,8 @@ export interface EnergyMeter {
   auth_user: string | null;
   auth_pass: string | null;
   meter_type: string;
+  shelly_device_id: string | null;
+  shelly_cloud_server: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -103,9 +105,14 @@ export function useMeterReadings(meterId: string | undefined, limit = 60) {
 export function usePollMeter() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ meter_id, host, port, auth_user, auth_pass }: { meter_id?: string; host: string; port?: number; auth_user?: string; auth_pass?: string }) => {
+    mutationFn: async ({ meter_id, host, port, auth_user, auth_pass, shelly_device_id, shelly_cloud_server }: {
+      meter_id?: string; host?: string; port?: number; auth_user?: string; auth_pass?: string;
+      shelly_device_id?: string; shelly_cloud_server?: string;
+    }) => {
+      // Use cloud-poll if device ID is provided, otherwise local poll
+      const action = shelly_device_id ? 'cloud-poll' : 'poll';
       const { data, error } = await supabase.functions.invoke('shelly-meter', {
-        body: { action: 'poll', meter_id, host, port, auth_user, auth_pass },
+        body: { action, meter_id, host, port, auth_user, auth_pass, shelly_device_id, shelly_cloud_server },
       });
       if (error) throw error;
       return data;
@@ -119,9 +126,13 @@ export function usePollMeter() {
 
 export function useTestMeterConnection() {
   return useMutation({
-    mutationFn: async ({ host, port, auth_user, auth_pass }: { host: string; port?: number; auth_user?: string; auth_pass?: string }) => {
+    mutationFn: async ({ host, port, auth_user, auth_pass, shelly_device_id, shelly_cloud_server }: {
+      host?: string; port?: number; auth_user?: string; auth_pass?: string;
+      shelly_device_id?: string; shelly_cloud_server?: string;
+    }) => {
+      const action = shelly_device_id ? 'cloud-test' : 'test';
       const { data, error } = await supabase.functions.invoke('shelly-meter', {
-        body: { action: 'test', host, port, auth_user, auth_pass },
+        body: { action, host, port, auth_user, auth_pass, shelly_device_id, shelly_cloud_server },
       });
       if (error) throw error;
       return data;
