@@ -432,7 +432,7 @@ Deno.serve(async (req) => {
             let source = 'local';
 
             // Skip webhook meters — they push data themselves
-            if (meter.connection_type === 'webhook') {
+            if (meter.connection_type === 'webhook' || meter.host === 'webhook') {
               continue;
             }
 
