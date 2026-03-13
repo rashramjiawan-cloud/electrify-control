@@ -1029,6 +1029,7 @@ const SmartCharging = () => {
                       <SelectItem value="tcp_ip">TCP/IP (WiFi / Ethernet)</SelectItem>
                       <SelectItem value="rs485">RS485 (Modbus RTU)</SelectItem>
                       <SelectItem value="webhook">Webhook (Outbound Push)</SelectItem>
+                      <SelectItem value="outbound_ws">Outbound WebSocket</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
