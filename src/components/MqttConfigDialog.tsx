@@ -16,9 +16,32 @@ interface MqttConfigDialogProps {
   assetId: string;
   assetName: string;
   existing?: MqttConfiguration | null;
+  deviceType?: string;
 }
 
-const defaultTopics = (type: string, id: string) => {
+const SMARTSTUFF_TOPICS = {
+  subscribe: [
+    'dsmr/json',
+    'dsmr/telegram',
+    'dsmr/fields/power_delivered',
+    'dsmr/fields/power_returned',
+    'dsmr/fields/voltage_l1',
+    'dsmr/fields/voltage_l2',
+    'dsmr/fields/voltage_l3',
+    'dsmr/fields/current_l1',
+    'dsmr/fields/current_l2',
+    'dsmr/fields/current_l3',
+  ],
+  publish: [
+    'dsmr/command/reboot',
+    'dsmr/command/update',
+  ],
+};
+
+const defaultTopics = (type: string, id: string, deviceType?: string) => {
+  if (deviceType === 'smartstuff_ultra_x2') {
+    return SMARTSTUFF_TOPICS;
+  }
   const base = `voltcontrol/${type}/${id}`;
   return {
     subscribe: [`${base}/status`, `${base}/telemetry`],
