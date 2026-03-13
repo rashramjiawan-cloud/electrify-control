@@ -72,7 +72,9 @@ const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt }: { meter: E
             <p className="text-sm font-medium text-foreground">{meter.name}</p>
             <div className="flex items-center gap-2">
               <p className="font-mono text-xs text-muted-foreground">
-                {meter.shelly_device_id && meter.connection_type === 'webhook'
+               {meter.connection_type === 'outbound_ws'
+                  ? `WebSocket · ${meter.shelly_device_id || 'niet geconfigureerd'}`
+                  : meter.shelly_device_id && meter.connection_type === 'webhook'
                   ? `Webhook · ${meter.shelly_device_id}`
                   : meter.shelly_device_id
                   ? `Cloud · ${meter.shelly_device_id}`
