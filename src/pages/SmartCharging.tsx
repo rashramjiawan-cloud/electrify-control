@@ -21,6 +21,9 @@ import SmartChargingVisualization from '@/components/SmartChargingVisualization'
 import ChargingBehaviorModels from '@/components/ChargingBehaviorModels';
 import PredictiveSchedules from '@/components/PredictiveSchedules';
 import { useSystemSettings } from '@/hooks/useSystemSettings';
+import MqttStatusBadge from '@/components/MqttStatusBadge';
+import MqttConfigDialog from '@/components/MqttConfigDialog';
+import { useMqttConfigForAsset } from '@/hooks/useMqttConfigurations';
 
 type ModuleId = 'energy-flow' | 'power-chart' | 'profiles' | 'shelly-meter' | 'ems-auto' | 'sc-visualization' | 'behavior-models' | 'predictive-schedules';
 
