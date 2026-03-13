@@ -48,6 +48,21 @@ const DEFAULT_MODULES: ModuleConfig[] = [
 const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt }: { meter: EnergyMeter; pollMeter: any; deleteMeter: any; onEdit: (meter: EnergyMeter) => void; onMqtt: (meter: EnergyMeter) => void }) => {
   const [localActive, setLocalActive] = useState(false);
   const localAutoRef = useLocalAutoPoll(localActive ? meter : undefined, 10000);
+  const [, forceUpdate] = useState(0);
+
+  // Force re-render every 15s so the webhook staleness indicator stays accurate
+  useEffect(() => {
+    if (meter.connection_type !== 'webhook') return;
+    const iv = setInterval(() => forceUpdate(n => n + 1), 15_000);
+    return () => clearInterval(iv);
+  }, [meter.connection_type]);
+
+  const webhookStale = meter.connection_type === 'webhook' && meter.last_poll_at
+    ? (Date.now() - new Date(meter.last_poll_at).getTime()) > 60_000
+    : false;
+  const webhookAgeSec = meter.last_poll_at
+    ? Math.round((Date.now() - new Date(meter.last_poll_at).getTime()) / 1000)
+    : null;
 
   return (
     <div className="px-5 py-4 space-y-3">
@@ -55,14 +70,43 @@ const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt }: { meter: E
         <div className="flex items-center gap-3">
           <div>
             <p className="text-sm font-medium text-foreground">{meter.name}</p>
-            <p className="font-mono text-xs text-muted-foreground">
-              {meter.shelly_device_id && meter.connection_type === 'webhook'
-                ? `Webhook · ${meter.shelly_device_id}`
-                : meter.shelly_device_id
-                ? `Cloud · ${meter.shelly_device_id}`
-                : meter.connection_type === 'tcp_ip' ? `TCP/IP ${meter.host}:${meter.port}` : `RS485 addr ${meter.modbus_address}`}
-              {meter.last_poll_at && ` · Laatste poll: ${new Date(meter.last_poll_at).toLocaleTimeString('nl-NL')}`}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="font-mono text-xs text-muted-foreground">
+                {meter.shelly_device_id && meter.connection_type === 'webhook'
+                  ? `Webhook · ${meter.shelly_device_id}`
+                  : meter.shelly_device_id
+                  ? `Cloud · ${meter.shelly_device_id}`
+                  : meter.connection_type === 'tcp_ip' ? `TCP/IP ${meter.host}:${meter.port}` : `RS485 addr ${meter.modbus_address}`}
+              </p>
+              {meter.connection_type === 'webhook' && (
+                <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                  !meter.last_poll_at
+                    ? 'bg-muted text-muted-foreground'
+                    : webhookStale
+                    ? 'bg-destructive/10 text-destructive'
+                    : 'bg-green-500/10 text-green-600 dark:text-green-400'
+                }`}>
+                  <span className={`relative flex h-1.5 w-1.5`}>
+                    {!webhookStale && meter.last_poll_at && (
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-green-500" />
+                    )}
+                    <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${
+                      !meter.last_poll_at ? 'bg-muted-foreground' : webhookStale ? 'bg-destructive' : 'bg-green-500'
+                    }`} />
+                  </span>
+                  {!meter.last_poll_at
+                    ? 'Wacht op data…'
+                    : webhookStale
+                    ? `Geen data (${webhookAgeSec! > 3600 ? `${Math.floor(webhookAgeSec! / 3600)}u` : webhookAgeSec! > 60 ? `${Math.floor(webhookAgeSec! / 60)}m` : `${webhookAgeSec}s`} geleden)`
+                    : `Live · ${new Date(meter.last_poll_at).toLocaleTimeString('nl-NL')}`}
+                </span>
+              )}
+              {meter.connection_type !== 'webhook' && meter.last_poll_at && (
+                <span className="text-[10px] text-muted-foreground">
+                  Laatste poll: {new Date(meter.last_poll_at).toLocaleTimeString('nl-NL')}
+                </span>
+              )}
+            </div>
           </div>
           <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded shrink-0 ${
             meter.meter_type === 'pv' ? 'bg-primary/10 text-primary' :
