@@ -107,6 +107,7 @@ const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt }: { meter: E
             <Zap className="h-3 w-3" />
             {pollMeter.isPending ? 'Ophalen...' : 'Cloud Poll'}
           </Button>
+          <MqttStatusBadge assetType="energy_meter" assetId={meter.id} onClick={() => onMqtt(meter)} />
           <Button
             variant="ghost"
             size="sm"
