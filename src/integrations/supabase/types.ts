@@ -464,6 +464,8 @@ export type Database = {
           name: string
           poll_interval_sec: number | null
           port: number | null
+          shelly_cloud_server: string | null
+          shelly_device_id: string | null
           updated_at: string
         }
         Insert: {
@@ -482,6 +484,8 @@ export type Database = {
           name?: string
           poll_interval_sec?: number | null
           port?: number | null
+          shelly_cloud_server?: string | null
+          shelly_device_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -500,6 +504,8 @@ export type Database = {
           name?: string
           poll_interval_sec?: number | null
           port?: number | null
+          shelly_cloud_server?: string | null
+          shelly_device_id?: string | null
           updated_at?: string
         }
         Relationships: []
