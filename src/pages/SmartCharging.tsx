@@ -280,7 +280,7 @@ const SmartCharging = () => {
   const [meterPort, setMeterPort] = useState('80');
   const [meterName, setMeterName] = useState('Shelly PRO EM-50');
   const [meterConnType, setMeterConnType] = useState('tcp_ip');
-  const [meterDeviceType, setMeterDeviceType] = useState<'shelly_pro_em_50' | 'smartstuff_ultra_x2'>('shelly_pro_em_50');
+  const [meterDeviceType, setMeterDeviceType] = useState<'shelly_pro_em_50' | 'shelly_pro_3em' | 'smartstuff_ultra_x2'>('shelly_pro_em_50');
   const [meterAuthUser, setMeterAuthUser] = useState('');
   const [meterAuthPass, setMeterAuthPass] = useState('');
   const [meterType, setMeterType] = useState('grid');
