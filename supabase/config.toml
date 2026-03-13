@@ -20,3 +20,9 @@ verify_jwt = false
 
 [functions.check-webhook-health]
 verify_jwt = false
+
+[functions.shelly-ingest]
+verify_jwt = false
+
+[functions.shelly-ws]
+verify_jwt = false

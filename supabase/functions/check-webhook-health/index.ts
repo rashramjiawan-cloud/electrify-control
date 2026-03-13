@@ -28,11 +28,11 @@ Deno.serve(async (req) => {
       settingsData?.find((s: any) => s.key === 'webhook_alert_cooldown_min')?.value || '15', 10
     );
 
-    // Find all enabled webhook meters
+    // Find all enabled webhook and outbound_ws meters
     const { data: meters, error } = await supabase
       .from('energy_meters')
-      .select('id, name, shelly_device_id, last_poll_at, meter_type')
-      .eq('connection_type', 'webhook')
+      .select('id, name, shelly_device_id, last_poll_at, meter_type, connection_type')
+      .in('connection_type', ['webhook', 'outbound_ws'])
       .eq('enabled', true);
 
     if (error) throw error;

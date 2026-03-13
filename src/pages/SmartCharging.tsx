@@ -52,12 +52,12 @@ const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt }: { meter: E
 
   // Force re-render every 15s so the webhook staleness indicator stays accurate
   useEffect(() => {
-    if (meter.connection_type !== 'webhook') return;
+    if (meter.connection_type !== 'webhook' && meter.connection_type !== 'outbound_ws') return;
     const iv = setInterval(() => forceUpdate(n => n + 1), 15_000);
     return () => clearInterval(iv);
   }, [meter.connection_type]);
 
-  const webhookStale = meter.connection_type === 'webhook' && meter.last_poll_at
+  const webhookStale = (meter.connection_type === 'webhook' || meter.connection_type === 'outbound_ws') && meter.last_poll_at
     ? (Date.now() - new Date(meter.last_poll_at).getTime()) > 60_000
     : false;
   const webhookAgeSec = meter.last_poll_at
@@ -72,13 +72,15 @@ const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt }: { meter: E
             <p className="text-sm font-medium text-foreground">{meter.name}</p>
             <div className="flex items-center gap-2">
               <p className="font-mono text-xs text-muted-foreground">
-                {meter.shelly_device_id && meter.connection_type === 'webhook'
+               {meter.connection_type === 'outbound_ws'
+                  ? `WebSocket · ${meter.shelly_device_id || 'niet geconfigureerd'}`
+                  : meter.shelly_device_id && meter.connection_type === 'webhook'
                   ? `Webhook · ${meter.shelly_device_id}`
                   : meter.shelly_device_id
                   ? `Cloud · ${meter.shelly_device_id}`
                   : meter.connection_type === 'tcp_ip' ? `TCP/IP ${meter.host}:${meter.port}` : `RS485 addr ${meter.modbus_address}`}
               </p>
-              {meter.connection_type === 'webhook' && (
+              {(meter.connection_type === 'webhook' || meter.connection_type === 'outbound_ws') && (
                 <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
                   !meter.last_poll_at
                     ? 'bg-muted text-muted-foreground'
@@ -101,7 +103,7 @@ const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt }: { meter: E
                     : `Live · ${new Date(meter.last_poll_at).toLocaleTimeString('nl-NL')}`}
                 </span>
               )}
-              {meter.connection_type !== 'webhook' && meter.last_poll_at && (
+              {meter.connection_type !== 'webhook' && meter.connection_type !== 'outbound_ws' && meter.last_poll_at && (
                 <span className="text-[10px] text-muted-foreground">
                   Laatste poll: {new Date(meter.last_poll_at).toLocaleTimeString('nl-NL')}
                 </span>
@@ -161,7 +163,7 @@ const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt }: { meter: E
             }}
           >
             <Zap className="h-3 w-3" />
-            {pollMeter.isPending ? 'Ophalen...' : meter.connection_type === 'webhook' ? 'Webhook' : meter.shelly_device_id ? 'Cloud Poll' : 'Server Poll'}
+            {pollMeter.isPending ? 'Ophalen...' : meter.connection_type === 'outbound_ws' ? 'WebSocket' : meter.connection_type === 'webhook' ? 'Webhook' : meter.shelly_device_id ? 'Cloud Poll' : 'Server Poll'}
           </Button>
           <MqttStatusBadge assetType="energy_meter" assetId={meter.id} onClick={() => onMqtt(meter)} />
           <Button
@@ -1029,6 +1031,7 @@ const SmartCharging = () => {
                       <SelectItem value="tcp_ip">TCP/IP (WiFi / Ethernet)</SelectItem>
                       <SelectItem value="rs485">RS485 (Modbus RTU)</SelectItem>
                       <SelectItem value="webhook">Webhook (Outbound Push)</SelectItem>
+                      <SelectItem value="outbound_ws">Outbound WebSocket</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1065,6 +1068,47 @@ const SmartCharging = () => {
                 </div>
                 <p className="text-[10px] text-muted-foreground">
                   💡 Configureer je API key via Instellingen → Ingest API. Dezelfde key als voor OCPP ingest.
+                </p>
+              </div>
+            ) : meterConnType === 'outbound_ws' ? (
+              <div className="rounded-lg border border-chart-4/20 bg-chart-4/5 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Cable className="h-3.5 w-3.5 text-chart-4" />
+                  <h4 className="text-xs font-semibold text-foreground">Shelly Outbound WebSocket</h4>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  De Shelly maakt een permanente WebSocket-verbinding naar je server. 
+                  Betrouwbaarder dan webhook — automatische reconnect en geen HTTP overhead.
+                </p>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">WebSocket URL</Label>
+                  <div className="rounded-md bg-muted p-2.5 cursor-pointer" onClick={() => {
+                    const wsUrl = `wss://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/shelly-ws?api_key=<JE_API_KEY>&device_id=${meterShellyDeviceId || '<JE_DEVICE_ID>'}`;
+                    navigator.clipboard.writeText(wsUrl);
+                    toast.success('WebSocket URL gekopieerd!');
+                  }}>
+                    <code className="text-xs font-mono text-foreground break-all select-all">
+                      {`wss://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/shelly-ws?api_key=<JE_API_KEY>&device_id=${meterShellyDeviceId || '<JE_DEVICE_ID>'}`}
+                    </code>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Shelly Device ID</Label>
+                  <Input value={meterShellyDeviceId} onChange={e => setMeterShellyDeviceId(e.target.value)} placeholder={meterDeviceType === 'shelly_pro_3em' ? 'shellypro3em-A4F00FCFA140' : 'shellyproem50-A4F00FCFA140'} className="font-mono text-sm" />
+                  <p className="text-[10px] text-muted-foreground">Het Device ID wordt gebruikt om binnenkomende data te koppelen aan deze meter.</p>
+                </div>
+                <div className="rounded-md bg-muted/50 p-3 space-y-2">
+                  <p className="text-[10px] font-semibold text-foreground">Configuratie op de Shelly:</p>
+                  <ol className="text-[10px] text-muted-foreground space-y-1 list-decimal list-inside">
+                    <li>Open de Shelly web UI (http://&lt;shelly-ip&gt;)</li>
+                    <li>Ga naar <strong>Settings → Outbound WebSocket</strong></li>
+                    <li>Zet <strong>Enable</strong> aan</li>
+                    <li>Plak de WebSocket URL hierboven in het <strong>Server</strong> veld</li>
+                    <li>Klik op <strong>Save</strong></li>
+                  </ol>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  💡 API key instellen via <strong>Instellingen → Ingest API</strong>. De Shelly stuurt automatisch <code className="bg-muted px-1 rounded">NotifyFullStatus</code> frames.
                 </p>
               </div>
             ) : meterConnType === 'webhook' ? (
@@ -1211,7 +1255,7 @@ print("Webhook script gestart");`}</pre>
             )}
 
             {/* HTTP Basic Auth (optional) - only for Shelly */}
-            {meterDeviceType !== 'smartstuff_ultra_x2' && meterConnType !== 'webhook' && (
+            {meterDeviceType !== 'smartstuff_ultra_x2' && meterConnType !== 'webhook' && meterConnType !== 'outbound_ws' && (
               <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <Label className="text-xs font-semibold">HTTP Authenticatie (optioneel)</Label>
@@ -1231,7 +1275,7 @@ print("Webhook script gestart");`}</pre>
             )}
 
             {/* Shelly Cloud API (optional) - only for Shelly */}
-            {meterDeviceType !== 'smartstuff_ultra_x2' && meterConnType !== 'webhook' && (
+            {meterDeviceType !== 'smartstuff_ultra_x2' && meterConnType !== 'webhook' && meterConnType !== 'outbound_ws' && (
               <div className="rounded-lg border border-chart-2/20 bg-chart-2/5 p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <Wifi className="h-3.5 w-3.5 text-chart-2" />
@@ -1289,14 +1333,14 @@ print("Webhook script gestart");`}</pre>
               </Button>
             )}
             <Button
-              disabled={(meterDeviceType !== 'smartstuff_ultra_x2' && meterConnType !== 'webhook' && !meterHost && !meterShellyDeviceId) || createMeter.isPending || updateMeter.isPending}
+              disabled={(meterDeviceType !== 'smartstuff_ultra_x2' && meterConnType !== 'webhook' && meterConnType !== 'outbound_ws' && !meterHost && !meterShellyDeviceId) || createMeter.isPending || updateMeter.isPending}
               onClick={() => {
                 const meterData: any = {
                   name: meterName,
                   device_type: meterDeviceType,
                   connection_type: meterConnType,
-                  host: meterDeviceType === 'smartstuff_ultra_x2' ? 'webhook' : meterConnType === 'webhook' ? 'webhook' : meterHost,
-                  port: meterDeviceType === 'smartstuff_ultra_x2' ? 443 : meterConnType === 'webhook' ? 443 : Number(meterPort),
+                  host: meterDeviceType === 'smartstuff_ultra_x2' ? 'webhook' : (meterConnType === 'webhook' || meterConnType === 'outbound_ws') ? 'webhook' : meterHost,
+                  port: meterDeviceType === 'smartstuff_ultra_x2' ? 443 : (meterConnType === 'webhook' || meterConnType === 'outbound_ws') ? 443 : Number(meterPort),
                   auth_user: meterAuthUser || null,
                   auth_pass: meterAuthPass || null,
                   meter_type: meterType,
