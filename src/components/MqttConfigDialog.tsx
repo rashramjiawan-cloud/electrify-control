@@ -16,9 +16,32 @@ interface MqttConfigDialogProps {
   assetId: string;
   assetName: string;
   existing?: MqttConfiguration | null;
+  deviceType?: string;
 }
 
-const defaultTopics = (type: string, id: string) => {
+const SMARTSTUFF_TOPICS = {
+  subscribe: [
+    'dsmr/json',
+    'dsmr/telegram',
+    'dsmr/fields/power_delivered',
+    'dsmr/fields/power_returned',
+    'dsmr/fields/voltage_l1',
+    'dsmr/fields/voltage_l2',
+    'dsmr/fields/voltage_l3',
+    'dsmr/fields/current_l1',
+    'dsmr/fields/current_l2',
+    'dsmr/fields/current_l3',
+  ],
+  publish: [
+    'dsmr/command/reboot',
+    'dsmr/command/update',
+  ],
+};
+
+const defaultTopics = (type: string, id: string, deviceType?: string) => {
+  if (deviceType === 'smartstuff_ultra_x2') {
+    return SMARTSTUFF_TOPICS;
+  }
   const base = `voltcontrol/${type}/${id}`;
   return {
     subscribe: [`${base}/status`, `${base}/telemetry`],
@@ -26,9 +49,10 @@ const defaultTopics = (type: string, id: string) => {
   };
 };
 
-const MqttConfigDialog = ({ open, onOpenChange, assetType, assetId, assetName, existing }: MqttConfigDialogProps) => {
+const MqttConfigDialog = ({ open, onOpenChange, assetType, assetId, assetName, existing, deviceType }: MqttConfigDialogProps) => {
   const { upsert } = useMqttConfigurations();
-  const defaults = defaultTopics(assetType, assetId);
+  const defaults = defaultTopics(assetType, assetId, deviceType);
+  const isSmartStuff = deviceType === 'smartstuff_ultra_x2';
 
   const [form, setForm] = useState({
     enabled: false,
@@ -95,6 +119,16 @@ const MqttConfigDialog = ({ open, onOpenChange, assetType, assetId, assetName, e
             MQTT Configuratie — {assetName}
           </DialogTitle>
         </DialogHeader>
+
+        {isSmartStuff && (
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-1">
+            <p className="text-xs font-medium text-foreground">SmartStuff Ultra X2 · DSMR/P1</p>
+            <p className="text-[10px] text-muted-foreground">
+              Topics zijn vooraf ingevuld voor de DSMR-API firmware. Pas het broker-adres aan naar je eigen MQTT broker 
+              (bijv. Mosquitto op een Raspberry Pi). De Ultra X2 publiceert JSON telemetrie op <code className="bg-muted px-1 rounded">dsmr/json</code>.
+            </p>
+          </div>
+        )}
 
         <div className="space-y-5">
           {/* Enable toggle */}

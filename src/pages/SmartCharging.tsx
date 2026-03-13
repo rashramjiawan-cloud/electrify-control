@@ -9,7 +9,7 @@ import { useChargePoints } from '@/hooks/useChargePoints';
 import { useChargingProfiles, useSetChargingProfile, useClearChargingProfile, type SchedulePeriod } from '@/hooks/useChargingProfiles';
 import { useChargingTariffs } from '@/hooks/useChargingTariffs';
 import { toast } from 'sonner';
-import { Zap, Plus, Trash2, Clock, Gauge, Play, Sun, BatteryCharging, Cable, Bolt, Euro, GripVertical, Eye, EyeOff, Settings2, Activity, Send, Power, PowerOff, RefreshCw, Pencil } from 'lucide-react';
+import { Zap, Plus, Trash2, Clock, Gauge, Play, Sun, BatteryCharging, Cable, Bolt, Euro, GripVertical, Eye, EyeOff, Settings2, Activity, Send, Power, PowerOff, RefreshCw, Pencil, Wifi } from 'lucide-react';
 import PowerChart from '@/components/PowerChart';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
@@ -21,6 +21,9 @@ import SmartChargingVisualization from '@/components/SmartChargingVisualization'
 import ChargingBehaviorModels from '@/components/ChargingBehaviorModels';
 import PredictiveSchedules from '@/components/PredictiveSchedules';
 import { useSystemSettings } from '@/hooks/useSystemSettings';
+import MqttStatusBadge from '@/components/MqttStatusBadge';
+import MqttConfigDialog from '@/components/MqttConfigDialog';
+import { useMqttConfigForAsset } from '@/hooks/useMqttConfigurations';
 
 type ModuleId = 'energy-flow' | 'power-chart' | 'profiles' | 'shelly-meter' | 'ems-auto' | 'sc-visualization' | 'behavior-models' | 'predictive-schedules';
 
@@ -42,7 +45,7 @@ const DEFAULT_MODULES: ModuleConfig[] = [
 ];
 
 // Extracted meter item with local poll hook (hooks must be at top level)
-const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit }: { meter: EnergyMeter; pollMeter: any; deleteMeter: any; onEdit: (meter: EnergyMeter) => void }) => {
+const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt }: { meter: EnergyMeter; pollMeter: any; deleteMeter: any; onEdit: (meter: EnergyMeter) => void; onMqtt: (meter: EnergyMeter) => void }) => {
   const [localActive, setLocalActive] = useState(false);
   const localAutoRef = useLocalAutoPoll(localActive ? meter : undefined, 10000);
 
@@ -104,6 +107,7 @@ const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit }: { meter: EnergyMet
             <Zap className="h-3 w-3" />
             {pollMeter.isPending ? 'Ophalen...' : 'Cloud Poll'}
           </Button>
+          <MqttStatusBadge assetType="energy_meter" assetId={meter.id} onClick={() => onMqtt(meter)} />
           <Button
             variant="ghost"
             size="sm"
@@ -224,6 +228,9 @@ const SmartCharging = () => {
   const [meterAuthUser, setMeterAuthUser] = useState('');
   const [meterAuthPass, setMeterAuthPass] = useState('');
   const [meterType, setMeterType] = useState('grid');
+  const [mqttMeterDialogOpen, setMqttMeterDialogOpen] = useState(false);
+  const [mqttMeter, setMqttMeter] = useState<EnergyMeter | null>(null);
+  const mqttConfig = useMqttConfigForAsset('energy_meter', mqttMeter?.id || '');
   const [simDialogOpen, setSimDialogOpen] = useState(false);
   const [simView, setSimView] = useState<'list' | 'advanced'>('list');
   const [selectedCp, setSelectedCp] = useState('');
@@ -783,6 +790,7 @@ const SmartCharging = () => {
                           setMeterType(m.meter_type || 'grid');
                           setMeterDialogOpen(true);
                         }}
+                        onMqtt={(m) => { setMqttMeter(m); setMqttMeterDialogOpen(true); }}
                       />
                     ))}
                   </div>
@@ -1117,6 +1125,19 @@ const SmartCharging = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* MQTT Config Dialog for meters */}
+      {mqttMeter && (
+        <MqttConfigDialog
+          open={mqttMeterDialogOpen}
+          onOpenChange={setMqttMeterDialogOpen}
+          assetType="energy_meter"
+          assetId={mqttMeter.id}
+          assetName={mqttMeter.name}
+          existing={mqttConfig.data?.[0] || null}
+          deviceType={mqttMeter.device_type}
+        />
+      )}
 
       {/* Create Profile Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
