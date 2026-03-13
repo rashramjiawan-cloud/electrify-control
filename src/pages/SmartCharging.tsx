@@ -45,7 +45,7 @@ const DEFAULT_MODULES: ModuleConfig[] = [
 ];
 
 // Extracted meter item with local poll hook (hooks must be at top level)
-const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit }: { meter: EnergyMeter; pollMeter: any; deleteMeter: any; onEdit: (meter: EnergyMeter) => void }) => {
+const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt }: { meter: EnergyMeter; pollMeter: any; deleteMeter: any; onEdit: (meter: EnergyMeter) => void; onMqtt: (meter: EnergyMeter) => void }) => {
   const [localActive, setLocalActive] = useState(false);
   const localAutoRef = useLocalAutoPoll(localActive ? meter : undefined, 10000);
 
