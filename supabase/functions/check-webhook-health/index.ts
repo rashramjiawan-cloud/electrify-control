@@ -5,8 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const STALE_THRESHOLD_MIN = 5;
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -16,6 +14,19 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, serviceKey);
+
+    // Read configurable thresholds from system_settings
+    const { data: settingsData } = await supabase
+      .from('system_settings')
+      .select('key, value')
+      .in('key', ['webhook_stale_threshold_min', 'webhook_alert_cooldown_min']);
+
+    const staleThresholdMin = parseInt(
+      settingsData?.find((s: any) => s.key === 'webhook_stale_threshold_min')?.value || '5', 10
+    );
+    const cooldownMin = parseInt(
+      settingsData?.find((s: any) => s.key === 'webhook_alert_cooldown_min')?.value || '15', 10
+    );
 
     // Find all enabled webhook meters
     const { data: meters, error } = await supabase
@@ -30,8 +41,8 @@ Deno.serve(async (req) => {
     }
 
     const now = Date.now();
-    const staleThresholdMs = STALE_THRESHOLD_MIN * 60 * 1000;
-    const cooldownMs = 15 * 60 * 1000; // 15 min cooldown between repeated alerts
+    const staleThresholdMs = staleThresholdMin * 60 * 1000;
+    const cooldownMs = cooldownMin * 60 * 1000;
     const staleMeters: any[] = [];
 
     for (const meter of meters) {
