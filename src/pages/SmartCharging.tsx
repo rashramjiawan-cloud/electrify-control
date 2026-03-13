@@ -9,7 +9,7 @@ import { useChargePoints } from '@/hooks/useChargePoints';
 import { useChargingProfiles, useSetChargingProfile, useClearChargingProfile, type SchedulePeriod } from '@/hooks/useChargingProfiles';
 import { useChargingTariffs } from '@/hooks/useChargingTariffs';
 import { toast } from 'sonner';
-import { Zap, Plus, Trash2, Clock, Gauge, Play, Sun, BatteryCharging, Cable, Bolt, Euro, GripVertical, Eye, EyeOff, Settings2, Activity, Send, Power, PowerOff, RefreshCw, Pencil } from 'lucide-react';
+import { Zap, Plus, Trash2, Clock, Gauge, Play, Sun, BatteryCharging, Cable, Bolt, Euro, GripVertical, Eye, EyeOff, Settings2, Activity, Send, Power, PowerOff, RefreshCw, Pencil, Wifi } from 'lucide-react';
 import PowerChart from '@/components/PowerChart';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
