@@ -95,19 +95,27 @@ const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt }: { meter: E
             size="sm"
             className="gap-1.5 text-xs"
             disabled={pollMeter.isPending}
-            onClick={() => meter.host && pollMeter.mutate(
-              { meter_id: meter.id, host: meter.host!, port: meter.port, auth_user: meter.auth_user || undefined, auth_pass: meter.auth_pass || undefined },
-              {
+            onClick={() => {
+              const pollData: any = {
+                meter_id: meter.id,
+                shelly_device_id: meter.shelly_device_id || undefined,
+                shelly_cloud_server: meter.shelly_cloud_server || undefined,
+                host: meter.host || undefined,
+                port: meter.port,
+                auth_user: meter.auth_user || undefined,
+                auth_pass: meter.auth_pass || undefined,
+              };
+              pollMeter.mutate(pollData, {
                 onSuccess: (res: any) => {
-                  if (res?.success) toast.success('Meterdata opgehaald (cloud)');
+                  if (res?.success) toast.success(`Meterdata opgehaald (${res.source || 'cloud'})`);
                   else toast.error(res?.error || 'Fout bij ophalen');
                 },
-                onError: () => toast.error('Cloud verbinding mislukt'),
-              }
-            )}
+                onError: () => toast.error('Verbinding mislukt'),
+              });
+            }}
           >
             <Zap className="h-3 w-3" />
-            {pollMeter.isPending ? 'Ophalen...' : 'Cloud Poll'}
+            {pollMeter.isPending ? 'Ophalen...' : meter.shelly_device_id ? 'Cloud Poll' : 'Server Poll'}
           </Button>
           <MqttStatusBadge assetType="energy_meter" assetId={meter.id} onClick={() => onMqtt(meter)} />
           <Button
