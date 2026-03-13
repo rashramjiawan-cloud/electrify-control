@@ -103,7 +103,7 @@ const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt }: { meter: E
                     : `Live · ${new Date(meter.last_poll_at).toLocaleTimeString('nl-NL')}`}
                 </span>
               )}
-              {meter.connection_type !== 'webhook' && meter.last_poll_at && (
+              {meter.connection_type !== 'webhook' && meter.connection_type !== 'outbound_ws' && meter.last_poll_at && (
                 <span className="text-[10px] text-muted-foreground">
                   Laatste poll: {new Date(meter.last_poll_at).toLocaleTimeString('nl-NL')}
                 </span>
