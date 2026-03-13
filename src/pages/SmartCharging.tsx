@@ -1090,7 +1090,7 @@ const SmartCharging = () => {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Shelly Device ID</Label>
-                  <Input value={meterShellyDeviceId} onChange={e => setMeterShellyDeviceId(e.target.value)} placeholder="shellyproem50-A4F00FCFA140" className="font-mono text-sm" />
+                  <Input value={meterShellyDeviceId} onChange={e => setMeterShellyDeviceId(e.target.value)} placeholder={meterDeviceType === 'shelly_pro_3em' ? 'shellypro3em-A4F00FCFA140' : 'shellyproem50-A4F00FCFA140'} className="font-mono text-sm" />
                   <p className="text-[10px] text-muted-foreground">Het Device ID wordt gebruikt om binnenkomende data te koppelen aan deze meter.</p>
                 </div>
                 <div className="rounded-md bg-muted/50 p-3 space-y-2">
