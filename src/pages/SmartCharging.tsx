@@ -228,6 +228,8 @@ const SmartCharging = () => {
   const [meterAuthUser, setMeterAuthUser] = useState('');
   const [meterAuthPass, setMeterAuthPass] = useState('');
   const [meterType, setMeterType] = useState('grid');
+  const [meterShellyDeviceId, setMeterShellyDeviceId] = useState('');
+  const [meterShellyCloudServer, setMeterShellyCloudServer] = useState('shelly-api-eu.shelly.cloud');
   const [mqttMeterDialogOpen, setMqttMeterDialogOpen] = useState(false);
   const [mqttMeter, setMqttMeter] = useState<EnergyMeter | null>(null);
   const mqttConfig = useMqttConfigForAsset('energy_meter', mqttMeter?.id || '');
