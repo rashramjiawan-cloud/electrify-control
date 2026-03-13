@@ -128,6 +128,8 @@ Deno.serve(async (req) => {
 
 function parseEM1Channels(shellyData: any) {
   const channels: any[] = [];
+
+  // Format 1: Shelly PRO EM-50 → em1:0, em1:1, em1:2
   for (const ch of [0, 1, 2]) {
     const emKey = `em1:${ch}`;
     const emData = shellyData[emKey];
@@ -148,6 +150,39 @@ function parseEM1Channels(shellyData: any) {
       channels.push(chData);
     }
   }
+
+  // Format 2: Shelly PRO 3EM → em:0 with a_/b_/c_ prefixed fields
+  if (channels.length === 0 && shellyData['em:0']) {
+    const em = shellyData['em:0'];
+    const emData = shellyData['emdata:0'];
+    const phases = ['a', 'b', 'c'];
+    for (let ch = 0; ch < phases.length; ch++) {
+      const p = phases[ch];
+      const voltage = em[`${p}_voltage`] ?? null;
+      const current = em[`${p}_current`] ?? null;
+      const activePower = em[`${p}_act_power`] ?? null;
+      const apparentPower = em[`${p}_aprt_power`] ?? null;
+      const pf = em[`${p}_pf`] ?? null;
+      const freq = em[`${p}_freq`] ?? em.c_freq ?? null;
+      // Only add if at least voltage or power is present
+      if (voltage !== null || activePower !== null) {
+        const chData: any = {
+          channel: ch,
+          voltage,
+          current,
+          active_power: activePower,
+          apparent_power: apparentPower,
+          power_factor: pf,
+          frequency: freq,
+        };
+        if (emData) {
+          chData.total_energy = (emData[`${p}_total_act_energy`] ?? 0) / 1000;
+        }
+        channels.push(chData);
+      }
+    }
+  }
+
   return channels;
 }
 

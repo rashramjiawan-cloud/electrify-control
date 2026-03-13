@@ -1049,13 +1049,84 @@ const SmartCharging = () => {
                   <ol className="text-[10px] text-muted-foreground space-y-1 list-decimal list-inside">
                     <li>Open de Shelly web UI (http://&lt;shelly-ip&gt;)</li>
                     <li>Ga naar <strong>Scripts</strong> → maak een nieuw script</li>
-                    <li>Gebruik <code className="bg-muted px-1 rounded">Shelly.GetStatus</code> en stuur het resultaat via <code className="bg-muted px-1 rounded">HTTP.POST</code></li>
-                    <li>Voeg headers toe: <code className="bg-muted px-1 rounded">x-api-key: &lt;jouw API key&gt;</code></li>
-                    <li>Body: <code className="bg-muted px-1 rounded">{`{"device_id":"<DEVICE_ID>","status":<STATUS_DATA>}`}</code></li>
+                    <li>Plak het onderstaande script en pas <code className="bg-muted px-1 rounded">DEVICE_ID</code> en <code className="bg-muted px-1 rounded">API_KEY</code> aan</li>
+                    <li>Sla op en zet het script <strong>aan</strong></li>
                   </ol>
-                  <p className="text-[10px] text-muted-foreground">
-                    💡 API key instellen via <strong>Instellingen → Ingest API</strong>.
-                  </p>
+                </div>
+                <div className="rounded-md bg-muted p-3 space-y-1">
+                  <p className="text-[10px] font-semibold text-foreground">📋 Shelly Script (kopieer & plak):</p>
+                  <div className="relative">
+                    <pre className="text-[9px] font-mono text-muted-foreground whitespace-pre-wrap break-all max-h-[200px] overflow-y-auto select-all cursor-pointer" onClick={() => {
+                      const script = `// Shelly PRO 3EM → Webhook Push Script
+let CONFIG = {
+  ENDPOINT: "https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/shelly-ingest",
+  DEVICE_ID: "${meterShellyDeviceId || '<JE_DEVICE_ID>'}",
+  API_KEY: "<JE_API_KEY>",
+  INTERVAL_SEC: 10
+};
+
+function sendData() {
+  Shelly.call("Shelly.GetStatus", {}, function(result) {
+    let body = JSON.stringify({
+      device_id: CONFIG.DEVICE_ID,
+      status: result
+    });
+    Shelly.call("HTTP.POST", {
+      url: CONFIG.ENDPOINT,
+      content_type: "application/json",
+      headers: { "x-api-key": CONFIG.API_KEY },
+      body: body
+    }, function(res) {
+      if (res && res.code === 200) {
+        print("OK: data verzonden");
+      } else {
+        print("FOUT: " + JSON.stringify(res));
+      }
+    });
+  });
+}
+
+// Start: elke INTERVAL_SEC seconden
+Timer.set(CONFIG.INTERVAL_SEC * 1000, true, sendData);
+// Direct eerste keer verzenden
+sendData();
+print("Webhook script gestart, interval: " + CONFIG.INTERVAL_SEC + "s");`;
+                      navigator.clipboard.writeText(script);
+                      toast.success('Script gekopieerd naar klembord!');
+                    }}>{`// Shelly PRO 3EM → Webhook Push Script
+let CONFIG = {
+  ENDPOINT: "https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/shelly-ingest",
+  DEVICE_ID: "${meterShellyDeviceId || '<JE_DEVICE_ID>'}",
+  API_KEY: "<JE_API_KEY>",
+  INTERVAL_SEC: 10
+};
+
+function sendData() {
+  Shelly.call("Shelly.GetStatus", {}, function(result) {
+    let body = JSON.stringify({
+      device_id: CONFIG.DEVICE_ID,
+      status: result
+    });
+    Shelly.call("HTTP.POST", {
+      url: CONFIG.ENDPOINT,
+      content_type: "application/json",
+      headers: { "x-api-key": CONFIG.API_KEY },
+      body: body
+    }, function(res) {
+      if (res && res.code === 200) {
+        print("OK: data verzonden");
+      } else {
+        print("FOUT: " + JSON.stringify(res));
+      }
+    });
+  });
+}
+
+Timer.set(CONFIG.INTERVAL_SEC * 1000, true, sendData);
+sendData();
+print("Webhook script gestart");`}</pre>
+                    <p className="text-[9px] text-muted-foreground mt-1">💡 Klik op het script om te kopiëren. API key instellen via <strong>Instellingen → Ingest API</strong>.</p>
+                  </div>
                 </div>
               </div>
             ) : meterConnType === 'tcp_ip' ? (
