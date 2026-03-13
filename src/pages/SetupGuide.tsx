@@ -258,6 +258,114 @@ httpServer.listen(9000, () => {
     }
 }`;
 
+  const smartstuffForwarderPython = `#!/usr/bin/env python3
+"""SmartStuff Ultra X2 – MQTT → HTTP forwarder
+Luistert op DSMR/P1 JSON berichten en forwardt ze naar de Ingest API.
+Vereist: pip install paho-mqtt requests
+"""
+import json, os, time
+import paho.mqtt.client as mqtt
+import requests
+
+MQTT_HOST = os.getenv("MQTT_HOST", "192.168.1.100")
+MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
+MQTT_TOPIC = os.getenv("MQTT_TOPIC", "dsmr/json")
+
+INGEST_URL = os.getenv("INGEST_URL", "${INGEST_URL}")
+API_KEY    = os.getenv("API_KEY", "${apiKey}")
+METER_ID   = os.getenv("METER_ID", "smartstuff-01")
+
+def forward(payload):
+    """Parse DSMR JSON en POST naar Ingest API."""
+    try:
+        d = json.loads(payload)
+        body = {
+            "meter_id": METER_ID,
+            "channel": 0,
+            "active_power": d.get("power_delivered", 0) - d.get("power_returned", 0),
+            "voltage": d.get("voltage_l1"),
+            "current": d.get("current_l1"),
+            "total_energy": d.get("total_delivered"),
+            "phases": [
+                {"ch": 1, "voltage": d.get("voltage_l1"), "current": d.get("current_l1"),
+                 "power": d.get("power_delivered_l1", 0) - d.get("power_returned_l1", 0)},
+                {"ch": 2, "voltage": d.get("voltage_l2"), "current": d.get("current_l2"),
+                 "power": d.get("power_delivered_l2", 0) - d.get("power_returned_l2", 0)},
+                {"ch": 3, "voltage": d.get("voltage_l3"), "current": d.get("current_l3"),
+                 "power": d.get("power_delivered_l3", 0) - d.get("power_returned_l3", 0)},
+            ],
+        }
+        r = requests.post(
+            INGEST_URL,
+            json=body,
+            headers={"Content-Type": "application/json", "x-api-key": API_KEY},
+            timeout=5,
+        )
+        print(f"✅ Forwarded ({r.status_code}): {body['active_power']:.0f} W")
+    except Exception as e:
+        print(f"❌ Forward error: {e}")
+
+def on_message(_client, _userdata, msg):
+    forward(msg.payload.decode())
+
+client = mqtt.Client()
+client.on_message = on_message
+client.connect(MQTT_HOST, MQTT_PORT, 60)
+client.subscribe(MQTT_TOPIC)
+print(f"📡 Luistert op {MQTT_HOST}:{MQTT_PORT} topic={MQTT_TOPIC}")
+client.loop_forever()`;
+
+  const smartstuffForwarderNode = `#!/usr/bin/env node
+/**
+ * SmartStuff Ultra X2 – MQTT → HTTP forwarder (Node.js)
+ * npm install mqtt node-fetch
+ */
+const mqtt = require('mqtt');
+const fetch = require('node-fetch');
+
+const MQTT_HOST  = process.env.MQTT_HOST  || 'mqtt://192.168.1.100';
+const MQTT_TOPIC = process.env.MQTT_TOPIC || 'dsmr/json';
+const INGEST_URL = process.env.INGEST_URL || '${INGEST_URL}';
+const API_KEY    = process.env.API_KEY    || '${apiKey}';
+const METER_ID   = process.env.METER_ID   || 'smartstuff-01';
+
+const client = mqtt.connect(MQTT_HOST);
+
+client.on('connect', () => {
+  console.log(\`📡 Connected to \${MQTT_HOST}, subscribing to \${MQTT_TOPIC}\`);
+  client.subscribe(MQTT_TOPIC);
+});
+
+client.on('message', async (_topic, payload) => {
+  try {
+    const d = JSON.parse(payload.toString());
+    const body = {
+      meter_id: METER_ID,
+      channel: 0,
+      active_power: (d.power_delivered || 0) - (d.power_returned || 0),
+      voltage: d.voltage_l1,
+      current: d.current_l1,
+      total_energy: d.total_delivered,
+      phases: [
+        { ch: 1, voltage: d.voltage_l1, current: d.current_l1,
+          power: (d.power_delivered_l1 || 0) - (d.power_returned_l1 || 0) },
+        { ch: 2, voltage: d.voltage_l2, current: d.current_l2,
+          power: (d.power_delivered_l2 || 0) - (d.power_returned_l2 || 0) },
+        { ch: 3, voltage: d.voltage_l3, current: d.current_l3,
+          power: (d.power_delivered_l3 || 0) - (d.power_returned_l3 || 0) },
+      ],
+    };
+    const res = await fetch(INGEST_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
+      body: JSON.stringify(body),
+    });
+    console.log(\`✅ Forwarded (\${res.status}): \${body.active_power.toFixed(0)} W\`);
+  } catch (err) {
+    console.error('❌ Forward error:', err.message);
+  }
+});`;
+
   const testCurl = `curl -X POST ${INGEST_URL} \\
   -H "Content-Type: application/json" \\
   -H "x-api-key: ${apiKey}" \\
