@@ -1068,6 +1068,47 @@ const SmartCharging = () => {
                   💡 Configureer je API key via Instellingen → Ingest API. Dezelfde key als voor OCPP ingest.
                 </p>
               </div>
+            ) : meterConnType === 'outbound_ws' ? (
+              <div className="rounded-lg border border-chart-4/20 bg-chart-4/5 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Cable className="h-3.5 w-3.5 text-chart-4" />
+                  <h4 className="text-xs font-semibold text-foreground">Shelly Outbound WebSocket</h4>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  De Shelly maakt een permanente WebSocket-verbinding naar je server. 
+                  Betrouwbaarder dan webhook — automatische reconnect en geen HTTP overhead.
+                </p>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">WebSocket URL</Label>
+                  <div className="rounded-md bg-muted p-2.5 cursor-pointer" onClick={() => {
+                    const wsUrl = `wss://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/shelly-ws?api_key=<JE_API_KEY>&device_id=${meterShellyDeviceId || '<JE_DEVICE_ID>'}`;
+                    navigator.clipboard.writeText(wsUrl);
+                    toast.success('WebSocket URL gekopieerd!');
+                  }}>
+                    <code className="text-xs font-mono text-foreground break-all select-all">
+                      {`wss://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/shelly-ws?api_key=<JE_API_KEY>&device_id=${meterShellyDeviceId || '<JE_DEVICE_ID>'}`}
+                    </code>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Shelly Device ID</Label>
+                  <Input value={meterShellyDeviceId} onChange={e => setMeterShellyDeviceId(e.target.value)} placeholder={meterDeviceType === 'shelly_pro_3em' ? 'shellypro3em-A4F00FCFA140' : 'shellyproem50-A4F00FCFA140'} className="font-mono text-sm" />
+                  <p className="text-[10px] text-muted-foreground">Het Device ID wordt gebruikt om binnenkomende data te koppelen aan deze meter.</p>
+                </div>
+                <div className="rounded-md bg-muted/50 p-3 space-y-2">
+                  <p className="text-[10px] font-semibold text-foreground">Configuratie op de Shelly:</p>
+                  <ol className="text-[10px] text-muted-foreground space-y-1 list-decimal list-inside">
+                    <li>Open de Shelly web UI (http://&lt;shelly-ip&gt;)</li>
+                    <li>Ga naar <strong>Settings → Outbound WebSocket</strong></li>
+                    <li>Zet <strong>Enable</strong> aan</li>
+                    <li>Plak de WebSocket URL hierboven in het <strong>Server</strong> veld</li>
+                    <li>Klik op <strong>Save</strong></li>
+                  </ol>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  💡 API key instellen via <strong>Instellingen → Ingest API</strong>. De Shelly stuurt automatisch <code className="bg-muted px-1 rounded">NotifyFullStatus</code> frames.
+                </p>
+              </div>
             ) : meterConnType === 'webhook' ? (
               <div className="rounded-lg border border-chart-2/20 bg-chart-2/5 p-4 space-y-3">
                 <div className="flex items-center gap-2">
