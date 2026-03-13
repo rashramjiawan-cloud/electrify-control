@@ -1065,19 +1065,54 @@ const SmartCharging = () => {
                 </div>
               </div>
             )}
+
+            {/* Shelly Cloud API (optional) - only for Shelly */}
+            {meterDeviceType !== 'smartstuff_ultra_x2' && (
+              <div className="rounded-lg border border-chart-2/20 bg-chart-2/5 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Wifi className="h-3.5 w-3.5 text-chart-2" />
+                  <Label className="text-xs font-semibold">Shelly Cloud API (optioneel)</Label>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Gebruik de Shelly Cloud JRPC API om je meter op afstand uit te lezen zonder lokale netwerktoegang. 
+                  Vind je Device ID in de Shelly app → apparaat → Settings → Device Information.
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Device ID</Label>
+                    <Input value={meterShellyDeviceId} onChange={e => setMeterShellyDeviceId(e.target.value)} placeholder="shellyproem50-XXXXXXXXXXXX" className="font-mono text-sm" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Cloud Server</Label>
+                    <Input value={meterShellyCloudServer} onChange={e => setMeterShellyCloudServer(e.target.value)} className="font-mono text-sm" />
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  💡 Als Device ID is ingevuld wordt de Cloud API gebruikt. Laat leeg om lokaal te pollen via IP.
+                </p>
+              </div>
+            )}
           </div>
           <DialogFooter className="flex-col sm:flex-row gap-2">
             {meterDeviceType !== 'smartstuff_ultra_x2' && (
               <Button
                 variant="outline"
                 className="gap-1.5"
-                disabled={!meterHost || testConnection.isPending}
+                disabled={(!meterHost && !meterShellyDeviceId) || testConnection.isPending}
                 onClick={() => testConnection.mutate(
-                  { host: meterHost, port: Number(meterPort), auth_user: meterAuthUser || undefined, auth_pass: meterAuthPass || undefined },
+                  {
+                    host: meterHost || undefined,
+                    port: Number(meterPort),
+                    auth_user: meterAuthUser || undefined,
+                    auth_pass: meterAuthPass || undefined,
+                    shelly_device_id: meterShellyDeviceId || undefined,
+                    shelly_cloud_server: meterShellyCloudServer || undefined,
+                  },
                   {
                     onSuccess: (res: any) => {
                       if (res?.success) {
-                        toast.success(`Verbonden! ${res.data?.type || 'Shelly'} (${res.data?.mac || ''})`);
+                        const src = res.source === 'cloud' ? '☁️ Cloud' : '🏠 Lokaal';
+                        toast.success(`${src} verbonden! ${res.data?.type || res.data?.model || 'Shelly'} (${res.data?.mac || ''})`);
                       } else {
                         toast.error(res?.error || 'Verbinding mislukt');
                       }
@@ -1090,7 +1125,7 @@ const SmartCharging = () => {
               </Button>
             )}
             <Button
-              disabled={(meterDeviceType !== 'smartstuff_ultra_x2' && !meterHost) || createMeter.isPending || updateMeter.isPending}
+              disabled={(meterDeviceType !== 'smartstuff_ultra_x2' && !meterHost && !meterShellyDeviceId) || createMeter.isPending || updateMeter.isPending}
               onClick={() => {
                 const meterData: any = {
                   name: meterName,
@@ -1101,6 +1136,8 @@ const SmartCharging = () => {
                   auth_user: meterAuthUser || null,
                   auth_pass: meterAuthPass || null,
                   meter_type: meterType,
+                  shelly_device_id: meterShellyDeviceId || null,
+                  shelly_cloud_server: meterShellyCloudServer || null,
                 };
                 if (editingMeter) {
                   updateMeter.mutate(
