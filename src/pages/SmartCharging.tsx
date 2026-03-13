@@ -771,6 +771,8 @@ const SmartCharging = () => {
                       setMeterAuthUser('');
                       setMeterAuthPass('');
                       setMeterType('grid');
+                      setMeterShellyDeviceId('');
+                      setMeterShellyCloudServer('shelly-api-eu.shelly.cloud');
                       setMeterDialogOpen(true);
                     }}>
                       <Plus className="h-3 w-3" />
