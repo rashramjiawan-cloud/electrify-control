@@ -1042,35 +1042,37 @@ const SmartCharging = () => {
             )}
           </div>
           <DialogFooter className="flex-col sm:flex-row gap-2">
+            {meterDeviceType !== 'smartstuff_ultra_x2' && (
+              <Button
+                variant="outline"
+                className="gap-1.5"
+                disabled={!meterHost || testConnection.isPending}
+                onClick={() => testConnection.mutate(
+                  { host: meterHost, port: Number(meterPort), auth_user: meterAuthUser || undefined, auth_pass: meterAuthPass || undefined },
+                  {
+                    onSuccess: (res: any) => {
+                      if (res?.success) {
+                        toast.success(`Verbonden! ${res.data?.type || 'Shelly'} (${res.data?.mac || ''})`);
+                      } else {
+                        toast.error(res?.error || 'Verbinding mislukt');
+                      }
+                    },
+                    onError: () => toast.error('Kan niet verbinden'),
+                  }
+                )}
+              >
+                {testConnection.isPending ? 'Testen...' : 'Test verbinding'}
+              </Button>
+            )}
             <Button
-              variant="outline"
-              className="gap-1.5"
-              disabled={!meterHost || testConnection.isPending}
-              onClick={() => testConnection.mutate(
-                { host: meterHost, port: Number(meterPort), auth_user: meterAuthUser || undefined, auth_pass: meterAuthPass || undefined },
-                {
-                  onSuccess: (res: any) => {
-                    if (res?.success) {
-                      toast.success(`Verbonden! ${res.data?.type || 'Shelly'} (${res.data?.mac || ''})`);
-                    } else {
-                      toast.error(res?.error || 'Verbinding mislukt');
-                    }
-                  },
-                  onError: () => toast.error('Kan niet verbinden'),
-                }
-              )}
-            >
-              {testConnection.isPending ? 'Testen...' : 'Test verbinding'}
-            </Button>
-            <Button
-              disabled={!meterHost || createMeter.isPending || updateMeter.isPending}
+              disabled={(meterDeviceType !== 'smartstuff_ultra_x2' && !meterHost) || createMeter.isPending || updateMeter.isPending}
               onClick={() => {
                 const meterData: any = {
                   name: meterName,
-                  device_type: 'shelly_pro_em_50',
+                  device_type: meterDeviceType,
                   connection_type: meterConnType,
-                  host: meterHost,
-                  port: Number(meterPort),
+                  host: meterDeviceType === 'smartstuff_ultra_x2' ? 'webhook' : meterHost,
+                  port: meterDeviceType === 'smartstuff_ultra_x2' ? 443 : Number(meterPort),
                   auth_user: meterAuthUser || null,
                   auth_pass: meterAuthPass || null,
                   meter_type: meterType,
