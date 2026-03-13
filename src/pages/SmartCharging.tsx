@@ -790,6 +790,7 @@ const SmartCharging = () => {
                           setMeterType(m.meter_type || 'grid');
                           setMeterDialogOpen(true);
                         }}
+                        onMqtt={(m) => { setMqttMeter(m); setMqttMeterDialogOpen(true); }}
                       />
                     ))}
                   </div>
