@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
           metric: 'webhook_offline',
           value: ageSec,
           threshold_min: 0,
-          threshold_max: STALE_THRESHOLD_MIN * 60,
+          threshold_max: staleThresholdMin * 60,
           direction: 'high',
           unit: 's',
         });
