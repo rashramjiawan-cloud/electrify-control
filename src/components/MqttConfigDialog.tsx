@@ -49,9 +49,10 @@ const defaultTopics = (type: string, id: string, deviceType?: string) => {
   };
 };
 
-const MqttConfigDialog = ({ open, onOpenChange, assetType, assetId, assetName, existing }: MqttConfigDialogProps) => {
+const MqttConfigDialog = ({ open, onOpenChange, assetType, assetId, assetName, existing, deviceType }: MqttConfigDialogProps) => {
   const { upsert } = useMqttConfigurations();
-  const defaults = defaultTopics(assetType, assetId);
+  const defaults = defaultTopics(assetType, assetId, deviceType);
+  const isSmartStuff = deviceType === 'smartstuff_ultra_x2';
 
   const [form, setForm] = useState({
     enabled: false,
