@@ -19,13 +19,14 @@ const useTableCounts = () =>
   useQuery({
     queryKey: ['data-retention-counts'],
     queryFn: async () => {
-      const [mr, ga, al, mv, hb, lb] = await Promise.all([
+      const [mr, ga, al, mv, hb, lb, dh] = await Promise.all([
         supabase.from('meter_readings').select('id', { count: 'exact', head: true }),
         supabase.from('grid_alerts').select('id', { count: 'exact', head: true }),
         supabase.from('ocpp_audit_log').select('id', { count: 'exact', head: true }),
         supabase.from('meter_values').select('id', { count: 'exact', head: true }),
         supabase.from('heartbeats').select('id', { count: 'exact', head: true }),
         supabase.from('load_balance_logs' as any).select('id', { count: 'exact', head: true }),
+        supabase.from('meter_device_health').select('id', { count: 'exact', head: true }),
       ]);
       return {
         meter_readings: mr.count ?? 0,
@@ -34,6 +35,7 @@ const useTableCounts = () =>
         meter_values: mv.count ?? 0,
         heartbeats: hb.count ?? 0,
         load_balance_logs: lb.count ?? 0,
+        device_health: dh.count ?? 0,
       };
     },
     refetchInterval: 60_000,
