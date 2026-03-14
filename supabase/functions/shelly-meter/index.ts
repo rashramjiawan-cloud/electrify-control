@@ -499,3 +499,4 @@ function jsonRes(body: any, status = 200) {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }
+}
