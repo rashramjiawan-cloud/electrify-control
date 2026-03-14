@@ -31,6 +31,7 @@ const iconMap: Record<string, LucideIcon> = {
   '/plug-and-charge': Car,
   '/facturatie': FileText,
   '/gebruikers': Users,
+  '/device-health': HeartPulse,
 };
 
 const labelMap: Record<string, string> = {
