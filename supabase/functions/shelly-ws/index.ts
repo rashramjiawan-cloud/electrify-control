@@ -81,14 +81,10 @@ Deno.serve(async (req) => {
   socket.onmessage = async (event) => {
     try {
       const data = JSON.parse(event.data);
-
-      // Shelly Outbound WS sends frames like:
-      // { "src": "shellypro3em-...", "dst": "...", "method": "NotifyFullStatus", "params": { ... } }
-      // or { "src": "...", "method": "NotifyStatus", "params": { ... } }
       const method = data.method || '';
       const params = data.params || data.status || data;
 
-      // Also try to resolve meter from src field if not already found
+      // Resolve meter from src field if not already found
       let currentMeterId = meterId;
       let currentMeterType = meterType;
       if (!currentMeterId && data.src) {
@@ -117,15 +113,19 @@ Deno.serve(async (req) => {
       const channels = parseEM1Channels(params);
       if (channels.length === 0) return;
 
+      // Parse extended device info
+      const deviceInfo = parseDeviceInfo(params);
+      const phaseFaults = detectPhaseFaults(channels, params);
+
       // Save to DB
-      await saveChannelsToDB(supabase, currentMeterId, channels, params);
+      await saveChannelsToDB(supabase, currentMeterId, channels, params, deviceInfo, phaseFaults);
 
       // Check GTV exceedance
       if (currentMeterType === 'grid') {
         await checkGtvExceedance(supabase, supabaseUrl, serviceKey, currentMeterId, channels);
       }
 
-      console.log(`WS data saved: meter=${currentMeterId}, channels=${channels.length}`);
+      console.log(`WS data saved: meter=${currentMeterId}, channels=${channels.length}, temp=${deviceInfo.temperature ?? '-'}°C`);
     } catch (err) {
       console.error('WS message processing error:', err);
     }
@@ -142,7 +142,7 @@ Deno.serve(async (req) => {
   return response;
 });
 
-// ─── Helpers ───
+// ─── Channel Parsing ───
 
 function parseEM1Channels(shellyData: any) {
   const channels: any[] = [];
@@ -164,6 +164,7 @@ function parseEM1Channels(shellyData: any) {
       const dataKey = `em1data:${ch}`;
       if (shellyData[dataKey]) {
         chData.total_energy = (shellyData[dataKey].total_act_energy ?? 0) / 1000;
+        chData.return_energy = (shellyData[dataKey].total_act_ret_energy ?? 0) / 1000;
       }
       channels.push(chData);
     }
@@ -194,6 +195,7 @@ function parseEM1Channels(shellyData: any) {
         };
         if (emData) {
           chData.total_energy = (emData[`${p}_total_act_energy`] ?? 0) / 1000;
+          chData.return_energy = (emData[`${p}_total_act_ret_energy`] ?? 0) / 1000;
         }
         channels.push(chData);
       }
@@ -203,7 +205,96 @@ function parseEM1Channels(shellyData: any) {
   return channels;
 }
 
-async function saveChannelsToDB(supabase: any, meterId: string, channels: any[], shellyData: any) {
+// ─── Device Info Parsing ───
+
+interface DeviceInfo {
+  temperature: number | null;
+  wifi_rssi: number | null;
+  wifi_ssid: string | null;
+  wifi_ip: string | null;
+  uptime: number | null;
+  firmware_version: string | null;
+  mac: string | null;
+}
+
+function parseDeviceInfo(shellyData: any): DeviceInfo {
+  const sys = shellyData['sys'] || shellyData.sys || {};
+  const wifi = shellyData['wifi'] || shellyData.wifi || {};
+
+  // Temperature can come from sys.temperature or temperature:0
+  let temperature: number | null = null;
+  if (shellyData['temperature:0']?.tC != null) {
+    temperature = shellyData['temperature:0'].tC;
+  } else if (sys.temperature?.tC != null) {
+    temperature = sys.temperature.tC;
+  }
+
+  return {
+    temperature,
+    wifi_rssi: wifi.rssi ?? null,
+    wifi_ssid: wifi.ssid ?? null,
+    wifi_ip: wifi.sta_ip ?? null,
+    uptime: sys.uptime ?? null,
+    firmware_version: sys.available_updates?.stable?.version ?? null,
+    mac: sys.mac ?? null,
+  };
+}
+
+// ─── Phase Fault Detection ───
+
+interface PhaseFault {
+  phase: number;
+  type: string; // 'overvoltage' | 'undervoltage' | 'no_voltage' | 'overcurrent' | 'phase_loss'
+  value: number;
+  threshold: number;
+}
+
+function detectPhaseFaults(channels: any[], shellyData: any): PhaseFault[] {
+  const faults: PhaseFault[] = [];
+
+  // Check Shelly-reported errors
+  const em = shellyData['em:0'];
+  if (em?.errors) {
+    for (const err of em.errors) {
+      faults.push({
+        phase: -1,
+        type: err,
+        value: 0,
+        threshold: 0,
+      });
+    }
+  }
+
+  // Detect from channel data
+  const OVERVOLTAGE = 253;   // EU limit ~253V
+  const UNDERVOLTAGE = 207;  // EU limit ~207V
+  const NO_VOLTAGE = 10;     // Below 10V = phase loss
+
+  for (const ch of channels) {
+    if (ch.voltage !== null) {
+      if (ch.voltage < NO_VOLTAGE) {
+        faults.push({ phase: ch.channel, type: 'phase_loss', value: ch.voltage, threshold: NO_VOLTAGE });
+      } else if (ch.voltage < UNDERVOLTAGE) {
+        faults.push({ phase: ch.channel, type: 'undervoltage', value: ch.voltage, threshold: UNDERVOLTAGE });
+      } else if (ch.voltage > OVERVOLTAGE) {
+        faults.push({ phase: ch.channel, type: 'overvoltage', value: ch.voltage, threshold: OVERVOLTAGE });
+      }
+    }
+  }
+
+  return faults;
+}
+
+// ─── Database Operations ───
+
+async function saveChannelsToDB(
+  supabase: any,
+  meterId: string,
+  channels: any[],
+  shellyData: any,
+  deviceInfo: DeviceInfo,
+  phaseFaults: PhaseFault[]
+) {
   for (const ch of channels) {
     await supabase.from('meter_readings').insert({
       meter_id: meterId,
@@ -215,13 +306,25 @@ async function saveChannelsToDB(supabase: any, meterId: string, channels: any[],
       power_factor: ch.power_factor,
       frequency: ch.frequency,
       total_energy: ch.total_energy,
+      return_energy: ch.return_energy ?? null,
     });
   }
+
+  // Build extended last_reading with all info
+  const lastReading: any = {
+    channels,
+    device_info: deviceInfo,
+    phase_faults: phaseFaults,
+    raw: shellyData.sys || shellyData.wifi || {},
+  };
+
   await supabase.from('energy_meters').update({
-    last_reading: { channels, raw: shellyData.sys || shellyData.wifi || {} },
+    last_reading: lastReading,
     last_poll_at: new Date().toISOString(),
   }).eq('id', meterId);
 }
+
+// ─── GTV Exceedance Check ───
 
 async function checkGtvExceedance(supabase: any, supabaseUrl: string, serviceKey: string, meterId: string, channels: any[]) {
   try {
