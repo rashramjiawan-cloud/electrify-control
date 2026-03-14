@@ -193,10 +193,22 @@ serve(async (req) => {
     if (aiSummary) baseline.aiSummary = aiSummary;
 
     // Save trained model
+    const trainedAt = new Date().toISOString();
     await supabase
       .from("meter_ai_models")
-      .update({ status: "ready", baseline_data: baseline, trained_at: new Date().toISOString() })
+      .update({ status: "ready", baseline_data: baseline, trained_at: trainedAt })
       .eq("id", model.id);
+
+    // Save history snapshot
+    await supabase
+      .from("meter_ai_model_history")
+      .insert({
+        model_id: model.id,
+        meter_id: meterId,
+        model_type: modelType,
+        baseline_data: baseline,
+        trained_at: trainedAt,
+      });
 
     return new Response(JSON.stringify({ success: true, baseline }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
