@@ -1,6 +1,6 @@
 import { useEffect, useState, createContext, useContext, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { User, Session } from '@supabase/supabase-js';
+import type { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: User | null;
@@ -27,38 +27,77 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAdmin, setIsAdmin] = useState(false);
 
   const fetchRole = async (userId: string) => {
-    const { data } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId)
-      .eq('role', 'admin')
-      .maybeSingle();
-    setIsAdmin(!!data);
-    return !!data;
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('role', 'admin')
+        .maybeSingle();
+
+      if (error) {
+        console.error('Failed to fetch role:', error.message);
+        setIsAdmin(false);
+        return false;
+      }
+
+      const isUserAdmin = !!data;
+      setIsAdmin(isUserAdmin);
+      return isUserAdmin;
+    } catch (error) {
+      console.error('Unexpected role fetch error:', error);
+      setIsAdmin(false);
+      return false;
+    }
+  };
+
+  const syncAuthState = async (nextSession: Session | null) => {
+    setSession(nextSession);
+    setUser(nextSession?.user ?? null);
+
+    if (nextSession?.user) {
+      await fetchRole(nextSession.user.id);
+    } else {
+      setIsAdmin(false);
+    }
   };
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        await fetchRole(session.user.id);
-      } else {
-        setIsAdmin(false);
+    let mounted = true;
+
+    const withLoading = async (event: AuthChangeEvent, nextSession: Session | null) => {
+      const shouldBlock = event === 'INITIAL_SESSION' || event === 'SIGNED_IN';
+      if (shouldBlock && mounted) setLoading(true);
+
+      try {
+        if (mounted) {
+          await syncAuthState(nextSession);
+        }
+      } finally {
+        if (mounted) setLoading(false);
       }
-      setLoading(false);
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      void withLoading(event, nextSession);
     });
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        await fetchRole(session.user.id);
+    const bootstrap = async () => {
+      try {
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        if (!mounted) return;
+        await syncAuthState(currentSession);
+      } finally {
+        if (mounted) setLoading(false);
       }
-      setLoading(false);
-    });
+    };
 
-    return () => subscription.unsubscribe();
+    void bootstrap();
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {
