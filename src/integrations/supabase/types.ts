@@ -1190,6 +1190,60 @@ export type Database = {
           },
         ]
       }
+      project_notifications: {
+        Row: {
+          created_at: string
+          customer_id: string
+          email_sent: boolean
+          error_message: string | null
+          id: string
+          new_status: string
+          old_status: string
+          project_id: string
+          project_title: string
+          recipient_email: string | null
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          email_sent?: boolean
+          error_message?: string | null
+          id?: string
+          new_status: string
+          old_status: string
+          project_id: string
+          project_title: string
+          recipient_email?: string | null
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          email_sent?: boolean
+          error_message?: string | null
+          id?: string
+          new_status?: string
+          old_status?: string
+          project_id?: string
+          project_title?: string
+          recipient_email?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_notifications_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_notifications_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_tasks: {
         Row: {
           completed: boolean
