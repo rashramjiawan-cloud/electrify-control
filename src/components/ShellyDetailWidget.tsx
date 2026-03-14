@@ -180,6 +180,14 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
     return hourlyData.reduce((s, h) => s + h.kwh, 0);
   }, [hourlyData]);
 
+  const importKwh = useMemo(() => {
+    return hourlyData.filter(h => h.kwh > 0).reduce((s, h) => s + h.kwh, 0);
+  }, [hourlyData]);
+
+  const exportKwh = useMemo(() => {
+    return Math.abs(hourlyData.filter(h => h.kwh < 0).reduce((s, h) => s + h.kwh, 0));
+  }, [hourlyData]);
+
   const [expanded, setExpanded] = useState(false);
 
   if (latestLoading) {
