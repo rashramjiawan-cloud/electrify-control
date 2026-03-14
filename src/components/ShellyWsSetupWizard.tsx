@@ -204,7 +204,7 @@ const ShellyWsSetupWizard = () => {
                   </li>
                 </ol>
                 <p className="pt-1">
-                  De Shelly stuurt automatisch <code className="font-mono text-foreground bg-muted px-1 py-0.5 rounded">NotifyFullStatus</code> berichten
+                  De TecTronic stuurt automatisch <code className="font-mono text-foreground bg-muted px-1 py-0.5 rounded">NotifyFullStatus</code> berichten
                   met 3-fase vermogensdata. De data verschijnt direct op het dashboard.
                 </p>
               </div>
