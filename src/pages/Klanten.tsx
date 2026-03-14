@@ -11,13 +11,15 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
-import { Building2, Plus, ChevronRight, X, Pencil, Trash2, Users, Zap, Loader2, Search, User, Circle, Activity, BatteryCharging, TrendingUp, BarChart3, Eye } from 'lucide-react';
+import { Building2, Plus, ChevronRight, X, Pencil, Trash2, Users, Zap, Loader2, Search, User, Circle, Activity, BatteryCharging, TrendingUp, BarChart3, Eye, FolderKanban } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 import { useCustomerImpersonation } from '@/hooks/useCustomerImpersonation';
+import { useProjects } from '@/hooks/useProjects';
+import { Progress } from '@/components/ui/progress';
 
 interface CustomerStats {
   customer_id: string;
@@ -581,7 +583,69 @@ const CustomerDetailPanel = ({ customer, stats, transactionStats, onClose }: Cus
             <p className="text-xs text-muted-foreground italic px-1">Geen laadpalen gekoppeld</p>
           )}
         </div>
+
+        {/* Projects */}
+        <CustomerProjectsSection customerId={customer.id} />
       </div>
+    </div>
+  );
+};
+
+/* ── Customer Projects Section ── */
+
+const STATUS_COLORS: Record<string, string> = {
+  planned: 'text-muted-foreground',
+  in_progress: 'text-primary',
+  on_hold: 'text-chart-2',
+  completed: 'text-green-600 dark:text-green-400',
+  cancelled: 'text-destructive',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  planned: 'Gepland',
+  in_progress: 'In uitvoering',
+  on_hold: 'On hold',
+  completed: 'Afgerond',
+  cancelled: 'Geannuleerd',
+};
+
+const CustomerProjectsSection = ({ customerId }: { customerId: string }) => {
+  const { data: projects } = useProjects(customerId);
+  const navigate = useNavigate();
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <FolderKanban className="h-4 w-4 text-primary" />
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Projecten ({projects?.length || 0})
+          </span>
+        </div>
+        <Button variant="ghost" size="sm" className="h-6 text-[10px] text-primary" onClick={() => navigate('/projecten')}>
+          Bekijk alle →
+        </Button>
+      </div>
+      {projects && projects.length > 0 ? (
+        <div className="space-y-1.5">
+          {projects.map(p => (
+            <div key={p.id} className="rounded-lg px-3 py-2.5 bg-muted/40 space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium text-foreground truncate">{p.title}</p>
+                <Badge variant="outline" className={`text-[9px] shrink-0 ${STATUS_COLORS[p.status] || ''}`}>
+                  {STATUS_LABELS[p.status] || p.status}
+                </Badge>
+              </div>
+              <div className="flex items-center gap-2">
+                <Progress value={p.progress_pct} className="h-1.5 flex-1" />
+                <span className="text-[10px] font-mono text-muted-foreground w-8 text-right">{p.progress_pct}%</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground italic px-1">Geen projecten</p>
+      )}
     </div>
   );
 };
