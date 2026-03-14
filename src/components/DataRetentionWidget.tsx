@@ -69,6 +69,7 @@ const DataRetentionWidget = () => {
   const alertDays = Number(getSetting('grid_alerts_retention_days')?.value ?? 180);
   const auditDays = Number(getSetting('audit_log_retention_days')?.value ?? 365);
   const lbDays = Number(getSetting('load_balance_logs_retention_days')?.value ?? 30);
+  const dhDays = Number(getSetting('device_health_retention_days')?.value ?? 30);
 
   const tables: TableCount[] = counts
     ? [
@@ -78,6 +79,7 @@ const DataRetentionWidget = () => {
         { label: 'Audit Log', count: counts.audit_log, retentionDays: auditDays, icon: FileText },
         { label: 'Heartbeats', count: counts.heartbeats, retentionDays: meterDays, icon: Heart },
         { label: 'Load Balance Logs', count: counts.load_balance_logs, retentionDays: lbDays, icon: Scale },
+        { label: 'Device Health', count: counts.device_health, retentionDays: dhDays, icon: Thermometer },
       ]
     : [];
 
