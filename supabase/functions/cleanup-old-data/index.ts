@@ -118,6 +118,12 @@ serve(async (req) => {
       .lt("created_at", lbCutoff);
     results.load_balance_logs_deleted = lbCount ?? 0;
 
+    const { count: dhCount } = await supabase
+      .from("meter_device_health")
+      .delete({ count: "exact" })
+      .lt("recorded_at", dhCutoff);
+    results.device_health_deleted = dhCount ?? 0;
+
     console.log("Cleanup completed:", results);
 
     return new Response(JSON.stringify({ success: true, ...results }), {

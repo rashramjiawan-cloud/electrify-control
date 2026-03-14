@@ -132,7 +132,7 @@ const DataRetentionWidget = () => {
             {/* Retention legend + cleanup */}
             <div className="mt-4 pt-3 border-t border-border flex items-center justify-between gap-2">
               <p className="text-xs text-muted-foreground">
-                Meterdata <span className="font-mono">{meterDays}d</span> · Alerts <span className="font-mono">{alertDays}d</span> · Audit <span className="font-mono">{auditDays}d</span> · LB Logs <span className="font-mono">{lbDays}d</span>
+                Meterdata <span className="font-mono">{meterDays}d</span> · Alerts <span className="font-mono">{alertDays}d</span> · Audit <span className="font-mono">{auditDays}d</span> · LB <span className="font-mono">{lbDays}d</span> · Health <span className="font-mono">{dhDays}d</span>
               </p>
               <CleanupConfirmDialog
                 onConfirm={handleCleanup}
