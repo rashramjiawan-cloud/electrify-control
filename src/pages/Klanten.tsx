@@ -285,7 +285,7 @@ const Klanten = () => {
 /* ── Detail panel ── */
 
 interface CustomerDetailPanelProps {
-  customer: { id: string; name: string; description: string | null; contact_email: string | null; contact_phone: string | null; address: string | null; created_at: string };
+  customer: { id: string; name: string; description: string | null; contact_email: string | null; contact_phone: string | null; address: string | null; created_at?: string };
   stats?: CustomerStats;
   onClose: () => void;
 }
