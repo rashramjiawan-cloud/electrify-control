@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Copy, Check, Wifi, Server, Shield, Info } from 'lucide-react';
 import AlertThresholdsSettings from '@/components/AlertThresholdsSettings';
+import ShellyWsSetupWizard from '@/components/ShellyWsSetupWizard';
 import DataRetentionSettings from '@/components/DataRetentionSettings';
 import NotificationChannelsSettings from '@/components/NotificationChannelsSettings';
 import GtvSettings from '@/components/GtvSettings';
@@ -91,6 +92,9 @@ const Instellingen = () => {
 
         {/* MQTT Connections */}
         <MqttSettingsPanel />
+
+        {/* Shelly WebSocket Setup */}
+        <ShellyWsSetupWizard />
 
         {/* Ingest API */}
         <IngestApiSettings />
