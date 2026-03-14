@@ -61,7 +61,7 @@ const labelMap: Record<string, string> = {
   '/projecten': 'Projecten',
 };
 
-const adminOnlyRoutes = new Set(['/simulator', '/gebruikers', '/klanten']);
+const adminOnlyRoutes = new Set(['/simulator', '/gebruikers', '/klanten', '/projecten']);
 
 interface AppSidebarProps {
   open: boolean;
