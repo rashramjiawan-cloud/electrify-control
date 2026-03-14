@@ -583,6 +583,9 @@ const CustomerDetailPanel = ({ customer, stats, transactionStats, onClose }: Cus
             <p className="text-xs text-muted-foreground italic px-1">Geen laadpalen gekoppeld</p>
           )}
         </div>
+
+        {/* Projects */}
+        <CustomerProjectsSection customerId={customer.id} />
       </div>
     </div>
   );
