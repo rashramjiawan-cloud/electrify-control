@@ -405,7 +405,7 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
                     <span className="text-[11px] text-muted-foreground">Laatste 24 uur</span>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-3 mb-4">
+                <div className="grid grid-cols-4 gap-3 mb-4">
                   <div className="flex flex-col items-center justify-center rounded-lg border border-chart-3/30 bg-chart-3/5 px-3 py-3">
                     <span className="font-mono text-lg font-bold text-foreground">{importKwh.toFixed(1)}</span>
                     <span className="text-[10px] text-muted-foreground">kWh</span>
@@ -420,6 +420,15 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
                     <span className="font-mono text-lg font-bold text-foreground">{total24hKwh.toFixed(1)}</span>
                     <span className="text-[10px] text-muted-foreground">kWh</span>
                     <span className="text-[9px] text-muted-foreground mt-0.5">Netto</span>
+                  </div>
+                  <div className="flex flex-col items-center justify-center rounded-lg border border-accent/30 bg-accent/5 px-3 py-3 relative overflow-hidden">
+                    <div
+                      className="absolute bottom-0 left-0 right-0 bg-primary/10 transition-all duration-500"
+                      style={{ height: `${selfSufficiency}%` }}
+                    />
+                    <span className="font-mono text-lg font-bold text-foreground relative z-10">{selfSufficiency}</span>
+                    <span className="text-[10px] text-muted-foreground relative z-10">%</span>
+                    <span className="text-[9px] text-muted-foreground mt-0.5 relative z-10">Eigen opwek</span>
                   </div>
                 </div>
                 <div className="h-[180px] mt-3">
