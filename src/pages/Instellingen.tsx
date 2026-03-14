@@ -93,6 +93,9 @@ const Instellingen = () => {
         {/* MQTT Connections */}
         <MqttSettingsPanel />
 
+        {/* Shelly WebSocket Setup */}
+        <ShellyWsSetupWizard />
+
         {/* Ingest API */}
         <IngestApiSettings />
 
