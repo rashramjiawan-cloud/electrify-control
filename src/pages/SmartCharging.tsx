@@ -45,24 +45,38 @@ const DEFAULT_MODULES: ModuleConfig[] = [
 ];
 
 // Extracted meter item with local poll hook (hooks must be at top level)
-const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt }: { meter: EnergyMeter; pollMeter: any; deleteMeter: any; onEdit: (meter: EnergyMeter) => void; onMqtt: (meter: EnergyMeter) => void }) => {
+const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt, staleThresholdMin }: { meter: EnergyMeter; pollMeter: any; deleteMeter: any; onEdit: (meter: EnergyMeter) => void; onMqtt: (meter: EnergyMeter) => void; staleThresholdMin: number }) => {
   const [localActive, setLocalActive] = useState(false);
   const localAutoRef = useLocalAutoPoll(localActive ? meter : undefined, 10000);
   const [, forceUpdate] = useState(0);
+  const isPush = meter.connection_type === 'webhook' || meter.connection_type === 'outbound_ws';
+  const isWs = meter.connection_type === 'outbound_ws';
+  const staleMs = staleThresholdMin * 60 * 1000;
 
-  // Force re-render every 15s so the webhook staleness indicator stays accurate
+  // Force re-render every 5s for push meters so the live indicator stays accurate
   useEffect(() => {
-    if (meter.connection_type !== 'webhook' && meter.connection_type !== 'outbound_ws') return;
-    const iv = setInterval(() => forceUpdate(n => n + 1), 15_000);
+    if (!isPush) return;
+    const iv = setInterval(() => forceUpdate(n => n + 1), 5_000);
     return () => clearInterval(iv);
-  }, [meter.connection_type]);
+  }, [isPush]);
 
-  const webhookStale = (meter.connection_type === 'webhook' || meter.connection_type === 'outbound_ws') && meter.last_poll_at
-    ? (Date.now() - new Date(meter.last_poll_at).getTime()) > 60_000
+  const webhookStale = isPush && meter.last_poll_at
+    ? (Date.now() - new Date(meter.last_poll_at).getTime()) > staleMs
     : false;
   const webhookAgeSec = meter.last_poll_at
     ? Math.round((Date.now() - new Date(meter.last_poll_at).getTime()) / 1000)
     : null;
+
+  // Calculate total power from channels
+  const channels = meter.last_reading?.channels as any[] | undefined;
+  const totalPowerW = channels?.reduce((sum: number, ch: any) => sum + (ch.active_power ?? 0), 0) ?? null;
+  const totalCurrentA = channels?.reduce((sum: number, ch: any) => sum + (ch.current ?? 0), 0) ?? null;
+
+  const formatAge = (sec: number) => {
+    if (sec > 3600) return `${Math.floor(sec / 3600)}u ${Math.floor((sec % 3600) / 60)}m`;
+    if (sec > 60) return `${Math.floor(sec / 60)}m ${sec % 60}s`;
+    return `${sec}s`;
+  };
 
   return (
     <div className="px-5 py-4 space-y-3">
@@ -99,7 +113,7 @@ const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt }: { meter: E
                   ? meter.shelly_device_id
                   : meter.connection_type === 'tcp_ip' ? `${meter.host}:${meter.port}` : `addr ${meter.modbus_address}`}
               </p>
-              {(meter.connection_type === 'webhook' || meter.connection_type === 'outbound_ws') && (
+              {isPush && (
                 <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
                   !meter.last_poll_at
                     ? 'bg-muted text-muted-foreground'
@@ -118,11 +132,11 @@ const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt }: { meter: E
                   {!meter.last_poll_at
                     ? 'Wacht op data…'
                     : webhookStale
-                    ? `Geen data (${webhookAgeSec! > 3600 ? `${Math.floor(webhookAgeSec! / 3600)}u` : webhookAgeSec! > 60 ? `${Math.floor(webhookAgeSec! / 60)}m` : `${webhookAgeSec}s`} geleden)`
+                    ? `Offline · ${formatAge(webhookAgeSec!)}`
                     : `Live · ${new Date(meter.last_poll_at).toLocaleTimeString('nl-NL')}`}
                 </span>
               )}
-              {meter.connection_type !== 'webhook' && meter.connection_type !== 'outbound_ws' && meter.last_poll_at && (
+              {!isPush && meter.last_poll_at && (
                 <span className="text-[10px] text-muted-foreground">
                   Laatste poll: {new Date(meter.last_poll_at).toLocaleTimeString('nl-NL')}
                 </span>
@@ -210,6 +224,68 @@ const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt }: { meter: E
         </div>
       </div>
 
+      {/* WS connection status card */}
+      {isWs && (
+        <div className={`rounded-lg border px-4 py-3 flex items-center justify-between ${
+          !meter.last_poll_at
+            ? 'bg-muted/30 border-border'
+            : webhookStale
+            ? 'bg-destructive/5 border-destructive/20'
+            : 'bg-green-500/5 border-green-500/20'
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${
+              !meter.last_poll_at
+                ? 'bg-muted'
+                : webhookStale
+                ? 'bg-destructive/10'
+                : 'bg-green-500/10'
+            }`}>
+              <Wifi className={`h-4 w-4 ${
+                !meter.last_poll_at
+                  ? 'text-muted-foreground'
+                  : webhookStale
+                  ? 'text-destructive'
+                  : 'text-green-600 dark:text-green-400'
+              }`} />
+            </div>
+            <div>
+              <p className={`text-xs font-semibold ${
+                !meter.last_poll_at
+                  ? 'text-muted-foreground'
+                  : webhookStale
+                  ? 'text-destructive'
+                  : 'text-green-700 dark:text-green-400'
+              }`}>
+                {!meter.last_poll_at
+                  ? 'WebSocket wacht op verbinding…'
+                  : webhookStale
+                  ? 'WebSocket verbinding verloren'
+                  : 'WebSocket verbonden'}
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                {!meter.last_poll_at
+                  ? 'Configureer Outbound WebSocket in je Shelly UI'
+                  : webhookStale
+                  ? `Laatste data ${formatAge(webhookAgeSec!)} geleden · drempel ${staleThresholdMin}m`
+                  : `Laatst ontvangen: ${new Date(meter.last_poll_at).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`}
+              </p>
+            </div>
+          </div>
+          {/* Total power summary */}
+          {totalPowerW !== null && channels && channels.length > 0 && !webhookStale && meter.last_poll_at && (
+            <div className="text-right">
+              <p className={`font-mono text-lg font-bold ${totalPowerW >= 0 ? 'text-destructive' : 'text-green-600 dark:text-green-400'}`}>
+                {totalPowerW >= 0 ? '↓' : '↑'} {Math.abs(totalPowerW).toFixed(0)} W
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                {totalPowerW >= 0 ? 'Afname' : 'Teruglevering'} · {totalCurrentA !== null ? `${Math.abs(totalCurrentA).toFixed(1)} A` : ''} · {channels.length} fase{channels.length > 1 ? 'n' : ''}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Local poll error */}
       {localActive && localAutoRef.error && (
         <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2">
@@ -234,9 +310,9 @@ const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt }: { meter: E
       )}
 
       {/* Live data display */}
-      {meter.last_reading?.channels && (
+      {channels && channels.length > 0 && (
         <div className="grid grid-cols-2 gap-3">
-          {(meter.last_reading.channels as any[]).map((ch: any) => (
+          {channels.map((ch: any) => (
             <div key={ch.channel} className="rounded-lg bg-muted/30 p-3 space-y-1">
               <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                 Kanaal {ch.channel + 1}
@@ -859,6 +935,7 @@ const SmartCharging = () => {
                         meter={meter}
                         pollMeter={pollMeter}
                         deleteMeter={deleteMeter}
+                        staleThresholdMin={parseInt(getSetting('webhook_stale_threshold_min')?.value || '5', 10)}
                         onEdit={(m) => {
                           setEditingMeter(m);
                           setMeterName(m.name);
