@@ -1392,7 +1392,7 @@ sendData();
 print("Webhook script gestart, interval: " + CONFIG.INTERVAL_SEC + "s");`;
                       navigator.clipboard.writeText(script);
                       toast.success('Script gekopieerd naar klembord!');
-                    }}>{`// ${meterDeviceType === 'shelly_pro_3em' ? 'Shelly PRO 3EM' : 'Shelly PRO EM-50'} → Webhook Push Script
+                    }}>{`// ${meterDeviceType === 'shelly_pro_3em' ? 'TecTronic PRO 3EM' : 'TecTronic PRO EM-50'} → Webhook Push Script
 let CONFIG = {
   ENDPOINT: "https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/shelly-ingest",
   DEVICE_ID: "${meterShellyDeviceId || '<JE_DEVICE_ID>'}",
