@@ -56,13 +56,14 @@ serve(async (req) => {
 
     if (dryRun) {
       // Count only, no deletes
-      const [mr, ga, al, mv, hb, lb] = await Promise.all([
+      const [mr, ga, al, mv, hb, lb, dh] = await Promise.all([
         supabase.from("meter_readings").select("id", { count: "exact", head: true }).lt("timestamp", meterCutoff),
         supabase.from("grid_alerts").select("id", { count: "exact", head: true }).lt("created_at", alertCutoff),
         supabase.from("ocpp_audit_log").select("id", { count: "exact", head: true }).lt("created_at", auditCutoff),
         supabase.from("meter_values").select("id", { count: "exact", head: true }).lt("timestamp", meterCutoff),
         supabase.from("heartbeats").select("id", { count: "exact", head: true }).lt("received_at", meterCutoff),
         supabase.from("load_balance_logs").select("id", { count: "exact", head: true }).lt("created_at", lbCutoff),
+        supabase.from("meter_device_health").select("id", { count: "exact", head: true }).lt("recorded_at", dhCutoff),
       ]);
 
       return new Response(JSON.stringify({
@@ -73,6 +74,7 @@ serve(async (req) => {
         meter_values: mv.count ?? 0,
         heartbeats: hb.count ?? 0,
         load_balance_logs: lb.count ?? 0,
+        device_health: dh.count ?? 0,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
