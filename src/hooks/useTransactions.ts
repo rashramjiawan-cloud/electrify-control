@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useCustomerImpersonation } from '@/hooks/useCustomerImpersonation';
+import { useChargePoints } from '@/hooks/useChargePoints';
 
 export interface DbTransaction {
   id: number;
@@ -17,8 +19,16 @@ export interface DbTransaction {
 }
 
 export function useTransactions(limit = 20, dateFrom?: string, dateTo?: string) {
+  const { impersonatedCustomerId } = useCustomerImpersonation();
+  const { data: chargePoints } = useChargePoints();
+
+  // Get charge point IDs belonging to impersonated customer
+  const cpIds = impersonatedCustomerId && chargePoints
+    ? chargePoints.map(cp => cp.id)
+    : null;
+
   return useQuery({
-    queryKey: ['transactions', limit, dateFrom, dateTo],
+    queryKey: ['transactions', limit, dateFrom, dateTo, impersonatedCustomerId, cpIds],
     queryFn: async () => {
       let query = supabase
         .from('transactions')
@@ -27,6 +37,12 @@ export function useTransactions(limit = 20, dateFrom?: string, dateTo?: string) 
         .limit(limit);
       if (dateFrom) query = query.gte('start_time', dateFrom);
       if (dateTo) query = query.lte('start_time', dateTo);
+      if (cpIds && cpIds.length > 0) {
+        query = query.in('charge_point_id', cpIds);
+      } else if (impersonatedCustomerId) {
+        // No charge points for this customer, return empty
+        return [] as DbTransaction[];
+      }
       const { data, error } = await query;
       if (error) throw error;
       return data as DbTransaction[];
