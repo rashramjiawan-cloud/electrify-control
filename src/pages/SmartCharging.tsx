@@ -1352,7 +1352,7 @@ const SmartCharging = () => {
                   </ol>
                 </div>
                 <div className="rounded-md bg-muted p-3 space-y-1">
-                  <p className="text-[10px] font-semibold text-foreground">📋 Shelly Script (kopieer & plak):</p>
+                  <p className="text-[10px] font-semibold text-foreground">📋 TecTronic Script (kopieer & plak):</p>
                   <div className="relative">
                     <pre className="text-[9px] font-mono text-muted-foreground whitespace-pre-wrap break-all max-h-[200px] overflow-y-auto select-all cursor-pointer" onClick={() => {
                       const scriptTitle = meterDeviceType === 'shelly_pro_3em' ? 'Shelly PRO 3EM' : 'Shelly PRO EM-50';
