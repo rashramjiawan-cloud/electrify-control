@@ -137,6 +137,49 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
     return result;
   }, [historyReadings]);
 
+  // Hourly consumption chart data (24h)
+  const hourlyData = useMemo(() => {
+    if (!historyReadings?.length) return [];
+    // Group readings by hour, sum active_power across all channels per timestamp, then average per hour
+    const byTimestamp = new Map<string, number>();
+    for (const r of historyReadings) {
+      const ts = r.timestamp;
+      byTimestamp.set(ts, (byTimestamp.get(ts) ?? 0) + (r.active_power ?? 0));
+    }
+
+    const byHour = new Map<string, { sum: number; count: number }>();
+    for (const [ts, totalPower] of byTimestamp) {
+      const d = new Date(ts);
+      const hourKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}-${d.getHours()}`;
+      const entry = byHour.get(hourKey) ?? { sum: 0, count: 0 };
+      entry.sum += totalPower;
+      entry.count++;
+      byHour.set(hourKey, entry);
+    }
+
+    // Convert to kWh estimate: avg power (W) * 1h / 1000
+    const now = new Date();
+    const result: { hour: string; kwh: number; isExport: boolean }[] = [];
+    for (let i = 23; i >= 0; i--) {
+      const d = new Date(now);
+      d.setHours(d.getHours() - i, 0, 0, 0);
+      const hourKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}-${d.getHours()}`;
+      const entry = byHour.get(hourKey);
+      const avgPower = entry ? entry.sum / entry.count : 0;
+      const kwh = +(avgPower / 1000).toFixed(2); // avg kW ≈ kWh for 1 hour
+      result.push({
+        hour: `${d.getHours().toString().padStart(2, '0')}:00`,
+        kwh,
+        isExport: kwh < 0,
+      });
+    }
+    return result;
+  }, [historyReadings]);
+
+  const total24hKwh = useMemo(() => {
+    return hourlyData.reduce((s, h) => s + h.kwh, 0);
+  }, [hourlyData]);
+
   if (latestLoading) {
     return (
       <div className="rounded-xl border border-border bg-card p-6">
