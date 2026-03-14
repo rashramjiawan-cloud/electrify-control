@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { CustomerImpersonationProvider } from "@/hooks/useCustomerImpersonation";
+import ImpersonationBanner from "@/components/ImpersonationBanner";
 import { useMyModulePermissions } from "@/hooks/useMyModulePermissions";
 import Index from "./pages/Index";
 import Laadpalen from "./pages/Laadpalen";
