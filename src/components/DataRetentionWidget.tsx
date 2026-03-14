@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useSystemSettings } from '@/hooks/useSystemSettings';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Database, HardDrive, ShieldAlert, FileText, Zap, Heart, Trash2, Loader2, Scale } from 'lucide-react';
+import { Database, HardDrive, ShieldAlert, FileText, Zap, Heart, Trash2, Loader2, Scale, Thermometer } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
