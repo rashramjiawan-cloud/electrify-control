@@ -27,6 +27,7 @@ import SetupGuide from "./pages/SetupGuide";
 import PlugAndCharge from "./pages/PlugAndCharge";
 import Facturatie from "./pages/Facturatie";
 import Gebruikers from "./pages/Gebruikers";
+import DeviceHealth from "./pages/DeviceHealth";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
