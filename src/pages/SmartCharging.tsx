@@ -1204,11 +1204,11 @@ const SmartCharging = () => {
                   setMeterName('SmartStuff Ultra X2');
                   setMeterConnType('mqtt_http');
                 } else if (v === 'shelly_pro_3em') {
-                  setMeterName('Shelly Pro 3EM');
+                  setMeterName('TecTronic Pro 3EM');
                   setMeterConnType('tcp_ip');
                   setMeterPort('80');
                 } else {
-                  setMeterName('Shelly PRO EM-50');
+                  setMeterName('TecTronic PRO EM-50');
                   setMeterConnType('tcp_ip');
                   setMeterPort('80');
                 }
