@@ -270,7 +270,7 @@ const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt, staleThresho
               </p>
               <p className="text-[10px] text-muted-foreground">
                 {!meter.last_poll_at
-                  ? 'Configureer Outbound WebSocket in je Shelly UI'
+                  ? 'Configureer Outbound WebSocket in je TecTronic UI'
                   : webhookStale
                   ? `Laatste data ${formatAge(webhookAgeSec!)} geleden · drempel ${staleThresholdMin}m`
                   : `Laatst ontvangen: ${new Date(meter.last_poll_at).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`}
