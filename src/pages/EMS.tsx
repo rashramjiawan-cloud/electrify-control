@@ -62,7 +62,7 @@ const EMS = () => {
   // Alert when voltage/frequency/PF out of range
   useGridAlerts(phases, isLive, enabledMeter?.id);
 
-  // Use real energy flows where available, fall back to mock
+  // Energy flows from database
   const { flows } = useEnergyFlows();
   const gridFlow = flows.find(f => f.type === 'grid');
   const pvFlow = flows.find(f => f.type === 'pv');
