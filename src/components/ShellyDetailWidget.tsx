@@ -297,7 +297,7 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
                     return (
                       <div
                         key={p.channel}
-                        className={`flex flex-col items-center justify-center rounded-lg border ${PHASE_COLORS[i]?.border || 'border-border'} ${PHASE_COLORS[i]?.bg || 'bg-muted/50'} px-3 py-3`}
+                        className={`flex flex-row sm:flex-col items-center justify-between sm:justify-center rounded-lg border ${PHASE_COLORS[i]?.border || 'border-border'} ${PHASE_COLORS[i]?.bg || 'bg-muted/50'} px-3 py-2 sm:py-3`}
                       >
                         <span className="font-mono text-lg font-bold text-foreground">{value}</span>
                         <span className="text-[10px] text-muted-foreground">{unit}</span>
