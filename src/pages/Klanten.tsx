@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
-import { Building2, Plus, ChevronRight, X, Pencil, Trash2, Users, Zap, Loader2, Search, User, Circle, Activity, BatteryCharging, TrendingUp, BarChart3, Eye } from 'lucide-react';
+import { Building2, Plus, ChevronRight, X, Pencil, Trash2, Users, Zap, Loader2, Search, User, Circle, Activity, BatteryCharging, TrendingUp, BarChart3, Eye, FolderKanban } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
