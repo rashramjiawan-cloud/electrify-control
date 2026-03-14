@@ -87,6 +87,21 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
       .map(([ch, r]) => ({ channel: ch, reading: r }));
   }, [latestReadings]);
 
+  // Totals across all phases
+  const totals = useMemo(() => {
+    if (!phases.length) return null;
+    const sum = (fn: (r: MeterReading) => number | null) =>
+      phases.reduce((s, p) => s + (fn(p.reading) ?? 0), 0);
+    return {
+      activePower: sum(r => r.active_power),
+      apparentPower: sum(r => r.apparent_power),
+      current: sum(r => r.current),
+      avgVoltage: +(sum(r => r.voltage) / phases.length).toFixed(1),
+      avgPf: +(sum(r => r.power_factor) / phases.length).toFixed(2),
+      avgFreq: +(sum(r => r.frequency) / phases.length).toFixed(1),
+    };
+  }, [phases]);
+
   // Peak / average per channel
   const peaks = useMemo(() => {
     if (!historyReadings?.length) return new Map<number, { peakValue: number; peakTs: string; avgValue: number; avgTs: string }>();
