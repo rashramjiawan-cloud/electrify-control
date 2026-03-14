@@ -18,6 +18,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 import { useCustomerImpersonation } from '@/hooks/useCustomerImpersonation';
+import { useProjects } from '@/hooks/useProjects';
+import { Progress } from '@/components/ui/progress';
 
 interface CustomerStats {
   customer_id: string;
