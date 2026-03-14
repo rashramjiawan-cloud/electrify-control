@@ -291,7 +291,7 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
             ].map(({ label, render }) => (
               <div key={label}>
                 <span className="text-[11px] text-muted-foreground font-medium mb-2 block">{label}</span>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
                   {phases.map((p, i) => {
                     const { value, unit } = render(p.reading);
                     return (
