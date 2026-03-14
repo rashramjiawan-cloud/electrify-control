@@ -57,8 +57,8 @@ const ShellyWsSetupWizard = () => {
           <Radio className="h-4 w-4 text-green-600 dark:text-green-400" />
         </div>
         <div className="flex-1">
-          <h2 className="text-sm font-semibold text-foreground">Shelly Outbound WebSocket</h2>
-          <p className="text-xs text-muted-foreground">Configureer je Shelly energiemeter voor real-time push data</p>
+          <h2 className="text-sm font-semibold text-foreground">TecTronic Outbound WebSocket</h2>
+          <p className="text-xs text-muted-foreground">Configureer je TecTronic energiemeter voor real-time push data</p>
         </div>
         {wsMeters.length > 0 && (
           <Badge variant="secondary" className="text-[10px]">
@@ -122,7 +122,7 @@ const ShellyWsSetupWizard = () => {
                   )}
 
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">WebSocket URL (kopieer naar Shelly UI)</Label>
+                    <Label className="text-xs text-muted-foreground">WebSocket URL (kopieer naar TecTronic UI)</Label>
                     <div className="flex gap-2">
                       <Input
                         readOnly
@@ -176,7 +176,7 @@ const ShellyWsSetupWizard = () => {
           className="flex items-center gap-2 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
         >
           {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-          Configuratie-instructies voor Shelly Pro 3EM
+          Configuratie-instructies voor TecTronic Pro 3EM
         </button>
 
         {expanded && (
@@ -187,7 +187,7 @@ const ShellyWsSetupWizard = () => {
                 <p className="font-medium text-foreground text-sm">Stappen om Outbound WebSocket in te stellen:</p>
                 <ol className="space-y-2 list-decimal list-inside">
                   <li>
-                    Open de <span className="text-foreground font-medium">Shelly Web UI</span> van je Pro 3EM
+                    Open de <span className="text-foreground font-medium">TecTronic Web UI</span> van je Pro 3EM
                     (ga naar het IP-adres in je browser)
                   </li>
                   <li>
@@ -204,16 +204,16 @@ const ShellyWsSetupWizard = () => {
                   </li>
                 </ol>
                 <p className="pt-1">
-                  De Shelly stuurt automatisch <code className="font-mono text-foreground bg-muted px-1 py-0.5 rounded">NotifyFullStatus</code> berichten
+                  De TecTronic stuurt automatisch <code className="font-mono text-foreground bg-muted px-1 py-0.5 rounded">NotifyFullStatus</code> berichten
                   met 3-fase vermogensdata. De data verschijnt direct op het dashboard.
                 </p>
               </div>
             </div>
 
             <div className="border-t border-primary/10 pt-3 space-y-1">
-              <p className="font-medium text-foreground text-xs">Ondersteunde Shelly modellen:</p>
+              <p className="font-medium text-foreground text-xs">Ondersteunde TecTronic modellen:</p>
               <div className="flex flex-wrap gap-1.5">
-                {['Shelly Pro 3EM', 'Shelly Pro EM-50'].map(model => (
+                {['TecTronic Pro 3EM', 'TecTronic PRO EM-50'].map(model => (
                   <span
                     key={model}
                     className="inline-flex items-center rounded-md bg-green-500/10 text-green-700 dark:text-green-400 px-2 py-0.5 text-[11px] font-medium"

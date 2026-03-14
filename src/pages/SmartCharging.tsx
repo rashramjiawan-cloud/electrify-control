@@ -39,7 +39,7 @@ const DEFAULT_MODULES: ModuleConfig[] = [
   { id: 'energy-flow', label: 'Energiestromen (GTV)', visible: true },
   { id: 'power-chart', label: 'Vermogensgrafiek', visible: true },
   { id: 'profiles', label: 'Laadprofielen', visible: true },
-  { id: 'shelly-meter', label: 'Shelly Energiemeter', visible: true },
+  { id: 'shelly-meter', label: 'TecTronic Energiemeter', visible: true },
   { id: 'ems-auto', label: 'EMS Auto-sturing', visible: true },
   { id: 'behavior-models', label: 'Gedragsmodellen (AI)', visible: true },
   { id: 'predictive-schedules', label: 'Voorspellende Laadschema\'s (AI)', visible: true },
@@ -270,7 +270,7 @@ const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt, staleThresho
               </p>
               <p className="text-[10px] text-muted-foreground">
                 {!meter.last_poll_at
-                  ? 'Configureer Outbound WebSocket in je Shelly UI'
+                  ? 'Configureer Outbound WebSocket in je TecTronic UI'
                   : webhookStale
                   ? `Laatste data ${formatAge(webhookAgeSec!)} geleden · drempel ${staleThresholdMin}m`
                   : `Laatst ontvangen: ${new Date(meter.last_poll_at).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`}
@@ -394,7 +394,7 @@ const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt, staleThresho
         <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2">
           <p className="text-xs text-destructive">{localAutoRef.error}</p>
           <p className="text-[10px] text-muted-foreground mt-0.5">
-            Zorg dat de Shelly op hetzelfde netwerk zit als je browser en CORS toestaat.
+            Zorg dat de TecTronic op hetzelfde netwerk zit als je browser en CORS toestaat.
           </p>
         </div>
       )}
@@ -484,7 +484,7 @@ const SmartCharging = () => {
   const [editingMeter, setEditingMeter] = useState<EnergyMeter | null>(null);
   const [meterHost, setMeterHost] = useState('');
   const [meterPort, setMeterPort] = useState('80');
-  const [meterName, setMeterName] = useState('Shelly PRO EM-50');
+  const [meterName, setMeterName] = useState('TecTronic PRO EM-50');
   const [meterConnType, setMeterConnType] = useState('tcp_ip');
   const [meterDeviceType, setMeterDeviceType] = useState<'shelly_pro_em_50' | 'shelly_pro_3em' | 'smartstuff_ultra_x2'>('shelly_pro_em_50');
   const [meterAuthUser, setMeterAuthUser] = useState('');
@@ -1010,12 +1010,12 @@ const SmartCharging = () => {
                       </div>
                       <div>
                         <h3 className="text-sm font-semibold text-foreground">Energiemeters</h3>
-                        <p className="text-xs text-muted-foreground">Shelly PRO EM-50 · SmartStuff Ultra X2</p>
+                        <p className="text-xs text-muted-foreground">TecTronic PRO EM-50 · SmartStuff Ultra X2</p>
                       </div>
                     </div>
                     <Button size="sm" className="gap-1.5 text-xs" onClick={() => {
                       setEditingMeter(null);
-                      setMeterName('Shelly PRO EM-50');
+                      setMeterName('TecTronic PRO EM-50');
                       setMeterDeviceType('shelly_pro_em_50');
                       setMeterConnType('tcp_ip');
                       setMeterHost('');
@@ -1036,7 +1036,7 @@ const SmartCharging = () => {
                       <div className="p-8 text-center">
                         <Activity className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
                         <p className="text-sm text-muted-foreground">Geen meters geconfigureerd</p>
-                        <p className="text-xs text-muted-foreground mt-1">Voeg een Shelly PRO EM-50 toe via TCP/IP</p>
+                        <p className="text-xs text-muted-foreground mt-1">Voeg een TecTronic PRO EM-50 toe via TCP/IP</p>
                       </div>
                     ) : meters.map(meter => (
                       <MeterItem
@@ -1204,19 +1204,19 @@ const SmartCharging = () => {
                   setMeterName('SmartStuff Ultra X2');
                   setMeterConnType('mqtt_http');
                 } else if (v === 'shelly_pro_3em') {
-                  setMeterName('Shelly Pro 3EM');
+                  setMeterName('TecTronic Pro 3EM');
                   setMeterConnType('tcp_ip');
                   setMeterPort('80');
                 } else {
-                  setMeterName('Shelly PRO EM-50');
+                  setMeterName('TecTronic PRO EM-50');
                   setMeterConnType('tcp_ip');
                   setMeterPort('80');
                 }
               }}>
                 <SelectTrigger className="text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="shelly_pro_em_50">Shelly PRO EM-50</SelectItem>
-                  <SelectItem value="shelly_pro_3em">Shelly Pro 3EM</SelectItem>
+                  <SelectItem value="shelly_pro_em_50">TecTronic PRO EM-50</SelectItem>
+                  <SelectItem value="shelly_pro_3em">TecTronic Pro 3EM</SelectItem>
                   <SelectItem value="smartstuff_ultra_x2">SmartStuff Ultra X2 (P1/DSMR)</SelectItem>
                 </SelectContent>
               </Select>
@@ -1279,10 +1279,10 @@ const SmartCharging = () => {
               <div className="rounded-lg border border-chart-4/20 bg-chart-4/5 p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <Cable className="h-3.5 w-3.5 text-chart-4" />
-                  <h4 className="text-xs font-semibold text-foreground">Shelly Outbound WebSocket</h4>
+                  <h4 className="text-xs font-semibold text-foreground">TecTronic Outbound WebSocket</h4>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  De Shelly maakt een permanente WebSocket-verbinding naar je server. 
+                  De TecTronic maakt een permanente WebSocket-verbinding naar je server. 
                   Betrouwbaarder dan webhook — automatische reconnect en geen HTTP overhead.
                 </p>
                 <div className="space-y-2">
@@ -1298,14 +1298,14 @@ const SmartCharging = () => {
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Shelly Device ID</Label>
-                  <Input value={meterShellyDeviceId} onChange={e => setMeterShellyDeviceId(e.target.value)} placeholder={meterDeviceType === 'shelly_pro_3em' ? 'shellypro3em-A4F00FCFA140' : 'shellyproem50-A4F00FCFA140'} className="font-mono text-sm" />
+                  <Label className="text-xs">TecTronic Device ID</Label>
+                  <Input value={meterShellyDeviceId} onChange={e => setMeterShellyDeviceId(e.target.value)} placeholder={meterDeviceType === 'shelly_pro_3em' ? 'tectronic3em-A4F00FCFA140' : 'tectronicproem50-A4F00FCFA140'} className="font-mono text-sm" />
                   <p className="text-[10px] text-muted-foreground">Het Device ID wordt gebruikt om binnenkomende data te koppelen aan deze meter.</p>
                 </div>
                 <div className="rounded-md bg-muted/50 p-3 space-y-2">
-                  <p className="text-[10px] font-semibold text-foreground">Configuratie op de Shelly:</p>
+                  <p className="text-[10px] font-semibold text-foreground">Configuratie op de TecTronic:</p>
                   <ol className="text-[10px] text-muted-foreground space-y-1 list-decimal list-inside">
-                    <li>Open de Shelly web UI (http://&lt;shelly-ip&gt;)</li>
+                    <li>Open de TecTronic web UI (http://&lt;tectronic-ip&gt;)</li>
                     <li>Ga naar <strong>Settings → Outbound WebSocket</strong></li>
                     <li>Zet <strong>Enable</strong> aan</li>
                     <li>Plak de WebSocket URL hierboven in het <strong>Server</strong> veld</li>
@@ -1313,18 +1313,18 @@ const SmartCharging = () => {
                   </ol>
                 </div>
                 <p className="text-[10px] text-muted-foreground">
-                  💡 API key instellen via <strong>Instellingen → Ingest API</strong>. De Shelly stuurt automatisch <code className="bg-muted px-1 rounded">NotifyFullStatus</code> frames.
+                  💡 API key instellen via <strong>Instellingen → Ingest API</strong>. De TecTronic stuurt automatisch <code className="bg-muted px-1 rounded">NotifyFullStatus</code> frames.
                 </p>
               </div>
             ) : meterConnType === 'webhook' ? (
               <div className="rounded-lg border border-chart-2/20 bg-chart-2/5 p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <Wifi className="h-3.5 w-3.5 text-chart-2" />
-                  <h4 className="text-xs font-semibold text-foreground">Shelly Outbound Webhook</h4>
+                  <h4 className="text-xs font-semibold text-foreground">TecTronic Outbound Webhook</h4>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Configureer je Shelly om periodiek een HTTP POST te sturen met meterdata. 
-                  Geen cloud key nodig — de Shelly stuurt zelf data naar jouw endpoint.
+                  Configureer je TecTronic om periodiek een HTTP POST te sturen met meterdata. 
+                  Geen cloud key nodig — de TecTronic stuurt zelf data naar jouw endpoint.
                 </p>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Webhook URL</Label>
@@ -1338,24 +1338,24 @@ const SmartCharging = () => {
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Shelly Device ID</Label>
-                  <Input value={meterShellyDeviceId} onChange={e => setMeterShellyDeviceId(e.target.value)} placeholder={meterDeviceType === 'shelly_pro_3em' ? 'shellypro3em-A4F00FCFA140' : 'shellyproem50-A4F00FCFA140'} className="font-mono text-sm" />
+                  <Label className="text-xs">TecTronic Device ID</Label>
+                  <Input value={meterShellyDeviceId} onChange={e => setMeterShellyDeviceId(e.target.value)} placeholder={meterDeviceType === 'shelly_pro_3em' ? 'tectronic3em-A4F00FCFA140' : 'tectronicproem50-A4F00FCFA140'} className="font-mono text-sm" />
                   <p className="text-[10px] text-muted-foreground">Het Device ID wordt gebruikt om binnenkomende data te koppelen aan deze meter.</p>
                 </div>
                 <div className="rounded-md bg-muted/50 p-3 space-y-2">
-                  <p className="text-[10px] font-semibold text-foreground">Configuratie op de Shelly:</p>
+                  <p className="text-[10px] font-semibold text-foreground">Configuratie op de TecTronic:</p>
                   <ol className="text-[10px] text-muted-foreground space-y-1 list-decimal list-inside">
-                    <li>Open de Shelly web UI (http://&lt;shelly-ip&gt;)</li>
+                    <li>Open de TecTronic web UI (http://&lt;tectronic-ip&gt;)</li>
                     <li>Ga naar <strong>Scripts</strong> → maak een nieuw script</li>
                     <li>Plak het onderstaande script en pas <code className="bg-muted px-1 rounded">DEVICE_ID</code> en <code className="bg-muted px-1 rounded">API_KEY</code> aan</li>
                     <li>Sla op en zet het script <strong>aan</strong></li>
                   </ol>
                 </div>
                 <div className="rounded-md bg-muted p-3 space-y-1">
-                  <p className="text-[10px] font-semibold text-foreground">📋 Shelly Script (kopieer & plak):</p>
+                  <p className="text-[10px] font-semibold text-foreground">📋 TecTronic Script (kopieer & plak):</p>
                   <div className="relative">
                     <pre className="text-[9px] font-mono text-muted-foreground whitespace-pre-wrap break-all max-h-[200px] overflow-y-auto select-all cursor-pointer" onClick={() => {
-                      const scriptTitle = meterDeviceType === 'shelly_pro_3em' ? 'Shelly PRO 3EM' : 'Shelly PRO EM-50';
+                      const scriptTitle = meterDeviceType === 'shelly_pro_3em' ? 'TecTronic PRO 3EM' : 'TecTronic PRO EM-50';
                       const script = `// ${scriptTitle} → Webhook Push Script
 let CONFIG = {
   ENDPOINT: "https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/shelly-ingest",
@@ -1392,7 +1392,7 @@ sendData();
 print("Webhook script gestart, interval: " + CONFIG.INTERVAL_SEC + "s");`;
                       navigator.clipboard.writeText(script);
                       toast.success('Script gekopieerd naar klembord!');
-                    }}>{`// ${meterDeviceType === 'shelly_pro_3em' ? 'Shelly PRO 3EM' : 'Shelly PRO EM-50'} → Webhook Push Script
+                    }}>{`// ${meterDeviceType === 'shelly_pro_3em' ? 'TecTronic PRO 3EM' : 'TecTronic PRO EM-50'} → Webhook Push Script
 let CONFIG = {
   ENDPOINT: "https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/shelly-ingest",
   DEVICE_ID: "${meterShellyDeviceId || '<JE_DEVICE_ID>'}",
@@ -1459,12 +1459,12 @@ print("Webhook script gestart");`}</pre>
               </div>
             )}
 
-            {/* HTTP Basic Auth (optional) - only for Shelly */}
+            {/* HTTP Basic Auth (optional) - only for TecTronic */}
             {meterDeviceType !== 'smartstuff_ultra_x2' && meterConnType !== 'webhook' && meterConnType !== 'outbound_ws' && (
               <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <Label className="text-xs font-semibold">HTTP Authenticatie (optioneel)</Label>
-                  <span className="text-[10px] text-muted-foreground">Voor Shelly achter een beveiligde tunnel</span>
+                  <span className="text-[10px] text-muted-foreground">Voor TecTronic achter een beveiligde tunnel</span>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
@@ -1479,21 +1479,21 @@ print("Webhook script gestart");`}</pre>
               </div>
             )}
 
-            {/* Shelly Cloud API (optional) - only for Shelly */}
+            {/* TecTronic Cloud API (optional) - only for TecTronic */}
             {meterDeviceType !== 'smartstuff_ultra_x2' && meterConnType !== 'webhook' && meterConnType !== 'outbound_ws' && (
               <div className="rounded-lg border border-chart-2/20 bg-chart-2/5 p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <Wifi className="h-3.5 w-3.5 text-chart-2" />
-                  <Label className="text-xs font-semibold">Shelly Cloud API (optioneel)</Label>
+                  <Label className="text-xs font-semibold">TecTronic Cloud API (optioneel)</Label>
                 </div>
                 <p className="text-[10px] text-muted-foreground">
-                  Gebruik de Shelly Cloud JRPC API om je meter op afstand uit te lezen zonder lokale netwerktoegang. 
-                  Vind je Device ID in de Shelly app → apparaat → Settings → Device Information.
+                  Gebruik de TecTronic Cloud JRPC API om je meter op afstand uit te lezen zonder lokale netwerktoegang. 
+                  Vind je Device ID in de TecTronic app → apparaat → Settings → Device Information.
                 </p>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label className="text-xs">Device ID</Label>
-                    <Input value={meterShellyDeviceId} onChange={e => setMeterShellyDeviceId(e.target.value)} placeholder="shellyproem50-XXXXXXXXXXXX" className="font-mono text-sm" />
+                    <Input value={meterShellyDeviceId} onChange={e => setMeterShellyDeviceId(e.target.value)} placeholder="tectronicproem50-XXXXXXXXXXXX" className="font-mono text-sm" />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">Cloud Server</Label>
@@ -1525,7 +1525,7 @@ print("Webhook script gestart");`}</pre>
                     onSuccess: (res: any) => {
                       if (res?.success) {
                         const src = res.source === 'cloud' ? '☁️ Cloud' : '🏠 Lokaal';
-                        toast.success(`${src} verbonden! ${res.data?.type || res.data?.model || 'Shelly'} (${res.data?.mac || ''})`);
+                        toast.success(`${src} verbonden! ${res.data?.type || res.data?.model || 'TecTronic'} (${res.data?.mac || ''})`);
                       } else {
                         toast.error(res?.error || 'Verbinding mislukt');
                       }

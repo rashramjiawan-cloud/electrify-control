@@ -25,7 +25,7 @@ const EMS = () => {
   // Fetch latest readings for all three channels
   const { data: readings } = useMeterReadings(enabledMeter?.id, 30);
 
-  // Derive per-phase live data from latest Shelly readings
+  // Derive per-phase live data from latest TecTronic readings
   const { liveGridPower, phases, isLive } = useMemo(() => {
     if (!readings?.length) return { liveGridPower: null, phases: [] as any[], isLive: false };
 
@@ -125,12 +125,12 @@ const EMS = () => {
             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary" />
           </span>
           <span className="text-xs text-muted-foreground">
-            Live data via <span className="font-medium text-foreground">{enabledMeter?.name || 'Shelly PRO EM-50'}</span>
+            Live data via <span className="font-medium text-foreground">{enabledMeter?.name || 'TecTronic PRO EM-50'}</span>
           </span>
         </div>
       )}
 
-      {/* Shelly Pro 3EM Detail Widget */}
+      {/* TecTronic Pro 3EM Detail Widget */}
       {enabledMeter && (
         <div className="mb-8 space-y-4">
           <ShellyDetailWidget meterId={enabledMeter.id} meterName={enabledMeter.name} />

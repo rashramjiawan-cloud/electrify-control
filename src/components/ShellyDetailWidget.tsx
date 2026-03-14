@@ -220,7 +220,7 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
       >
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-sm font-semibold text-foreground truncate">
-            {meterName || 'Shelly Pro 3EM'}
+            {meterName || 'TecTronic Pro 3EM'}
           </span>
           {hasData && totals && (
             <span className="text-xs font-mono text-muted-foreground ml-2 hidden sm:inline">
