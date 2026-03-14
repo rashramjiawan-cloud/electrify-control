@@ -4,6 +4,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
 import MeterSparkline from './MeterSparkline';
 import type { MeterReading } from '@/hooks/useEnergyMeters';
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell, ReferenceLine,
+} from 'recharts';
+import { Plug } from 'lucide-react';
 
 interface ShellyDetailWidgetProps {
   meterId: string;
