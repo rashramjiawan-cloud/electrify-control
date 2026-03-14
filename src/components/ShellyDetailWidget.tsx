@@ -180,6 +180,8 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
     return hourlyData.reduce((s, h) => s + h.kwh, 0);
   }, [hourlyData]);
 
+  const [expanded, setExpanded] = useState(false);
+
   if (latestLoading) {
     return (
       <div className="rounded-xl border border-border bg-card p-6">
@@ -192,7 +194,6 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
   }
 
   const hasData = phases.length > 0;
-  const [expanded, setExpanded] = useState(false);
 
   return (
     <div className="rounded-xl border border-border bg-card">
