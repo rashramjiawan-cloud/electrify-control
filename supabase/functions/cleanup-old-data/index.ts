@@ -46,11 +46,13 @@ serve(async (req) => {
     const alertDays = getRetention("grid_alerts_retention_days", 180);
     const auditDays = getRetention("audit_log_retention_days", 365);
     const lbDays = getRetention("load_balance_logs_retention_days", 30);
+    const dhDays = getRetention("device_health_retention_days", 30);
 
     const meterCutoff = new Date(Date.now() - meterDays * 86400000).toISOString();
     const alertCutoff = new Date(Date.now() - alertDays * 86400000).toISOString();
     const auditCutoff = new Date(Date.now() - auditDays * 86400000).toISOString();
     const lbCutoff = new Date(Date.now() - lbDays * 86400000).toISOString();
+    const dhCutoff = new Date(Date.now() - dhDays * 86400000).toISOString();
 
     if (dryRun) {
       // Count only, no deletes
