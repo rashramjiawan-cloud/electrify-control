@@ -484,7 +484,7 @@ const SmartCharging = () => {
   const [editingMeter, setEditingMeter] = useState<EnergyMeter | null>(null);
   const [meterHost, setMeterHost] = useState('');
   const [meterPort, setMeterPort] = useState('80');
-  const [meterName, setMeterName] = useState('Shelly PRO EM-50');
+  const [meterName, setMeterName] = useState('TecTronic PRO EM-50');
   const [meterConnType, setMeterConnType] = useState('tcp_ip');
   const [meterDeviceType, setMeterDeviceType] = useState<'shelly_pro_em_50' | 'shelly_pro_3em' | 'smartstuff_ultra_x2'>('shelly_pro_em_50');
   const [meterAuthUser, setMeterAuthUser] = useState('');
