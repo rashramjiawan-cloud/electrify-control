@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -7,7 +7,7 @@ import type { MeterReading } from '@/hooks/useEnergyMeters';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell, ReferenceLine,
 } from 'recharts';
-import { Plug } from 'lucide-react';
+import { Plug, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface ShellyDetailWidgetProps {
   meterId: string;
@@ -180,6 +180,8 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
     return hourlyData.reduce((s, h) => s + h.kwh, 0);
   }, [hourlyData]);
 
+  const [expanded, setExpanded] = useState(false);
+
   if (latestLoading) {
     return (
       <div className="rounded-xl border border-border bg-card p-6">
@@ -195,24 +197,40 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
 
   return (
     <div className="rounded-xl border border-border bg-card">
-      {/* Header */}
-      <div className="border-b border-border px-5 py-4 flex items-center justify-between">
+      {/* Header - clickable to toggle */}
+      <div
+        className="border-b border-border px-5 py-4 flex items-center justify-between cursor-pointer select-none hover:bg-muted/30 transition-colors"
+        onClick={() => setExpanded(e => !e)}
+      >
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-foreground">
             {meterName || 'Shelly Pro 3EM'}
           </span>
-        </div>
-        {hasData && (
-          <div className="flex items-center gap-1.5">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+          {hasData && totals && (
+            <span className="text-xs font-mono text-muted-foreground ml-2">
+              {fmtPower(totals.activePower).value} {fmtPower(totals.activePower).unit} · {fmt(totals.current)} A · {totals.avgVoltage} V
             </span>
-            <span className="text-[10px] text-muted-foreground">Live</span>
-          </div>
-        )}
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {hasData && (
+            <div className="flex items-center gap-1.5">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+              </span>
+              <span className="text-[10px] text-muted-foreground">Live</span>
+            </div>
+          )}
+          {expanded ? (
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          )}
+        </div>
       </div>
 
+      {expanded && (
       <div className="p-5 space-y-6">
         {!hasData ? (
           <p className="text-sm text-muted-foreground text-center py-8">Geen data beschikbaar</p>
@@ -431,6 +449,7 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
           </>
         )}
       </div>
+      )}
     </div>
   );
 }
