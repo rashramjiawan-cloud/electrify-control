@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import AppLayout from '@/components/AppLayout';
 import { useCustomers, useCreateCustomer } from '@/hooks/useUsers';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
-import { Building2, Plus, ChevronRight, X, Pencil, Trash2, Users, Zap, Loader2, Search, User, Circle } from 'lucide-react';
+import { Building2, Plus, ChevronRight, X, Pencil, Trash2, Users, Zap, Loader2, Search, User, Circle, Activity, BatteryCharging, TrendingUp, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -21,30 +21,82 @@ interface CustomerStats {
   charge_point_count: number;
 }
 
-function useCustomerStats() {
+interface CustomerDashboardData {
+  statsMap: Map<string, CustomerStats>;
+  chargePointsByCustomer: Map<string, { id: string; status: string }[]>;
+  transactionsByCustomer: Map<string, { energy: number; count: number }>;
+  totalUsers: number;
+  totalChargePoints: number;
+  totalEnergy: number;
+  totalTransactions: number;
+  activeChargePoints: number;
+  faultedChargePoints: number;
+}
+
+function useCustomerDashboard() {
   return useQuery({
-    queryKey: ['customer-stats'],
+    queryKey: ['customer-dashboard'],
     queryFn: async () => {
-      const [{ data: profiles }, { data: chargePoints }] = await Promise.all([
+      const [{ data: profiles }, { data: chargePoints }, { data: transactions }] = await Promise.all([
         supabase.from('profiles').select('customer_id'),
-        supabase.from('charge_points').select('customer_id'),
+        supabase.from('charge_points').select('id, customer_id, status'),
+        supabase.from('transactions').select('charge_point_id, energy_delivered, status'),
       ]);
 
-      const stats = new Map<string, CustomerStats>();
+      const statsMap = new Map<string, CustomerStats>();
+      const chargePointsByCustomer = new Map<string, { id: string; status: string }[]>();
+      const cpCustomerMap = new Map<string, string>(); // cp_id -> customer_id
+      let totalUsers = 0;
+      let totalChargePoints = 0;
+      let activeChargePoints = 0;
+      let faultedChargePoints = 0;
 
       for (const p of profiles || []) {
         if (!p.customer_id) continue;
-        if (!stats.has(p.customer_id)) stats.set(p.customer_id, { customer_id: p.customer_id, user_count: 0, charge_point_count: 0 });
-        stats.get(p.customer_id)!.user_count++;
+        totalUsers++;
+        if (!statsMap.has(p.customer_id)) statsMap.set(p.customer_id, { customer_id: p.customer_id, user_count: 0, charge_point_count: 0 });
+        statsMap.get(p.customer_id)!.user_count++;
       }
 
       for (const cp of chargePoints || []) {
         if (!cp.customer_id) continue;
-        if (!stats.has(cp.customer_id)) stats.set(cp.customer_id, { customer_id: cp.customer_id, user_count: 0, charge_point_count: 0 });
-        stats.get(cp.customer_id)!.charge_point_count++;
+        totalChargePoints++;
+        if (cp.status === 'Available' || cp.status === 'Charging' || cp.status === 'Occupied') activeChargePoints++;
+        if (cp.status === 'Faulted') faultedChargePoints++;
+        if (!statsMap.has(cp.customer_id)) statsMap.set(cp.customer_id, { customer_id: cp.customer_id, user_count: 0, charge_point_count: 0 });
+        statsMap.get(cp.customer_id)!.charge_point_count++;
+        if (!chargePointsByCustomer.has(cp.customer_id)) chargePointsByCustomer.set(cp.customer_id, []);
+        chargePointsByCustomer.get(cp.customer_id)!.push({ id: cp.id, status: cp.status });
+        cpCustomerMap.set(cp.id, cp.customer_id);
       }
 
-      return stats;
+      const transactionsByCustomer = new Map<string, { energy: number; count: number }>();
+      let totalEnergy = 0;
+      let totalTransactions = 0;
+
+      for (const t of transactions || []) {
+        const custId = cpCustomerMap.get(t.charge_point_id);
+        if (!custId) continue;
+        totalTransactions++;
+        const energy = Number(t.energy_delivered) || 0;
+        totalEnergy += energy;
+        if (!transactionsByCustomer.has(custId)) transactionsByCustomer.set(custId, { energy: 0, count: 0 });
+        const entry = transactionsByCustomer.get(custId)!;
+        entry.energy += energy;
+        entry.count++;
+      }
+
+      return {
+        statsMap,
+        chargePointsByCustomer,
+        transactionsByCustomer,
+        totalUsers,
+        totalChargePoints,
+        totalEnergy,
+        totalTransactions,
+        activeChargePoints,
+        faultedChargePoints,
+      } as CustomerDashboardData;
     },
   });
 }
