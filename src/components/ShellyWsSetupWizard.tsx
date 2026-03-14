@@ -187,7 +187,7 @@ const ShellyWsSetupWizard = () => {
                 <p className="font-medium text-foreground text-sm">Stappen om Outbound WebSocket in te stellen:</p>
                 <ol className="space-y-2 list-decimal list-inside">
                   <li>
-                    Open de <span className="text-foreground font-medium">Shelly Web UI</span> van je Pro 3EM
+                    Open de <span className="text-foreground font-medium">TecTronic Web UI</span> van je Pro 3EM
                     (ga naar het IP-adres in je browser)
                   </li>
                   <li>
