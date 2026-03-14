@@ -322,7 +322,9 @@ const CustomerDetailPanel = ({ customer, stats, onClose }: CustomerDetailPanelPr
         <div className="min-w-0">
           <h3 className="text-sm font-semibold text-foreground truncate">{customer.name}</h3>
           <p className="text-xs text-muted-foreground">
-            Aangemaakt {new Date(customer.created_at).toLocaleDateString('nl-NL')}
+            {customer.created_at && <p className="text-xs text-muted-foreground">
+              Aangemaakt {new Date(customer.created_at).toLocaleDateString('nl-NL')}
+            </p>}
           </p>
         </div>
         <div className="flex items-center gap-1 shrink-0">
