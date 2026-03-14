@@ -122,7 +122,7 @@ const ShellyWsSetupWizard = () => {
                   )}
 
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">WebSocket URL (kopieer naar Shelly UI)</Label>
+                    <Label className="text-xs text-muted-foreground">WebSocket URL (kopieer naar TecTronic UI)</Label>
                     <div className="flex gap-2">
                       <Input
                         readOnly
