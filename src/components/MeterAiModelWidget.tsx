@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useMeterAiModels, type ModelType } from '@/hooks/useMeterAiModels';
+import MeterAiModelHistoryChart from '@/components/MeterAiModelHistoryChart';
 import { Brain, TrendingUp, TrendingDown, Timer, TimerOff, CheckCircle2, Loader2, AlertTriangle, Play, Trash2, Bell, BellOff, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
@@ -240,6 +241,17 @@ export default function MeterAiModelWidget({ meterId, meterName }: MeterAiModelW
                     <p className="text-[9px] text-muted-foreground mt-2">
                       Getraind: {new Date(model.trained_at).toLocaleString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </p>
+                  )}
+
+                  {/* History trend chart */}
+                  {isReady && (
+                    <div className="mt-3 pt-3 border-t border-border">
+                      <MeterAiModelHistoryChart
+                        meterId={meterId}
+                        modelType={type}
+                        modelLabel={info.label}
+                      />
+                    </div>
                   )}
                 </div>
               );

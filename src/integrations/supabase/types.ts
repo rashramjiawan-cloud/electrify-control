@@ -754,6 +754,48 @@ export type Database = {
           },
         ]
       }
+      meter_ai_model_history: {
+        Row: {
+          baseline_data: Json
+          id: string
+          meter_id: string
+          model_id: string
+          model_type: string
+          trained_at: string
+        }
+        Insert: {
+          baseline_data?: Json
+          id?: string
+          meter_id: string
+          model_id: string
+          model_type: string
+          trained_at?: string
+        }
+        Update: {
+          baseline_data?: Json
+          id?: string
+          meter_id?: string
+          model_id?: string
+          model_type?: string
+          trained_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meter_ai_model_history_meter_id_fkey"
+            columns: ["meter_id"]
+            isOneToOne: false
+            referencedRelation: "energy_meters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meter_ai_model_history_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "meter_ai_models"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meter_ai_models: {
         Row: {
           alerts_enabled: boolean
