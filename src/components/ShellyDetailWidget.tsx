@@ -360,7 +360,7 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
             {peaks.size > 0 && (
               <div>
                 <span className="text-[11px] text-muted-foreground font-medium mb-2 block">Gemiddeld vermogen (24u)</span>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
                   {phases.map((p, i) => {
                     const peak = peaks.get(p.channel);
                     if (!peak) return <div key={p.channel} className="rounded-lg border border-border bg-muted/50 px-3 py-3 text-center text-xs text-muted-foreground">—</div>;
