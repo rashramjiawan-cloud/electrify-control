@@ -35,23 +35,3 @@ export interface Transaction {
   status: 'Active' | 'Completed' | 'Failed';
 }
 
-export interface Battery {
-  id: string;
-  name: string;
-  capacity: number; // kWh
-  soc: number; // State of Charge %
-  power: number; // kW (positive = charging, negative = discharging)
-  status: 'Idle' | 'Charging' | 'Discharging' | 'Fault';
-  temperature: number; // °C
-  cycles: number;
-  health: number; // %
-}
-
-export interface EMSData {
-  gridPower: number; // kW
-  solarPower: number; // kW
-  batteryPower: number; // kW
-  evPower: number; // kW
-  totalConsumption: number; // kW
-  selfConsumption: number; // %
-}
