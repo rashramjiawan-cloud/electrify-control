@@ -14,6 +14,8 @@ import { Building2, Plus, ChevronRight, X, Pencil, Trash2, Users, Zap, Loader2, 
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 
 interface CustomerStats {
   customer_id: string;
