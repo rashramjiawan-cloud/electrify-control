@@ -166,7 +166,7 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
       const hourKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}-${d.getHours()}`;
       const entry = byHour.get(hourKey);
       const avgPower = entry ? entry.sum / entry.count : 0;
-      const kwh = +(avgPower / 1000).toFixed(2); // avg kW ≈ kWh for 1 hour
+      const kwh = +(avgPower / 1000).toFixed(2);
       result.push({
         hour: `${d.getHours().toString().padStart(2, '0')}:00`,
         kwh,
@@ -178,6 +178,14 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
 
   const total24hKwh = useMemo(() => {
     return hourlyData.reduce((s, h) => s + h.kwh, 0);
+  }, [hourlyData]);
+
+  const importKwh = useMemo(() => {
+    return hourlyData.filter(h => h.kwh > 0).reduce((s, h) => s + h.kwh, 0);
+  }, [hourlyData]);
+
+  const exportKwh = useMemo(() => {
+    return Math.abs(hourlyData.filter(h => h.kwh < 0).reduce((s, h) => s + h.kwh, 0));
   }, [hourlyData]);
 
   const [expanded, setExpanded] = useState(false);
@@ -382,15 +390,28 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
             {/* 24h Consumption Chart */}
             {hourlyData.length > 0 && (
               <div className="rounded-xl border border-border bg-muted/30 p-5">
-                <div className="flex items-center gap-3 mb-1">
+                <div className="flex items-center gap-3 mb-4">
                   <Plug className="h-5 w-5 text-muted-foreground" />
                   <div>
                     <h3 className="text-sm font-semibold text-foreground">Verbruik</h3>
                     <span className="text-[11px] text-muted-foreground">Laatste 24 uur</span>
                   </div>
-                  <div className="ml-auto text-right">
+                </div>
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  <div className="flex flex-col items-center justify-center rounded-lg border border-chart-3/30 bg-chart-3/5 px-3 py-3">
+                    <span className="font-mono text-lg font-bold text-foreground">{importKwh.toFixed(1)}</span>
+                    <span className="text-[10px] text-muted-foreground">kWh</span>
+                    <span className="text-[9px] text-muted-foreground mt-0.5">Import</span>
+                  </div>
+                  <div className="flex flex-col items-center justify-center rounded-lg border border-primary/30 bg-primary/5 px-3 py-3">
+                    <span className="font-mono text-lg font-bold text-foreground">{exportKwh.toFixed(1)}</span>
+                    <span className="text-[10px] text-muted-foreground">kWh</span>
+                    <span className="text-[9px] text-muted-foreground mt-0.5">Export</span>
+                  </div>
+                  <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-muted/50 px-3 py-3">
                     <span className="font-mono text-lg font-bold text-foreground">{total24hKwh.toFixed(1)}</span>
-                    <span className="text-xs text-muted-foreground ml-1">kWh</span>
+                    <span className="text-[10px] text-muted-foreground">kWh</span>
+                    <span className="text-[9px] text-muted-foreground mt-0.5">Netto</span>
                   </div>
                 </div>
                 <div className="h-[180px] mt-3">
