@@ -57,8 +57,8 @@ const ShellyWsSetupWizard = () => {
           <Radio className="h-4 w-4 text-green-600 dark:text-green-400" />
         </div>
         <div className="flex-1">
-          <h2 className="text-sm font-semibold text-foreground">Shelly Outbound WebSocket</h2>
-          <p className="text-xs text-muted-foreground">Configureer je Shelly energiemeter voor real-time push data</p>
+          <h2 className="text-sm font-semibold text-foreground">TecTronic Outbound WebSocket</h2>
+          <p className="text-xs text-muted-foreground">Configureer je TecTronic energiemeter voor real-time push data</p>
         </div>
         {wsMeters.length > 0 && (
           <Badge variant="secondary" className="text-[10px]">
