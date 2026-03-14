@@ -168,11 +168,6 @@ function buildChartData(
       const entry = bucket.get(m.id);
       if (entry && entry.count > 0) {
         row[m.id] = Math.round((entry.sum / entry.count) * 100) / 100;
-      } else if (!hasAnyData && m.member_type === 'battery') {
-        // Fallback simulation for battery (no meter data source)
-        const hour = slot.getHours();
-        const battFactor = hour >= 17 && hour <= 21 ? 0.9 : 0.2;
-        row[m.id] = Math.round((m.max_power_kw * battFactor * (0.5 + Math.random() * 0.5)) * 100) / 100;
       } else {
         row[m.id] = 0;
       }
