@@ -260,6 +260,7 @@ const Projecten = () => {
           )}
         </div>
       </div>
+      )}
 
       {/* Create dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
