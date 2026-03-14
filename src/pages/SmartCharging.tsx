@@ -24,6 +24,7 @@ import { useSystemSettings } from '@/hooks/useSystemSettings';
 import MqttStatusBadge from '@/components/MqttStatusBadge';
 import MqttConfigDialog from '@/components/MqttConfigDialog';
 import { useMqttConfigForAsset } from '@/hooks/useMqttConfigurations';
+import MeterSparkline from '@/components/MeterSparkline';
 
 type ModuleId = 'energy-flow' | 'power-chart' | 'profiles' | 'shelly-meter' | 'ems-auto' | 'sc-visualization' | 'behavior-models' | 'predictive-schedules';
 
