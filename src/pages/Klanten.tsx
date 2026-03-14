@@ -134,7 +134,7 @@ function useDeleteCustomer() {
 
 const Klanten = () => {
   const { data: customers, isLoading } = useCustomers();
-  const { data: statsMap } = useCustomerStats();
+  const { data: dashboard } = useCustomerDashboard();
   const createCustomer = useCreateCustomer();
   const isMobile = useIsMobile();
 
@@ -147,6 +147,7 @@ const Klanten = () => {
   const [newAddress, setNewAddress] = useState('');
   const [newDescription, setNewDescription] = useState('');
 
+  const statsMap = dashboard?.statsMap;
   const selectedCustomer = customers?.find(c => c.id === selectedId);
 
   const filtered = customers?.filter(c =>
@@ -175,25 +176,22 @@ const Klanten = () => {
     <CustomerDetailPanel
       customer={selectedCustomer}
       stats={statsMap?.get(selectedCustomer.id)}
+      transactionStats={dashboard?.transactionsByCustomer?.get(selectedCustomer.id)}
       onClose={() => setSelectedId(null)}
     />
   ) : null;
 
   return (
     <AppLayout title="Klanten" subtitle="Overzicht en beheer van alle klanten">
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+      {/* Dashboard stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 mb-4">
         <SummaryCard label="Totaal klanten" value={customers?.length || 0} icon={<Building2 className="h-4 w-4" />} />
-        <SummaryCard
-          label="Met gebruikers"
-          value={customers?.filter(c => (statsMap?.get(c.id)?.user_count || 0) > 0).length || 0}
-          icon={<Users className="h-4 w-4" />}
-        />
-        <SummaryCard
-          label="Met laadpalen"
-          value={customers?.filter(c => (statsMap?.get(c.id)?.charge_point_count || 0) > 0).length || 0}
-          icon={<Zap className="h-4 w-4" />}
-        />
+        <SummaryCard label="Gekoppelde gebruikers" value={dashboard?.totalUsers || 0} icon={<Users className="h-4 w-4" />} />
+        <SummaryCard label="Laadpalen" value={dashboard?.totalChargePoints || 0} icon={<Zap className="h-4 w-4" />} />
+        <SummaryCard label="Online" value={dashboard?.activeChargePoints || 0} icon={<Activity className="h-4 w-4" />} accent="text-emerald-500" />
+        <SummaryCard label="Storingen" value={dashboard?.faultedChargePoints || 0} icon={<Circle className="h-4 w-4" />} accent="text-destructive" />
+        <SummaryCard label="Transacties" value={dashboard?.totalTransactions || 0} icon={<BarChart3 className="h-4 w-4" />} />
+        <SummaryCard label="Energie (kWh)" value={Math.round(dashboard?.totalEnergy || 0)} icon={<BatteryCharging className="h-4 w-4" />} />
         <SummaryCard
           label="Zonder assets"
           value={customers?.filter(c => !(statsMap?.get(c.id)?.user_count || 0) && !(statsMap?.get(c.id)?.charge_point_count || 0)).length || 0}
