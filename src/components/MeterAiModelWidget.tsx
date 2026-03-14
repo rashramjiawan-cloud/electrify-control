@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useMeterAiModels, type ModelType } from '@/hooks/useMeterAiModels';
+import MeterAiModelHistoryChart from '@/components/MeterAiModelHistoryChart';
 import { Brain, TrendingUp, TrendingDown, Timer, TimerOff, CheckCircle2, Loader2, AlertTriangle, Play, Trash2, Bell, BellOff, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
