@@ -256,17 +256,20 @@ const Klanten = () => {
                     <TableHead>Klant</TableHead>
                     <TableHead className="hidden sm:table-cell">Gebruikers</TableHead>
                     <TableHead className="hidden sm:table-cell">Laadpalen</TableHead>
+                    <TableHead className="hidden lg:table-cell">Transacties</TableHead>
+                    <TableHead className="hidden lg:table-cell">Energie</TableHead>
                     <TableHead className="hidden md:table-cell">Contact</TableHead>
                     <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
-                    <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Laden...</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Laden...</TableCell></TableRow>
                   ) : !filtered?.length ? (
-                    <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Geen klanten gevonden</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Geen klanten gevonden</TableCell></TableRow>
                   ) : filtered.map(customer => {
                     const stats = statsMap?.get(customer.id);
+                    const txStats = dashboard?.transactionsByCustomer?.get(customer.id);
                     return (
                       <TableRow
                         key={customer.id}
@@ -292,6 +295,12 @@ const Klanten = () => {
                             <Zap className="h-3 w-3 mr-1" />
                             {stats?.charge_point_count || 0}
                           </Badge>
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          <span className="text-xs font-mono text-muted-foreground">{txStats?.count || 0}</span>
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          <span className="text-xs font-mono text-muted-foreground">{Math.round(txStats?.energy || 0)} kWh</span>
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
                           <span className="text-xs text-muted-foreground">{customer.contact_email || '—'}</span>
