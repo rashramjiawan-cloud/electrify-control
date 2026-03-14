@@ -45,6 +45,7 @@ const Projecten = () => {
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<'list' | 'gantt'>('list');
 
   // Form state
   const [form, setForm] = useState({ title: '', description: '', project_type: 'general', customer_id: '', start_date: '', due_date: '' });
