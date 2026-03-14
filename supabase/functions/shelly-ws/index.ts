@@ -318,10 +318,28 @@ async function saveChannelsToDB(
     raw: shellyData.sys || shellyData.wifi || {},
   };
 
-  await supabase.from('energy_meters').update({
-    last_reading: lastReading,
-    last_poll_at: new Date().toISOString(),
-  }).eq('id', meterId);
+  // Save meter status + health snapshot in parallel
+  await Promise.all([
+    supabase.from('energy_meters').update({
+      last_reading: lastReading,
+      last_poll_at: new Date().toISOString(),
+    }).eq('id', meterId),
+
+    // Insert device health time-series record
+    (deviceInfo.temperature !== null || deviceInfo.wifi_rssi !== null || deviceInfo.uptime !== null)
+      ? supabase.from('meter_device_health').insert({
+          meter_id: meterId,
+          temperature: deviceInfo.temperature,
+          wifi_rssi: deviceInfo.wifi_rssi,
+          wifi_ssid: deviceInfo.wifi_ssid,
+          wifi_ip: deviceInfo.wifi_ip,
+          uptime: deviceInfo.uptime,
+          firmware_version: deviceInfo.firmware_version,
+          mac: deviceInfo.mac,
+          phase_faults: phaseFaults.length > 0 ? phaseFaults : [],
+        })
+      : Promise.resolve(),
+  ]);
 }
 
 // ─── GTV Exceedance Check ───
