@@ -33,6 +33,7 @@ export interface MeterReading {
   power_factor: number | null;
   frequency: number | null;
   total_energy: number | null;
+  return_energy: number | null;
   timestamp: string;
 }
 
