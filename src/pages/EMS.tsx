@@ -7,6 +7,7 @@ import GtvMonitorWidget from '@/components/GtvMonitorWidget';
 import LoadBalanceStatusWidget from '@/components/LoadBalanceStatusWidget';
 import LoadBalanceHistoryWidget from '@/components/LoadBalanceHistoryWidget';
 import ShellyDetailWidget from '@/components/ShellyDetailWidget';
+import MeterAiModelWidget from '@/components/MeterAiModelWidget';
 
 import { useEnergyMeters, useMeterReadings } from '@/hooks/useEnergyMeters';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
@@ -131,8 +132,9 @@ const EMS = () => {
 
       {/* Shelly Pro 3EM Detail Widget */}
       {enabledMeter && (
-        <div className="mb-8">
+        <div className="mb-8 space-y-4">
           <ShellyDetailWidget meterId={enabledMeter.id} meterName={enabledMeter.name} />
+          <MeterAiModelWidget meterId={enabledMeter.id} meterName={enabledMeter.name} />
         </div>
       )}
 
