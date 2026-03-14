@@ -453,6 +453,9 @@ function ProjectDetailPanel({ project, isAdmin, user, onStatusChange, onProgress
           )}
         </CardContent>
       </Card>
+
+      {/* Documents */}
+      <ProjectDocuments projectId={project.id} isAdmin={isAdmin} />
     </>
   );
 }
