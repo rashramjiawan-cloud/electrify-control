@@ -14,6 +14,7 @@ const RETENTION_KEYS = [
   { key: 'grid_alerts_retention_days', label: 'Grid alerts', icon: '⚡' },
   { key: 'audit_log_retention_days', label: 'Audit logs', icon: '📝' },
   { key: 'load_balance_logs_retention_days', label: 'Load balance logs', icon: '⚖️' },
+  { key: 'device_health_retention_days', label: 'Device health', icon: '🌡️' },
 ];
 
 const RetentionRow = ({
