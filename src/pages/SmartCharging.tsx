@@ -1215,8 +1215,8 @@ const SmartCharging = () => {
               }}>
                 <SelectTrigger className="text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="shelly_pro_em_50">Shelly PRO EM-50</SelectItem>
-                  <SelectItem value="shelly_pro_3em">Shelly Pro 3EM</SelectItem>
+                  <SelectItem value="shelly_pro_em_50">TecTronic PRO EM-50</SelectItem>
+                  <SelectItem value="shelly_pro_3em">TecTronic Pro 3EM</SelectItem>
                   <SelectItem value="smartstuff_ultra_x2">SmartStuff Ultra X2 (P1/DSMR)</SelectItem>
                 </SelectContent>
               </Select>
