@@ -25,7 +25,7 @@ const EMS = () => {
   // Fetch latest readings for all three channels
   const { data: readings } = useMeterReadings(enabledMeter?.id, 30);
 
-  // Derive per-phase live data from latest Shelly readings
+  // Derive per-phase live data from latest TecTronic readings
   const { liveGridPower, phases, isLive } = useMemo(() => {
     if (!readings?.length) return { liveGridPower: null, phases: [] as any[], isLive: false };
 
