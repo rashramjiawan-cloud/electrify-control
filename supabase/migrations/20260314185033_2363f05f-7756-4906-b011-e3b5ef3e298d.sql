@@ -1,0 +1,1 @@
+ALTER TABLE energy_meters ALTER COLUMN name SET DEFAULT 'TecTronic PRO EM-50';
