@@ -449,6 +449,7 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
           </>
         )}
       </div>
+      )}
     </div>
   );
 }
