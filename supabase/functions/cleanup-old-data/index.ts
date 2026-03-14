@@ -32,6 +32,7 @@ serve(async (req) => {
         "grid_alerts_retention_days",
         "audit_log_retention_days",
         "load_balance_logs_retention_days",
+        "device_health_retention_days",
       ]);
 
     if (settingsError) throw settingsError;
@@ -45,21 +46,24 @@ serve(async (req) => {
     const alertDays = getRetention("grid_alerts_retention_days", 180);
     const auditDays = getRetention("audit_log_retention_days", 365);
     const lbDays = getRetention("load_balance_logs_retention_days", 30);
+    const dhDays = getRetention("device_health_retention_days", 30);
 
     const meterCutoff = new Date(Date.now() - meterDays * 86400000).toISOString();
     const alertCutoff = new Date(Date.now() - alertDays * 86400000).toISOString();
     const auditCutoff = new Date(Date.now() - auditDays * 86400000).toISOString();
     const lbCutoff = new Date(Date.now() - lbDays * 86400000).toISOString();
+    const dhCutoff = new Date(Date.now() - dhDays * 86400000).toISOString();
 
     if (dryRun) {
       // Count only, no deletes
-      const [mr, ga, al, mv, hb, lb] = await Promise.all([
+      const [mr, ga, al, mv, hb, lb, dh] = await Promise.all([
         supabase.from("meter_readings").select("id", { count: "exact", head: true }).lt("timestamp", meterCutoff),
         supabase.from("grid_alerts").select("id", { count: "exact", head: true }).lt("created_at", alertCutoff),
         supabase.from("ocpp_audit_log").select("id", { count: "exact", head: true }).lt("created_at", auditCutoff),
         supabase.from("meter_values").select("id", { count: "exact", head: true }).lt("timestamp", meterCutoff),
         supabase.from("heartbeats").select("id", { count: "exact", head: true }).lt("received_at", meterCutoff),
         supabase.from("load_balance_logs").select("id", { count: "exact", head: true }).lt("created_at", lbCutoff),
+        supabase.from("meter_device_health").select("id", { count: "exact", head: true }).lt("recorded_at", dhCutoff),
       ]);
 
       return new Response(JSON.stringify({
@@ -70,6 +74,7 @@ serve(async (req) => {
         meter_values: mv.count ?? 0,
         heartbeats: hb.count ?? 0,
         load_balance_logs: lb.count ?? 0,
+        device_health: dh.count ?? 0,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -112,6 +117,12 @@ serve(async (req) => {
       .delete({ count: "exact" })
       .lt("created_at", lbCutoff);
     results.load_balance_logs_deleted = lbCount ?? 0;
+
+    const { count: dhCount } = await supabase
+      .from("meter_device_health")
+      .delete({ count: "exact" })
+      .lt("recorded_at", dhCutoff);
+    results.device_health_deleted = dhCount ?? 0;
 
     console.log("Cleanup completed:", results);
 

@@ -14,6 +14,7 @@ const RETENTION_KEYS = [
   { key: 'grid_alerts_retention_days', label: 'Grid alerts', icon: '⚡' },
   { key: 'audit_log_retention_days', label: 'Audit logs', icon: '📝' },
   { key: 'load_balance_logs_retention_days', label: 'Load balance logs', icon: '⚖️' },
+  { key: 'device_health_retention_days', label: 'Device health', icon: '🌡️' },
 ];
 
 const RetentionRow = ({
@@ -85,7 +86,8 @@ const DataRetentionSettings = () => {
         (result.audit_log_deleted ?? 0) +
         (result.meter_values_deleted ?? 0) +
         (result.heartbeats_deleted ?? 0) +
-        (result.load_balance_logs_deleted ?? 0);
+        (result.load_balance_logs_deleted ?? 0) +
+        (result.device_health_deleted ?? 0);
       toast.success(`Cleanup voltooid: ${total} records verwijderd`);
     } catch (err: any) {
       toast.error('Cleanup mislukt: ' + err.message);
