@@ -39,7 +39,7 @@ const DEFAULT_MODULES: ModuleConfig[] = [
   { id: 'energy-flow', label: 'Energiestromen (GTV)', visible: true },
   { id: 'power-chart', label: 'Vermogensgrafiek', visible: true },
   { id: 'profiles', label: 'Laadprofielen', visible: true },
-  { id: 'shelly-meter', label: 'Shelly Energiemeter', visible: true },
+  { id: 'shelly-meter', label: 'TecTronic Energiemeter', visible: true },
   { id: 'ems-auto', label: 'EMS Auto-sturing', visible: true },
   { id: 'behavior-models', label: 'Gedragsmodellen (AI)', visible: true },
   { id: 'predictive-schedules', label: 'Voorspellende Laadschema\'s (AI)', visible: true },
