@@ -1459,12 +1459,12 @@ print("Webhook script gestart");`}</pre>
               </div>
             )}
 
-            {/* HTTP Basic Auth (optional) - only for Shelly */}
+            {/* HTTP Basic Auth (optional) - only for TecTronic */}
             {meterDeviceType !== 'smartstuff_ultra_x2' && meterConnType !== 'webhook' && meterConnType !== 'outbound_ws' && (
               <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <Label className="text-xs font-semibold">HTTP Authenticatie (optioneel)</Label>
-                  <span className="text-[10px] text-muted-foreground">Voor Shelly achter een beveiligde tunnel</span>
+                  <span className="text-[10px] text-muted-foreground">Voor TecTronic achter een beveiligde tunnel</span>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
