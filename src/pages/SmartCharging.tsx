@@ -298,6 +298,97 @@ const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt, staleThresho
         </div>
       )}
 
+      {/* Phase Faults Alert */}
+      {phaseFaults && phaseFaults.length > 0 && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 space-y-1">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-destructive" />
+            <span className="text-xs font-semibold text-destructive">Fase-fouten gedetecteerd</span>
+          </div>
+          <div className="space-y-0.5">
+            {phaseFaults.map((f: any, i: number) => (
+              <p key={i} className="text-[10px] text-destructive/80">
+                {f.type === 'phase_loss' && `⚠ Fase ${f.phase + 1}: Faseverlies (${Number(f.value).toFixed(1)}V)`}
+                {f.type === 'undervoltage' && `↓ Fase ${f.phase + 1}: Onderspanning (${Number(f.value).toFixed(1)}V < ${f.threshold}V)`}
+                {f.type === 'overvoltage' && `↑ Fase ${f.phase + 1}: Overspanning (${Number(f.value).toFixed(1)}V > ${f.threshold}V)`}
+                {!['phase_loss', 'undervoltage', 'overvoltage'].includes(f.type) && `⚡ ${f.type}`}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Device Info Bar (WiFi, Temperature, Uptime) */}
+      {deviceInfo && (deviceInfo.wifi_rssi || deviceInfo.temperature !== null) && (
+        <div className="rounded-lg border border-border bg-muted/20 px-4 py-2.5 flex flex-wrap items-center gap-4">
+          {deviceInfo.temperature !== null && (
+            <div className="flex items-center gap-1.5">
+              <Thermometer className={`h-3.5 w-3.5 ${
+                deviceInfo.temperature > 70 ? 'text-destructive' : deviceInfo.temperature > 55 ? 'text-amber-500' : 'text-muted-foreground'
+              }`} />
+              <span className={`text-xs font-mono ${
+                deviceInfo.temperature > 70 ? 'text-destructive font-bold' : deviceInfo.temperature > 55 ? 'text-amber-500' : 'text-foreground'
+              }`}>
+                {Number(deviceInfo.temperature).toFixed(1)}°C
+              </span>
+              {deviceInfo.temperature > 70 && <span className="text-[9px] text-destructive font-medium">HEET</span>}
+            </div>
+          )}
+          {deviceInfo.wifi_rssi !== null && (
+            <div className="flex items-center gap-1.5">
+              <Signal className={`h-3.5 w-3.5 ${
+                deviceInfo.wifi_rssi > -50 ? 'text-green-600 dark:text-green-400'
+                : deviceInfo.wifi_rssi > -70 ? 'text-foreground'
+                : 'text-amber-500'
+              }`} />
+              <span className="text-xs font-mono text-foreground">{deviceInfo.wifi_rssi} dBm</span>
+              {deviceInfo.wifi_ssid && (
+                <span className="text-[10px] text-muted-foreground">{deviceInfo.wifi_ssid}</span>
+              )}
+            </div>
+          )}
+          {deviceInfo.wifi_ip && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-muted-foreground">IP:</span>
+              <span className="text-xs font-mono text-foreground">{deviceInfo.wifi_ip}</span>
+            </div>
+          )}
+          {deviceInfo.uptime != null && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-muted-foreground">Uptime:</span>
+              <span className="text-xs font-mono text-foreground">
+                {deviceInfo.uptime > 86400
+                  ? `${Math.floor(deviceInfo.uptime / 86400)}d ${Math.floor((deviceInfo.uptime % 86400) / 3600)}u`
+                  : deviceInfo.uptime > 3600
+                  ? `${Math.floor(deviceInfo.uptime / 3600)}u ${Math.floor((deviceInfo.uptime % 3600) / 60)}m`
+                  : `${Math.floor(deviceInfo.uptime / 60)}m`}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Energy Totals (Import + Export) */}
+      {(totalImportEnergy != null || totalReturnEnergy != null) && (totalImportEnergy! > 0 || totalReturnEnergy! > 0) && (
+        <div className="rounded-lg border border-border bg-muted/20 px-4 py-2.5 flex items-center gap-6">
+          <div className="flex items-center gap-2">
+            <ArrowDownUp className="h-3.5 w-3.5 text-muted-foreground" />
+          </div>
+          {totalImportEnergy != null && totalImportEnergy > 0 && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-muted-foreground">Afname:</span>
+              <span className="font-mono text-xs font-semibold text-destructive">{totalImportEnergy.toFixed(1)} kWh</span>
+            </div>
+          )}
+          {totalReturnEnergy != null && totalReturnEnergy > 0 && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-muted-foreground">Teruglevering:</span>
+              <span className="font-mono text-xs font-semibold text-green-600 dark:text-green-400">{totalReturnEnergy.toFixed(1)} kWh</span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Local poll error */}
       {localActive && localAutoRef.error && (
         <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2">
@@ -327,7 +418,7 @@ const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt, staleThresho
           {channels.map((ch: any) => (
             <div key={ch.channel} className="rounded-lg bg-muted/30 p-3 space-y-1">
               <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                Kanaal {ch.channel + 1}
+                Fase {ch.channel + 1}
               </span>
               <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
                 {ch.voltage != null && (
@@ -355,9 +446,15 @@ const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt, staleThresho
                   </div>
                 )}
                 {ch.total_energy != null && (
-                  <div className="flex justify-between col-span-2">
-                    <span className="text-xs text-muted-foreground">Totaal</span>
+                  <div className="flex justify-between">
+                    <span className="text-xs text-muted-foreground">Import</span>
                     <span className="font-mono text-xs text-foreground">{Number(ch.total_energy).toFixed(1)} kWh</span>
+                  </div>
+                )}
+                {ch.return_energy != null && ch.return_energy > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-xs text-muted-foreground">Export</span>
+                    <span className="font-mono text-xs text-green-600 dark:text-green-400">{Number(ch.return_energy).toFixed(1)} kWh</span>
                   </div>
                 )}
               </div>
