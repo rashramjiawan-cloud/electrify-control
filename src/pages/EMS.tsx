@@ -130,7 +130,7 @@ const EMS = () => {
         </div>
       )}
 
-      {/* Shelly Pro 3EM Detail Widget */}
+      {/* TecTronic Pro 3EM Detail Widget */}
       {enabledMeter && (
         <div className="mb-8 space-y-4">
           <ShellyDetailWidget meterId={enabledMeter.id} meterName={enabledMeter.name} />

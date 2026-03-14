@@ -211,9 +211,9 @@ const ShellyWsSetupWizard = () => {
             </div>
 
             <div className="border-t border-primary/10 pt-3 space-y-1">
-              <p className="font-medium text-foreground text-xs">Ondersteunde Shelly modellen:</p>
+              <p className="font-medium text-foreground text-xs">Ondersteunde TecTronic modellen:</p>
               <div className="flex flex-wrap gap-1.5">
-                {['Shelly Pro 3EM', 'Shelly Pro EM-50'].map(model => (
+                {['TecTronic Pro 3EM', 'TecTronic PRO EM-50'].map(model => (
                   <span
                     key={model}
                     className="inline-flex items-center rounded-md bg-green-500/10 text-green-700 dark:text-green-400 px-2 py-0.5 text-[11px] font-medium"

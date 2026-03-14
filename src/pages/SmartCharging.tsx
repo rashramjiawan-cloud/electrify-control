@@ -1036,7 +1036,7 @@ const SmartCharging = () => {
                       <div className="p-8 text-center">
                         <Activity className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
                         <p className="text-sm text-muted-foreground">Geen meters geconfigureerd</p>
-                        <p className="text-xs text-muted-foreground mt-1">Voeg een Shelly PRO EM-50 toe via TCP/IP</p>
+                        <p className="text-xs text-muted-foreground mt-1">Voeg een TecTronic PRO EM-50 toe via TCP/IP</p>
                       </div>
                     ) : meters.map(meter => (
                       <MeterItem

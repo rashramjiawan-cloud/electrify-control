@@ -109,7 +109,7 @@ const DeviceHealth = () => {
   const totalFaults = chartData.reduce((s: number, d: any) => s + d.faults, 0);
 
   return (
-    <AppLayout title="Device Health" subtitle="Monitoring van Shelly energiemeters">
+    <AppLayout title="Device Health" subtitle="Monitoring van TecTronic energiemeters">
       <div className="space-y-6">
         {/* Controls */}
         <div className="flex flex-wrap items-center gap-3">
