@@ -247,7 +247,7 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
       </div>
 
       {expanded && (
-      <div className="p-5 space-y-6">
+      <div className="p-3 sm:p-5 space-y-4 sm:space-y-6">
         {!hasData ? (
           <p className="text-sm text-muted-foreground text-center py-8">Geen data beschikbaar</p>
         ) : (
