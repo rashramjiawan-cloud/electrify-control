@@ -935,6 +935,7 @@ const SmartCharging = () => {
                         meter={meter}
                         pollMeter={pollMeter}
                         deleteMeter={deleteMeter}
+                        staleThresholdMin={parseInt(getSetting('webhook_stale_threshold_min')?.value || '5', 10)}
                         onEdit={(m) => {
                           setEditingMeter(m);
                           setMeterName(m.name);
