@@ -227,7 +227,32 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
               </div>
             ))}
 
-            {/* Peak Energy (24h) */}
+            {/* Totals row */}
+            {totals && (
+              <div>
+                <span className="text-[11px] text-muted-foreground font-medium mb-2 block">Totaal (alle fasen)</span>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+                  {[
+                    { ...fmtPower(totals.activePower), label: 'Actief' },
+                    { ...fmtApparent(totals.apparentPower), label: 'Schijnbaar' },
+                    { value: fmt(totals.current), unit: 'A', label: 'Stroom' },
+                    { value: String(totals.avgVoltage), unit: 'V', label: 'Gem. spanning' },
+                    { value: String(totals.avgPf), unit: 'PF', label: 'Gem. PF' },
+                    { value: String(totals.avgFreq), unit: 'Hz', label: 'Frequentie' },
+                  ].map(({ value, unit, label }) => (
+                    <div
+                      key={label}
+                      className="flex flex-col items-center justify-center rounded-lg border border-primary/30 bg-primary/5 px-3 py-3"
+                    >
+                      <span className="font-mono text-lg font-bold text-foreground">{value}</span>
+                      <span className="text-[10px] text-muted-foreground">{unit}</span>
+                      <span className="text-[9px] text-muted-foreground mt-0.5">{label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {peaks.size > 0 && (
               <div>
                 <span className="text-[11px] text-muted-foreground font-medium mb-2 block">Hoogste piekvermogen (24u)</span>
