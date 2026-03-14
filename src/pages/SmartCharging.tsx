@@ -1303,9 +1303,9 @@ const SmartCharging = () => {
                   <p className="text-[10px] text-muted-foreground">Het Device ID wordt gebruikt om binnenkomende data te koppelen aan deze meter.</p>
                 </div>
                 <div className="rounded-md bg-muted/50 p-3 space-y-2">
-                  <p className="text-[10px] font-semibold text-foreground">Configuratie op de Shelly:</p>
+                  <p className="text-[10px] font-semibold text-foreground">Configuratie op de TecTronic:</p>
                   <ol className="text-[10px] text-muted-foreground space-y-1 list-decimal list-inside">
-                    <li>Open de Shelly web UI (http://&lt;shelly-ip&gt;)</li>
+                    <li>Open de TecTronic web UI (http://&lt;tectronic-ip&gt;)</li>
                     <li>Ga naar <strong>Settings → Outbound WebSocket</strong></li>
                     <li>Zet <strong>Enable</strong> aan</li>
                     <li>Plak de WebSocket URL hierboven in het <strong>Server</strong> veld</li>
@@ -1313,7 +1313,7 @@ const SmartCharging = () => {
                   </ol>
                 </div>
                 <p className="text-[10px] text-muted-foreground">
-                  💡 API key instellen via <strong>Instellingen → Ingest API</strong>. De Shelly stuurt automatisch <code className="bg-muted px-1 rounded">NotifyFullStatus</code> frames.
+                  💡 API key instellen via <strong>Instellingen → Ingest API</strong>. De TecTronic stuurt automatisch <code className="bg-muted px-1 rounded">NotifyFullStatus</code> frames.
                 </p>
               </div>
             ) : meterConnType === 'webhook' ? (
