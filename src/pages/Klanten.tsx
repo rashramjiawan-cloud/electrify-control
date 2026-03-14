@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
-import { Building2, Plus, ChevronRight, X, Pencil, Trash2, Users, Zap, Loader2, Search } from 'lucide-react';
+import { Building2, Plus, ChevronRight, X, Pencil, Trash2, Users, Zap, Loader2, Search, User, Circle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -300,6 +300,32 @@ const CustomerDetailPanel = ({ customer, stats, onClose }: CustomerDetailPanelPr
   const [address, setAddress] = useState(customer.address || '');
   const [description, setDescription] = useState(customer.description || '');
 
+  // Fetch linked users
+  const { data: linkedUsers } = useQuery({
+    queryKey: ['customer-users', customer.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('user_id, display_name, email')
+        .eq('customer_id', customer.id);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Fetch linked charge points
+  const { data: linkedChargePoints } = useQuery({
+    queryKey: ['customer-charge-points', customer.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('charge_points')
+        .select('id, name, status, location')
+        .eq('customer_id', customer.id);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const handleSave = () => {
     updateCustomer.mutate({
       id: customer.id,
@@ -316,16 +342,25 @@ const CustomerDetailPanel = ({ customer, stats, onClose }: CustomerDetailPanelPr
     deleteCustomer.mutate(customer.id, { onSuccess: onClose });
   };
 
+  const statusColor = (status: string) => {
+    switch (status) {
+      case 'Available': return 'text-green-500';
+      case 'Charging': case 'Occupied': return 'text-blue-500';
+      case 'Faulted': return 'text-destructive';
+      default: return 'text-muted-foreground';
+    }
+  };
+
   return (
     <div className="rounded-xl border border-border bg-card flex flex-col h-full overflow-hidden">
       <div className="border-b border-border px-5 py-4 flex items-center justify-between">
         <div className="min-w-0">
           <h3 className="text-sm font-semibold text-foreground truncate">{customer.name}</h3>
-          <p className="text-xs text-muted-foreground">
-            {customer.created_at && <p className="text-xs text-muted-foreground">
+          {customer.created_at && (
+            <p className="text-xs text-muted-foreground">
               Aangemaakt {new Date(customer.created_at).toLocaleDateString('nl-NL')}
-            </p>}
-          </p>
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditing(!editing)}>
@@ -375,6 +410,60 @@ const CustomerDetailPanel = ({ customer, stats, onClose }: CustomerDetailPanelPr
             <DetailRow label="Omschrijving" value={customer.description} />
           </div>
         )}
+
+        {/* Linked Users */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-primary" />
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Gekoppelde gebruikers ({linkedUsers?.length || 0})
+            </span>
+          </div>
+          {linkedUsers && linkedUsers.length > 0 ? (
+            <div className="space-y-1">
+              {linkedUsers.map(u => (
+                <div key={u.user_id} className="flex items-center gap-2.5 rounded-lg px-3 py-2 bg-muted/40">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 shrink-0">
+                    <User className="h-3 w-3 text-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{u.display_name || '—'}</p>
+                    <p className="text-[11px] text-muted-foreground font-mono truncate">{u.email}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground italic px-1">Geen gebruikers gekoppeld</p>
+          )}
+        </div>
+
+        {/* Linked Charge Points */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Zap className="h-4 w-4 text-primary" />
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Gekoppelde laadpalen ({linkedChargePoints?.length || 0})
+            </span>
+          </div>
+          {linkedChargePoints && linkedChargePoints.length > 0 ? (
+            <div className="space-y-1">
+              {linkedChargePoints.map(cp => (
+                <div key={cp.id} className="flex items-center gap-2.5 rounded-lg px-3 py-2 bg-muted/40">
+                  <Circle className={cn('h-2.5 w-2.5 fill-current shrink-0', statusColor(cp.status))} />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{cp.name}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {cp.status}{cp.location ? ` · ${cp.location}` : ''}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground italic px-1">Geen laadpalen gekoppeld</p>
+          )}
+        </div>
       </div>
     </div>
   );
