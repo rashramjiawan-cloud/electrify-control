@@ -754,6 +754,50 @@ export type Database = {
           },
         ]
       }
+      meter_ai_models: {
+        Row: {
+          alerts_enabled: boolean
+          baseline_data: Json
+          created_at: string
+          id: string
+          meter_id: string
+          model_type: string
+          status: string
+          trained_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          alerts_enabled?: boolean
+          baseline_data?: Json
+          created_at?: string
+          id?: string
+          meter_id: string
+          model_type: string
+          status?: string
+          trained_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          alerts_enabled?: boolean
+          baseline_data?: Json
+          created_at?: string
+          id?: string
+          meter_id?: string
+          model_type?: string
+          status?: string
+          trained_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meter_ai_models_meter_id_fkey"
+            columns: ["meter_id"]
+            isOneToOne: false
+            referencedRelation: "energy_meters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meter_device_health: {
         Row: {
           firmware_version: string | null
