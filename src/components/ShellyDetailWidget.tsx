@@ -253,7 +253,7 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
         ) : (
           <>
             {/* Phase headers */}
-            <div className="grid grid-cols-[auto_1fr_1fr_1fr] gap-x-3 gap-y-0 items-center mb-1">
+            <div className="hidden sm:grid grid-cols-[auto_1fr_1fr_1fr] gap-x-3 gap-y-0 items-center mb-1">
               <span />
               {phases.map((p, i) => (
                 <span key={p.channel} className={`text-xs font-semibold text-center ${PHASE_COLORS[i]?.label || 'text-foreground'}`}>
