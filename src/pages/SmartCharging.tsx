@@ -1279,10 +1279,10 @@ const SmartCharging = () => {
               <div className="rounded-lg border border-chart-4/20 bg-chart-4/5 p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <Cable className="h-3.5 w-3.5 text-chart-4" />
-                  <h4 className="text-xs font-semibold text-foreground">Shelly Outbound WebSocket</h4>
+                  <h4 className="text-xs font-semibold text-foreground">TecTronic Outbound WebSocket</h4>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  De Shelly maakt een permanente WebSocket-verbinding naar je server. 
+                  De TecTronic maakt een permanente WebSocket-verbinding naar je server. 
                   Betrouwbaarder dan webhook — automatische reconnect en geen HTTP overhead.
                 </p>
                 <div className="space-y-2">
