@@ -391,12 +391,20 @@ interface CustomerDetailPanelProps {
 const CustomerDetailPanel = ({ customer, stats, transactionStats, onClose }: CustomerDetailPanelProps) => {
   const updateCustomer = useUpdateCustomer();
   const deleteCustomer = useDeleteCustomer();
+  const { startImpersonation } = useCustomerImpersonation();
+  const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(customer.name);
   const [email, setEmail] = useState(customer.contact_email || '');
   const [phone, setPhone] = useState(customer.contact_phone || '');
   const [address, setAddress] = useState(customer.address || '');
   const [description, setDescription] = useState(customer.description || '');
+
+  const handleImpersonate = () => {
+    startImpersonation(customer.id, customer.name);
+    navigate('/');
+    toast.success(`Je bekijkt nu het portaal als "${customer.name}"`);
+  };
 
   // Fetch linked users
   const { data: linkedUsers } = useQuery({
