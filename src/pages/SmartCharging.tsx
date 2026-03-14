@@ -1493,7 +1493,7 @@ print("Webhook script gestart");`}</pre>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label className="text-xs">Device ID</Label>
-                    <Input value={meterShellyDeviceId} onChange={e => setMeterShellyDeviceId(e.target.value)} placeholder="shellyproem50-XXXXXXXXXXXX" className="font-mono text-sm" />
+                    <Input value={meterShellyDeviceId} onChange={e => setMeterShellyDeviceId(e.target.value)} placeholder="tectronicproem50-XXXXXXXXXXXX" className="font-mono text-sm" />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">Cloud Server</Label>
