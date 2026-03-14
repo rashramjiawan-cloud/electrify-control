@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import AppLayout from '@/components/AppLayout';
 import { useCustomers, useCreateCustomer } from '@/hooks/useUsers';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
-import { Building2, Plus, ChevronRight, X, Pencil, Trash2, Users, Zap, Loader2, Search, User, Circle } from 'lucide-react';
+import { Building2, Plus, ChevronRight, X, Pencil, Trash2, Users, Zap, Loader2, Search, User, Circle, Activity, BatteryCharging, TrendingUp, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -21,30 +21,82 @@ interface CustomerStats {
   charge_point_count: number;
 }
 
-function useCustomerStats() {
+interface CustomerDashboardData {
+  statsMap: Map<string, CustomerStats>;
+  chargePointsByCustomer: Map<string, { id: string; status: string }[]>;
+  transactionsByCustomer: Map<string, { energy: number; count: number }>;
+  totalUsers: number;
+  totalChargePoints: number;
+  totalEnergy: number;
+  totalTransactions: number;
+  activeChargePoints: number;
+  faultedChargePoints: number;
+}
+
+function useCustomerDashboard() {
   return useQuery({
-    queryKey: ['customer-stats'],
+    queryKey: ['customer-dashboard'],
     queryFn: async () => {
-      const [{ data: profiles }, { data: chargePoints }] = await Promise.all([
+      const [{ data: profiles }, { data: chargePoints }, { data: transactions }] = await Promise.all([
         supabase.from('profiles').select('customer_id'),
-        supabase.from('charge_points').select('customer_id'),
+        supabase.from('charge_points').select('id, customer_id, status'),
+        supabase.from('transactions').select('charge_point_id, energy_delivered, status'),
       ]);
 
-      const stats = new Map<string, CustomerStats>();
+      const statsMap = new Map<string, CustomerStats>();
+      const chargePointsByCustomer = new Map<string, { id: string; status: string }[]>();
+      const cpCustomerMap = new Map<string, string>(); // cp_id -> customer_id
+      let totalUsers = 0;
+      let totalChargePoints = 0;
+      let activeChargePoints = 0;
+      let faultedChargePoints = 0;
 
       for (const p of profiles || []) {
         if (!p.customer_id) continue;
-        if (!stats.has(p.customer_id)) stats.set(p.customer_id, { customer_id: p.customer_id, user_count: 0, charge_point_count: 0 });
-        stats.get(p.customer_id)!.user_count++;
+        totalUsers++;
+        if (!statsMap.has(p.customer_id)) statsMap.set(p.customer_id, { customer_id: p.customer_id, user_count: 0, charge_point_count: 0 });
+        statsMap.get(p.customer_id)!.user_count++;
       }
 
       for (const cp of chargePoints || []) {
         if (!cp.customer_id) continue;
-        if (!stats.has(cp.customer_id)) stats.set(cp.customer_id, { customer_id: cp.customer_id, user_count: 0, charge_point_count: 0 });
-        stats.get(cp.customer_id)!.charge_point_count++;
+        totalChargePoints++;
+        if (cp.status === 'Available' || cp.status === 'Charging' || cp.status === 'Occupied') activeChargePoints++;
+        if (cp.status === 'Faulted') faultedChargePoints++;
+        if (!statsMap.has(cp.customer_id)) statsMap.set(cp.customer_id, { customer_id: cp.customer_id, user_count: 0, charge_point_count: 0 });
+        statsMap.get(cp.customer_id)!.charge_point_count++;
+        if (!chargePointsByCustomer.has(cp.customer_id)) chargePointsByCustomer.set(cp.customer_id, []);
+        chargePointsByCustomer.get(cp.customer_id)!.push({ id: cp.id, status: cp.status });
+        cpCustomerMap.set(cp.id, cp.customer_id);
       }
 
-      return stats;
+      const transactionsByCustomer = new Map<string, { energy: number; count: number }>();
+      let totalEnergy = 0;
+      let totalTransactions = 0;
+
+      for (const t of transactions || []) {
+        const custId = cpCustomerMap.get(t.charge_point_id);
+        if (!custId) continue;
+        totalTransactions++;
+        const energy = Number(t.energy_delivered) || 0;
+        totalEnergy += energy;
+        if (!transactionsByCustomer.has(custId)) transactionsByCustomer.set(custId, { energy: 0, count: 0 });
+        const entry = transactionsByCustomer.get(custId)!;
+        entry.energy += energy;
+        entry.count++;
+      }
+
+      return {
+        statsMap,
+        chargePointsByCustomer,
+        transactionsByCustomer,
+        totalUsers,
+        totalChargePoints,
+        totalEnergy,
+        totalTransactions,
+        activeChargePoints,
+        faultedChargePoints,
+      } as CustomerDashboardData;
     },
   });
 }
@@ -82,7 +134,7 @@ function useDeleteCustomer() {
 
 const Klanten = () => {
   const { data: customers, isLoading } = useCustomers();
-  const { data: statsMap } = useCustomerStats();
+  const { data: dashboard } = useCustomerDashboard();
   const createCustomer = useCreateCustomer();
   const isMobile = useIsMobile();
 
@@ -95,6 +147,7 @@ const Klanten = () => {
   const [newAddress, setNewAddress] = useState('');
   const [newDescription, setNewDescription] = useState('');
 
+  const statsMap = dashboard?.statsMap;
   const selectedCustomer = customers?.find(c => c.id === selectedId);
 
   const filtered = customers?.filter(c =>
@@ -123,25 +176,22 @@ const Klanten = () => {
     <CustomerDetailPanel
       customer={selectedCustomer}
       stats={statsMap?.get(selectedCustomer.id)}
+      transactionStats={dashboard?.transactionsByCustomer?.get(selectedCustomer.id)}
       onClose={() => setSelectedId(null)}
     />
   ) : null;
 
   return (
     <AppLayout title="Klanten" subtitle="Overzicht en beheer van alle klanten">
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+      {/* Dashboard stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 mb-4">
         <SummaryCard label="Totaal klanten" value={customers?.length || 0} icon={<Building2 className="h-4 w-4" />} />
-        <SummaryCard
-          label="Met gebruikers"
-          value={customers?.filter(c => (statsMap?.get(c.id)?.user_count || 0) > 0).length || 0}
-          icon={<Users className="h-4 w-4" />}
-        />
-        <SummaryCard
-          label="Met laadpalen"
-          value={customers?.filter(c => (statsMap?.get(c.id)?.charge_point_count || 0) > 0).length || 0}
-          icon={<Zap className="h-4 w-4" />}
-        />
+        <SummaryCard label="Gekoppelde gebruikers" value={dashboard?.totalUsers || 0} icon={<Users className="h-4 w-4" />} />
+        <SummaryCard label="Laadpalen" value={dashboard?.totalChargePoints || 0} icon={<Zap className="h-4 w-4" />} />
+        <SummaryCard label="Online" value={dashboard?.activeChargePoints || 0} icon={<Activity className="h-4 w-4" />} accent="text-emerald-500" />
+        <SummaryCard label="Storingen" value={dashboard?.faultedChargePoints || 0} icon={<Circle className="h-4 w-4" />} accent="text-destructive" />
+        <SummaryCard label="Transacties" value={dashboard?.totalTransactions || 0} icon={<BarChart3 className="h-4 w-4" />} />
+        <SummaryCard label="Energie (kWh)" value={Math.round(dashboard?.totalEnergy || 0)} icon={<BatteryCharging className="h-4 w-4" />} />
         <SummaryCard
           label="Zonder assets"
           value={customers?.filter(c => !(statsMap?.get(c.id)?.user_count || 0) && !(statsMap?.get(c.id)?.charge_point_count || 0)).length || 0}
@@ -206,17 +256,20 @@ const Klanten = () => {
                     <TableHead>Klant</TableHead>
                     <TableHead className="hidden sm:table-cell">Gebruikers</TableHead>
                     <TableHead className="hidden sm:table-cell">Laadpalen</TableHead>
+                    <TableHead className="hidden lg:table-cell">Transacties</TableHead>
+                    <TableHead className="hidden lg:table-cell">Energie</TableHead>
                     <TableHead className="hidden md:table-cell">Contact</TableHead>
                     <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
-                    <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Laden...</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Laden...</TableCell></TableRow>
                   ) : !filtered?.length ? (
-                    <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Geen klanten gevonden</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Geen klanten gevonden</TableCell></TableRow>
                   ) : filtered.map(customer => {
                     const stats = statsMap?.get(customer.id);
+                    const txStats = dashboard?.transactionsByCustomer?.get(customer.id);
                     return (
                       <TableRow
                         key={customer.id}
@@ -242,6 +295,12 @@ const Klanten = () => {
                             <Zap className="h-3 w-3 mr-1" />
                             {stats?.charge_point_count || 0}
                           </Badge>
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          <span className="text-xs font-mono text-muted-foreground">{txStats?.count || 0}</span>
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          <span className="text-xs font-mono text-muted-foreground">{Math.round(txStats?.energy || 0)} kWh</span>
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
                           <span className="text-xs text-muted-foreground">{customer.contact_email || '—'}</span>
@@ -287,10 +346,11 @@ const Klanten = () => {
 interface CustomerDetailPanelProps {
   customer: { id: string; name: string; description: string | null; contact_email: string | null; contact_phone: string | null; address: string | null; created_at?: string };
   stats?: CustomerStats;
+  transactionStats?: { energy: number; count: number };
   onClose: () => void;
 }
 
-const CustomerDetailPanel = ({ customer, stats, onClose }: CustomerDetailPanelProps) => {
+const CustomerDetailPanel = ({ customer, stats, transactionStats, onClose }: CustomerDetailPanelProps) => {
   const updateCustomer = useUpdateCustomer();
   const deleteCustomer = useDeleteCustomer();
   const [editing, setEditing] = useState(false);
@@ -386,6 +446,14 @@ const CustomerDetailPanel = ({ customer, stats, onClose }: CustomerDetailPanelPr
             <p className="text-lg font-bold text-foreground">{stats?.charge_point_count || 0}</p>
             <p className="text-[11px] text-muted-foreground">Laadpalen</p>
           </div>
+          <div className="rounded-lg border border-border p-3 text-center">
+            <p className="text-lg font-bold text-foreground">{transactionStats?.count || 0}</p>
+            <p className="text-[11px] text-muted-foreground">Transacties</p>
+          </div>
+          <div className="rounded-lg border border-border p-3 text-center">
+            <p className="text-lg font-bold text-foreground">{Math.round(transactionStats?.energy || 0)}</p>
+            <p className="text-[11px] text-muted-foreground">kWh totaal</p>
+          </div>
         </div>
 
         {/* Details */}
@@ -471,10 +539,10 @@ const CustomerDetailPanel = ({ customer, stats, onClose }: CustomerDetailPanelPr
 
 /* ── Small helpers ── */
 
-const SummaryCard = ({ label, value, icon, muted }: { label: string; value: number; icon: React.ReactNode; muted?: boolean }) => (
+const SummaryCard = ({ label, value, icon, muted, accent }: { label: string; value: number; icon: React.ReactNode; muted?: boolean; accent?: string }) => (
   <div className="rounded-xl border border-border bg-card px-4 py-3">
     <div className="flex items-center gap-2 mb-1">
-      <span className={cn('text-primary', muted && 'text-muted-foreground')}>{icon}</span>
+      <span className={cn(accent || 'text-primary', muted && 'text-muted-foreground')}>{icon}</span>
       <span className="text-xs text-muted-foreground">{label}</span>
     </div>
     <p className={cn('text-xl font-bold', muted ? 'text-muted-foreground' : 'text-foreground')}>{value}</p>
