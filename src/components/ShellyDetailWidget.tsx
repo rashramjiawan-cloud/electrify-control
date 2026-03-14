@@ -188,6 +188,14 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
     return Math.abs(hourlyData.filter(h => h.kwh < 0).reduce((s, h) => s + h.kwh, 0));
   }, [hourlyData]);
 
+  const selfSufficiency = useMemo(() => {
+    if (importKwh <= 0 && exportKwh <= 0) return 0;
+    // Self-sufficiency = export / (import + export) * 100
+    const total = importKwh + exportKwh;
+    if (total <= 0) return 0;
+    return Math.min(100, Math.round((exportKwh / total) * 100));
+  }, [importKwh, exportKwh]);
+
   const [expanded, setExpanded] = useState(false);
 
   if (latestLoading) {
