@@ -1,6 +1,6 @@
 import { useState, useRef, DragEvent } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Zap, LayoutDashboard, BatteryCharging, Cpu, Activity, Play, LogOut, Tag, Euro, Receipt, Settings, Gauge, HardDrive, CalendarClock, AlertTriangle, Sun, X, Network, BookOpen, ChevronRight, GripVertical, Plus, Trash2, Pencil, RotateCcw, Check, Car, FileText, Users } from 'lucide-react';
+import { Zap, LayoutDashboard, BatteryCharging, Cpu, Activity, Play, LogOut, Tag, Euro, Receipt, Settings, Gauge, HardDrive, CalendarClock, AlertTriangle, Sun, X, Network, BookOpen, ChevronRight, GripVertical, Plus, Trash2, Pencil, RotateCcw, Check, Car, FileText, Users, HeartPulse } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyModulePermissions } from '@/hooks/useMyModulePermissions';
 import VoltControlLogo from '@/components/VoltControlLogo';
@@ -31,6 +31,7 @@ const iconMap: Record<string, LucideIcon> = {
   '/plug-and-charge': Car,
   '/facturatie': FileText,
   '/gebruikers': Users,
+  '/device-health': HeartPulse,
 };
 
 const labelMap: Record<string, string> = {
@@ -53,6 +54,7 @@ const labelMap: Record<string, string> = {
   '/plug-and-charge': 'Plug & Charge',
   '/facturatie': 'Facturatie',
   '/gebruikers': 'Gebruikers',
+  '/device-health': 'Device Health',
 };
 
 const adminOnlyRoutes = new Set(['/simulator', '/gebruikers']);

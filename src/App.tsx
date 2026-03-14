@@ -27,6 +27,7 @@ import SetupGuide from "./pages/SetupGuide";
 import PlugAndCharge from "./pages/PlugAndCharge";
 import Facturatie from "./pages/Facturatie";
 import Gebruikers from "./pages/Gebruikers";
+import DeviceHealth from "./pages/DeviceHealth";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -79,6 +80,7 @@ const AppRoutes = () => (
     <Route path="/plug-and-charge" element={<ProtectedRoute><PlugAndCharge /></ProtectedRoute>} />
     <Route path="/facturatie" element={<ProtectedRoute><Facturatie /></ProtectedRoute>} />
     <Route path="/gebruikers" element={<ProtectedRoute adminOnly><Gebruikers /></ProtectedRoute>} />
+    <Route path="/device-health" element={<ProtectedRoute><DeviceHealth /></ProtectedRoute>} />
     <Route path="/reset-password" element={<ResetPassword />} />
     <Route path="*" element={<NotFound />} />
   </Routes>

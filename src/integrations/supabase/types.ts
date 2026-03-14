@@ -754,6 +754,56 @@ export type Database = {
           },
         ]
       }
+      meter_device_health: {
+        Row: {
+          firmware_version: string | null
+          id: number
+          mac: string | null
+          meter_id: string
+          phase_faults: Json | null
+          recorded_at: string
+          temperature: number | null
+          uptime: number | null
+          wifi_ip: string | null
+          wifi_rssi: number | null
+          wifi_ssid: string | null
+        }
+        Insert: {
+          firmware_version?: string | null
+          id?: never
+          mac?: string | null
+          meter_id: string
+          phase_faults?: Json | null
+          recorded_at?: string
+          temperature?: number | null
+          uptime?: number | null
+          wifi_ip?: string | null
+          wifi_rssi?: number | null
+          wifi_ssid?: string | null
+        }
+        Update: {
+          firmware_version?: string | null
+          id?: never
+          mac?: string | null
+          meter_id?: string
+          phase_faults?: Json | null
+          recorded_at?: string
+          temperature?: number | null
+          uptime?: number | null
+          wifi_ip?: string | null
+          wifi_rssi?: number | null
+          wifi_ssid?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meter_device_health_meter_id_fkey"
+            columns: ["meter_id"]
+            isOneToOne: false
+            referencedRelation: "energy_meters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meter_readings: {
         Row: {
           active_power: number | null

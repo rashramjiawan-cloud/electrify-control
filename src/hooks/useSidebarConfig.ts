@@ -31,7 +31,7 @@ const DEFAULT_GROUPS: SidebarGroup[] = [
   {
     id: 'energy',
     label: 'Energie',
-    items: ['/batterij', '/zonne-energie', '/ems', '/virtual-grids'],
+    items: ['/batterij', '/zonne-energie', '/ems', '/virtual-grids', '/device-health'],
     collapsed: false,
   },
   {
