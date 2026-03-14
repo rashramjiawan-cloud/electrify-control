@@ -15,9 +15,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, Trash2, FolderKanban, ClipboardList, CalendarDays, MessageSquare, X, Send, CheckCircle2, Clock, Pause, XCircle, Wrench, Settings2, Layers, FileUp, FileText, Download, Loader2 } from 'lucide-react';
+import { Plus, Trash2, FolderKanban, ClipboardList, CalendarDays, MessageSquare, X, Send, CheckCircle2, Clock, Pause, XCircle, Wrench, Settings2, Layers, FileUp, FileText, Download, Loader2, LayoutList, GanttChart } from 'lucide-react';
 import { format } from 'date-fns';
 import { nl } from 'date-fns/locale';
+import ProjectGanttChart from '@/components/ProjectGanttChart';
 
 const STATUS_MAP: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   planned: { label: 'Gepland', color: 'bg-muted text-muted-foreground', icon: Clock },
@@ -44,6 +45,7 @@ const Projecten = () => {
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<'list' | 'gantt'>('list');
 
   // Form state
   const [form, setForm] = useState({ title: '', description: '', project_type: 'general', customer_id: '', start_date: '', due_date: '' });
@@ -129,6 +131,14 @@ const Projecten = () => {
             {Object.entries(TYPE_MAP).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
           </SelectContent>
         </Select>
+        <div className="flex items-center gap-1 rounded-md border border-border p-0.5">
+          <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="sm" className="h-7 gap-1 text-xs" onClick={() => setViewMode('list')}>
+            <LayoutList className="h-3.5 w-3.5" /> Lijst
+          </Button>
+          <Button variant={viewMode === 'gantt' ? 'secondary' : 'ghost'} size="sm" className="h-7 gap-1 text-xs" onClick={() => setViewMode('gantt')}>
+            <GanttChart className="h-3.5 w-3.5" /> Tijdlijn
+          </Button>
+        </div>
         <div className="flex-1" />
         {isAdmin && (
           <Button size="sm" className="gap-1.5" onClick={() => setDialogOpen(true)}>
@@ -137,7 +147,37 @@ const Projecten = () => {
         )}
       </div>
 
-      {/* Project list + detail */}
+      {viewMode === 'gantt' ? (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <ProjectGanttChart
+              projects={filtered}
+              selectedProjectId={selectedProject}
+              onSelectProject={setSelectedProject}
+            />
+          </div>
+          {/* Detail panel (reused) */}
+          <div className="space-y-4">
+            {selected ? (
+              <ProjectDetailPanel
+                project={selected}
+                isAdmin={isAdmin}
+                user={user}
+                onStatusChange={handleStatusChange}
+                onProgressChange={handleProgressChange}
+                onDelete={async () => {
+                  await deleteProject.mutateAsync(selected.id);
+                  setSelectedProject(null);
+                  toast.success('Project verwijderd');
+                }}
+              />
+            ) : (
+              <Card><CardContent className="py-8 text-center text-xs text-muted-foreground">Selecteer een project in de tijdlijn</CardContent></Card>
+            )}
+          </div>
+        </div>
+      ) : (
+      /* Project list + detail */
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-3">
           {isLoading ? (
@@ -220,6 +260,7 @@ const Projecten = () => {
           )}
         </div>
       </div>
+      )}
 
       {/* Create dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
