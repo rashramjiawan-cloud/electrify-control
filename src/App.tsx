@@ -80,6 +80,7 @@ const AppRoutes = () => (
     <Route path="/plug-and-charge" element={<ProtectedRoute><PlugAndCharge /></ProtectedRoute>} />
     <Route path="/facturatie" element={<ProtectedRoute><Facturatie /></ProtectedRoute>} />
     <Route path="/gebruikers" element={<ProtectedRoute adminOnly><Gebruikers /></ProtectedRoute>} />
+    <Route path="/device-health" element={<ProtectedRoute><DeviceHealth /></ProtectedRoute>} />
     <Route path="/reset-password" element={<ResetPassword />} />
     <Route path="*" element={<NotFound />} />
   </Routes>

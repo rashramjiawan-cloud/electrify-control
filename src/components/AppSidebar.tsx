@@ -54,6 +54,7 @@ const labelMap: Record<string, string> = {
   '/plug-and-charge': 'Plug & Charge',
   '/facturatie': 'Facturatie',
   '/gebruikers': 'Gebruikers',
+  '/device-health': 'Device Health',
 };
 
 const adminOnlyRoutes = new Set(['/simulator', '/gebruikers']);
