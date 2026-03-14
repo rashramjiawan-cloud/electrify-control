@@ -360,6 +360,74 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
                 ))}
               </div>
             </div>
+
+            {/* 24h Consumption Chart */}
+            {hourlyData.length > 0 && (
+              <div className="rounded-xl border border-border bg-muted/30 p-5">
+                <div className="flex items-center gap-3 mb-1">
+                  <Plug className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground">Verbruik</h3>
+                    <span className="text-[11px] text-muted-foreground">Laatste 24 uur</span>
+                  </div>
+                  <div className="ml-auto text-right">
+                    <span className="font-mono text-lg font-bold text-foreground">{total24hKwh.toFixed(1)}</span>
+                    <span className="text-xs text-muted-foreground ml-1">kWh</span>
+                  </div>
+                </div>
+                <div className="h-[180px] mt-3">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={hourlyData} margin={{ top: 5, right: 5, bottom: 0, left: -15 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
+                      <XAxis
+                        dataKey="hour"
+                        tick={{ fontSize: 10 }}
+                        className="fill-muted-foreground"
+                        tickLine={false}
+                        interval={2}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 10 }}
+                        className="fill-muted-foreground"
+                        tickLine={false}
+                        axisLine={false}
+                        tickFormatter={(v: number) => `${v}`}
+                        label={{ value: 'kWh', angle: -90, position: 'insideLeft', offset: 20, style: { fontSize: 10, fill: 'hsl(var(--muted-foreground))' } }}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: 'hsl(var(--card))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                        }}
+                        formatter={(value: number) => [`${value.toFixed(2)} kWh`, value < 0 ? 'Teruglevering' : 'Verbruik']}
+                        labelFormatter={(label) => `${label}`}
+                      />
+                      <ReferenceLine y={0} className="stroke-muted-foreground/30" />
+                      <Bar dataKey="kwh" radius={[3, 3, 0, 0]} maxBarSize={20}>
+                        {hourlyData.map((entry, index) => (
+                          <Cell
+                            key={index}
+                            className={entry.isExport ? 'fill-primary' : 'fill-chart-3'}
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex items-center gap-4 mt-2 justify-center">
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-2.5 w-2.5 rounded-sm bg-chart-3" />
+                    <span className="text-[10px] text-muted-foreground">Verbruik</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-2.5 w-2.5 rounded-sm bg-primary" />
+                    <span className="text-[10px] text-muted-foreground">Teruglevering</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
