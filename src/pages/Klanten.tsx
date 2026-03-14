@@ -530,10 +530,10 @@ const CustomerDetailPanel = ({ customer, stats, transactionStats, onClose }: Cus
 
 /* ── Small helpers ── */
 
-const SummaryCard = ({ label, value, icon, muted }: { label: string; value: number; icon: React.ReactNode; muted?: boolean }) => (
+const SummaryCard = ({ label, value, icon, muted, accent }: { label: string; value: number; icon: React.ReactNode; muted?: boolean; accent?: string }) => (
   <div className="rounded-xl border border-border bg-card px-4 py-3">
     <div className="flex items-center gap-2 mb-1">
-      <span className={cn('text-primary', muted && 'text-muted-foreground')}>{icon}</span>
+      <span className={cn(accent || 'text-primary', muted && 'text-muted-foreground')}>{icon}</span>
       <span className="text-xs text-muted-foreground">{label}</span>
     </div>
     <p className={cn('text-xl font-bold', muted ? 'text-muted-foreground' : 'text-foreground')}>{value}</p>
