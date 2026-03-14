@@ -7,7 +7,7 @@ import type { MeterReading } from '@/hooks/useEnergyMeters';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell, ReferenceLine,
 } from 'recharts';
-import { Plug } from 'lucide-react';
+import { Plug, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface ShellyDetailWidgetProps {
   meterId: string;
