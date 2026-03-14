@@ -48,10 +48,84 @@ const DEFAULT_GROUPS: SidebarGroup[] = [
   },
 ];
 
+const cloneDefaultGroups = () =>
+  DEFAULT_GROUPS.map((group) => ({
+    ...group,
+    items: [...group.items],
+  }));
+
 function getDefaultConfig(): SidebarConfig {
   return {
-    groups: DEFAULT_GROUPS,
+    groups: cloneDefaultGroups(),
     ungrouped: [],
+  };
+}
+
+function normalizeConfig(rawConfig: unknown): SidebarConfig {
+  const fallback = getDefaultConfig();
+
+  if (!rawConfig || typeof rawConfig !== 'object') {
+    return fallback;
+  }
+
+  const config = rawConfig as Partial<SidebarConfig>;
+  const seenItems = new Set<string>();
+
+  const normalizedGroups: SidebarGroup[] = Array.isArray(config.groups)
+    ? config.groups
+        .filter((group): group is SidebarGroup => !!group && typeof group === 'object')
+        .map((group, index) => {
+          const items = Array.isArray(group.items)
+            ? group.items.filter((item): item is string => {
+                if (typeof item !== 'string' || !item.startsWith('/')) return false;
+                if (seenItems.has(item)) return false;
+                seenItems.add(item);
+                return true;
+              })
+            : [];
+
+          return {
+            id: typeof group.id === 'string' && group.id.trim() ? group.id : `group-${index}`,
+            label: typeof group.label === 'string' && group.label.trim() ? group.label : 'Groep',
+            collapsed: Boolean(group.collapsed),
+            items,
+          };
+        })
+    : [];
+
+  const normalizedUngrouped = Array.isArray(config.ungrouped)
+    ? config.ungrouped.filter((item): item is string => {
+        if (typeof item !== 'string' || !item.startsWith('/')) return false;
+        if (seenItems.has(item)) return false;
+        seenItems.add(item);
+        return true;
+      })
+    : [];
+
+  for (const defaultGroup of DEFAULT_GROUPS) {
+    let targetGroup = normalizedGroups.find((group) => group.id === defaultGroup.id);
+
+    if (!targetGroup) {
+      targetGroup = {
+        id: defaultGroup.id,
+        label: defaultGroup.label,
+        collapsed: defaultGroup.collapsed,
+        items: [],
+      };
+      normalizedGroups.push(targetGroup);
+    }
+
+    for (const defaultItem of defaultGroup.items) {
+      if (!seenItems.has(defaultItem)) {
+        targetGroup.items.push(defaultItem);
+        seenItems.add(defaultItem);
+      }
+    }
+  }
+
+  return {
+    groups: normalizedGroups.length > 0 ? normalizedGroups : fallback.groups,
+    ungrouped: normalizedUngrouped,
   };
 }
 
@@ -59,9 +133,11 @@ function loadConfig(): SidebarConfig {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
-      return JSON.parse(stored);
+      return normalizeConfig(JSON.parse(stored));
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return getDefaultConfig();
 }
 
@@ -71,6 +147,10 @@ function saveConfig(config: SidebarConfig) {
 
 export function useSidebarConfig() {
   const [config, setConfig] = useState<SidebarConfig>(loadConfig);
+
+  useEffect(() => {
+    setConfig((prev) => normalizeConfig(prev));
+  }, []);
 
   useEffect(() => {
     saveConfig(config);
