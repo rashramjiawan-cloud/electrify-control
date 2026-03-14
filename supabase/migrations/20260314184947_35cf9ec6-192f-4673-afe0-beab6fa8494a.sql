@@ -1,0 +1,1 @@
+UPDATE energy_meters SET name = REPLACE(name, 'Shelly', 'TecTronic') WHERE name ILIKE '%shelly%';
