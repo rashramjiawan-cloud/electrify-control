@@ -15,7 +15,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, Trash2, FolderKanban, ClipboardList, CalendarDays, MessageSquare, X, Send, CheckCircle2, Clock, Pause, XCircle, Wrench, Settings2, Layers } from 'lucide-react';
+import { Plus, Trash2, FolderKanban, ClipboardList, CalendarDays, MessageSquare, X, Send, CheckCircle2, Clock, Pause, XCircle, Wrench, Settings2, Layers, FileUp, FileText, Download, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { nl } from 'date-fns/locale';
 
@@ -453,7 +453,117 @@ function ProjectDetailPanel({ project, isAdmin, user, onStatusChange, onProgress
           )}
         </CardContent>
       </Card>
+
+      {/* Documents */}
+      <ProjectDocuments projectId={project.id} isAdmin={isAdmin} />
     </>
+  );
+}
+
+// Documents component
+function ProjectDocuments({ projectId, isAdmin }: { projectId: string; isAdmin: boolean }) {
+  const [uploading, setUploading] = useState(false);
+  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+
+  const { data: files, refetch } = useQuery({
+    queryKey: ['project-documents', projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase.storage
+        .from('project-documents')
+        .list(projectId, { sortBy: { column: 'created_at', order: 'desc' } });
+      if (error) throw error;
+      return (data || []).filter(f => f.name !== '.emptyFolderPlaceholder');
+    },
+  });
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const path = `${projectId}/${Date.now()}_${file.name}`;
+      const { error } = await supabase.storage.from('project-documents').upload(path, file);
+      if (error) throw error;
+      toast.success('Document geüpload');
+      refetch();
+    } catch (err: any) {
+      toast.error(err.message || 'Upload mislukt');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleDownload = async (fileName: string) => {
+    const { data, error } = await supabase.storage
+      .from('project-documents')
+      .createSignedUrl(`${projectId}/${fileName}`, 60);
+    if (error || !data?.signedUrl) { toast.error('Download mislukt'); return; }
+    window.open(data.signedUrl, '_blank');
+  };
+
+  const handleDelete = async (fileName: string) => {
+    const { error } = await supabase.storage
+      .from('project-documents')
+      .remove([`${projectId}/${fileName}`]);
+    if (error) { toast.error('Verwijderen mislukt'); return; }
+    toast.success('Document verwijderd');
+    refetch();
+  };
+
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const getDisplayName = (name: string) => {
+    // Remove timestamp prefix
+    const match = name.match(/^\d+_(.+)$/);
+    return match ? match[1] : name;
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-xs font-semibold flex items-center gap-2">
+          <FileText className="h-3.5 w-3.5" />
+          Documenten ({files?.length || 0})
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {files?.map(file => (
+          <div key={file.name} className="flex items-center gap-2 rounded-lg bg-muted/30 px-3 py-2 group">
+            <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-foreground truncate">{getDisplayName(file.name)}</p>
+              <p className="text-[10px] text-muted-foreground">
+                {formatSize(file.metadata?.size || 0)}
+              </p>
+            </div>
+            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100" onClick={() => handleDownload(file.name)}>
+              <Download className="h-3 w-3" />
+            </Button>
+            {isAdmin && (
+              <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 text-destructive" onClick={() => handleDelete(file.name)}>
+                <X className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+        ))}
+        {isAdmin && (
+          <label className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-border p-3 cursor-pointer hover:bg-muted/30 transition-colors">
+            {uploading ? (
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            ) : (
+              <FileUp className="h-4 w-4 text-muted-foreground" />
+            )}
+            <span className="text-xs text-muted-foreground">{uploading ? 'Uploaden...' : 'Document uploaden'}</span>
+            <input type="file" className="hidden" onChange={handleUpload} disabled={uploading} />
+          </label>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
