@@ -176,7 +176,7 @@ const ShellyWsSetupWizard = () => {
           className="flex items-center gap-2 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
         >
           {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-          Configuratie-instructies voor Shelly Pro 3EM
+          Configuratie-instructies voor TecTronic Pro 3EM
         </button>
 
         {expanded && (
