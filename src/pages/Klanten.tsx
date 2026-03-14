@@ -337,10 +337,11 @@ const Klanten = () => {
 interface CustomerDetailPanelProps {
   customer: { id: string; name: string; description: string | null; contact_email: string | null; contact_phone: string | null; address: string | null; created_at?: string };
   stats?: CustomerStats;
+  transactionStats?: { energy: number; count: number };
   onClose: () => void;
 }
 
-const CustomerDetailPanel = ({ customer, stats, onClose }: CustomerDetailPanelProps) => {
+const CustomerDetailPanel = ({ customer, stats, transactionStats, onClose }: CustomerDetailPanelProps) => {
   const updateCustomer = useUpdateCustomer();
   const deleteCustomer = useDeleteCustomer();
   const [editing, setEditing] = useState(false);
