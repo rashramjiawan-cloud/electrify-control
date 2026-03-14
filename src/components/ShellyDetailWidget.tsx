@@ -218,24 +218,24 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
         className="border-b border-border px-5 py-4 flex items-center justify-between cursor-pointer select-none hover:bg-muted/30 transition-colors"
         onClick={() => setExpanded(e => !e)}
       >
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-foreground">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-sm font-semibold text-foreground truncate">
             {meterName || 'Shelly Pro 3EM'}
           </span>
           {hasData && totals && (
-            <span className="text-xs font-mono text-muted-foreground ml-2">
+            <span className="text-xs font-mono text-muted-foreground ml-2 hidden sm:inline">
               {fmtPower(totals.activePower).value} {fmtPower(totals.activePower).unit} · {fmt(totals.current)} A · {totals.avgVoltage} V
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {hasData && (
             <div className="flex items-center gap-1.5">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
               </span>
-              <span className="text-[10px] text-muted-foreground">Live</span>
+              <span className="text-[10px] text-muted-foreground hidden sm:inline">Live</span>
             </div>
           )}
           {expanded ? (
