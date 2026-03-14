@@ -14,6 +14,8 @@ import { Building2, Plus, ChevronRight, X, Pencil, Trash2, Users, Zap, Loader2, 
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 
 interface CustomerStats {
   customer_id: string;
@@ -199,6 +201,40 @@ const Klanten = () => {
           muted
         />
       </div>
+
+      {/* Energy chart per customer */}
+      {customers && customers.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-4 sm:p-5 mb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <BarChart3 className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-semibold text-foreground">Energieverbruik per klant</h3>
+            <span className="text-xs text-muted-foreground ml-auto">kWh totaal</span>
+          </div>
+          <ChartContainer
+            config={{
+              energy: { label: 'Energie (kWh)', color: 'hsl(var(--primary))' },
+              transactions: { label: 'Transacties', color: 'hsl(var(--muted-foreground))' },
+            }}
+            className="h-[200px] w-full"
+          >
+            <BarChart
+              data={(filtered || []).map(c => ({
+                name: c.name.length > 18 ? c.name.slice(0, 16) + '…' : c.name,
+                fullName: c.name,
+                energy: Math.round(dashboard?.transactionsByCustomer?.get(c.id)?.energy || 0),
+                transactions: dashboard?.transactionsByCustomer?.get(c.id)?.count || 0,
+              }))}
+              margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} className="fill-muted-foreground" />
+              <YAxis tick={{ fontSize: 11 }} className="fill-muted-foreground" />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Bar dataKey="energy" fill="var(--color-energy)" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ChartContainer>
+        </div>
+      )}
 
       <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 h-auto lg:h-[calc(100vh-18rem)]">
         {/* List */}
