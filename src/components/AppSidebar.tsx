@@ -56,6 +56,7 @@ const labelMap: Record<string, string> = {
   '/facturatie': 'Facturatie',
   '/gebruikers': 'Gebruikers',
   '/device-health': 'Device Health',
+  '/klanten': 'Klanten',
 };
 
 const adminOnlyRoutes = new Set(['/simulator', '/gebruikers']);
