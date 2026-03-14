@@ -95,8 +95,17 @@ const Projecten = () => {
   };
 
   const handleStatusChange = async (id: string, status: string) => {
+    const project = projects?.find(p => p.id === id);
+    const oldStatus = project?.status || 'unknown';
     await updateProject.mutateAsync({ id, status, completed_at: status === 'completed' ? new Date().toISOString() : null } as any);
     toast.success('Status bijgewerkt');
+
+    // Send notification in background
+    supabase.functions.invoke('notify-project-status', {
+      body: { project_id: id, old_status: oldStatus, new_status: status },
+    }).then(({ error }) => {
+      if (error) console.warn('Notification failed:', error);
+    });
   };
 
   const handleProgressChange = async (id: string, progress_pct: number) => {
