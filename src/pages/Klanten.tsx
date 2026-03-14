@@ -437,6 +437,14 @@ const CustomerDetailPanel = ({ customer, stats, transactionStats, onClose }: Cus
             <p className="text-lg font-bold text-foreground">{stats?.charge_point_count || 0}</p>
             <p className="text-[11px] text-muted-foreground">Laadpalen</p>
           </div>
+          <div className="rounded-lg border border-border p-3 text-center">
+            <p className="text-lg font-bold text-foreground">{transactionStats?.count || 0}</p>
+            <p className="text-[11px] text-muted-foreground">Transacties</p>
+          </div>
+          <div className="rounded-lg border border-border p-3 text-center">
+            <p className="text-lg font-bold text-foreground">{Math.round(transactionStats?.energy || 0)}</p>
+            <p className="text-[11px] text-muted-foreground">kWh totaal</p>
+          </div>
         </div>
 
         {/* Details */}
