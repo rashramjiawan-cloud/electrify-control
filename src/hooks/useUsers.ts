@@ -20,6 +20,8 @@ export interface Customer {
   contact_email: string | null;
   contact_phone: string | null;
   address: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ModulePermission {
