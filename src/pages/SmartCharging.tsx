@@ -1525,7 +1525,7 @@ print("Webhook script gestart");`}</pre>
                     onSuccess: (res: any) => {
                       if (res?.success) {
                         const src = res.source === 'cloud' ? '☁️ Cloud' : '🏠 Lokaal';
-                        toast.success(`${src} verbonden! ${res.data?.type || res.data?.model || 'Shelly'} (${res.data?.mac || ''})`);
+                        toast.success(`${src} verbonden! ${res.data?.type || res.data?.model || 'TecTronic'} (${res.data?.mac || ''})`);
                       } else {
                         toast.error(res?.error || 'Verbinding mislukt');
                       }
