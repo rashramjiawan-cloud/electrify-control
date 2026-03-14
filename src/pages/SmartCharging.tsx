@@ -1479,16 +1479,16 @@ print("Webhook script gestart");`}</pre>
               </div>
             )}
 
-            {/* Shelly Cloud API (optional) - only for Shelly */}
+            {/* TecTronic Cloud API (optional) - only for TecTronic */}
             {meterDeviceType !== 'smartstuff_ultra_x2' && meterConnType !== 'webhook' && meterConnType !== 'outbound_ws' && (
               <div className="rounded-lg border border-chart-2/20 bg-chart-2/5 p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <Wifi className="h-3.5 w-3.5 text-chart-2" />
-                  <Label className="text-xs font-semibold">Shelly Cloud API (optioneel)</Label>
+                  <Label className="text-xs font-semibold">TecTronic Cloud API (optioneel)</Label>
                 </div>
                 <p className="text-[10px] text-muted-foreground">
-                  Gebruik de Shelly Cloud JRPC API om je meter op afstand uit te lezen zonder lokale netwerktoegang. 
-                  Vind je Device ID in de Shelly app → apparaat → Settings → Device Information.
+                  Gebruik de TecTronic Cloud JRPC API om je meter op afstand uit te lezen zonder lokale netwerktoegang. 
+                  Vind je Device ID in de TecTronic app → apparaat → Settings → Device Information.
                 </p>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
