@@ -166,7 +166,7 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
       const hourKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}-${d.getHours()}`;
       const entry = byHour.get(hourKey);
       const avgPower = entry ? entry.sum / entry.count : 0;
-      const kwh = +(avgPower / 1000).toFixed(2); // avg kW ≈ kWh for 1 hour
+      const kwh = +(avgPower / 1000).toFixed(2);
       result.push({
         hour: `${d.getHours().toString().padStart(2, '0')}:00`,
         kwh,
