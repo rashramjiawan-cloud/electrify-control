@@ -6,6 +6,7 @@ import EnergyFlowWidget from '@/components/EnergyFlowWidget';
 import GtvMonitorWidget from '@/components/GtvMonitorWidget';
 import LoadBalanceStatusWidget from '@/components/LoadBalanceStatusWidget';
 import LoadBalanceHistoryWidget from '@/components/LoadBalanceHistoryWidget';
+import ShellyDetailWidget from '@/components/ShellyDetailWidget';
 
 import { useEnergyMeters, useMeterReadings } from '@/hooks/useEnergyMeters';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
