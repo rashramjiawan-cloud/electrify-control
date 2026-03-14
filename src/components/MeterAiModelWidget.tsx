@@ -242,6 +242,17 @@ export default function MeterAiModelWidget({ meterId, meterName }: MeterAiModelW
                       Getraind: {new Date(model.trained_at).toLocaleString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </p>
                   )}
+
+                  {/* History trend chart */}
+                  {isReady && (
+                    <div className="mt-3 pt-3 border-t border-border">
+                      <MeterAiModelHistoryChart
+                        meterId={meterId}
+                        modelType={type}
+                        modelLabel={info.label}
+                      />
+                    </div>
+                  )}
                 </div>
               );
             })}
