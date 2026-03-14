@@ -1015,7 +1015,7 @@ const SmartCharging = () => {
                     </div>
                     <Button size="sm" className="gap-1.5 text-xs" onClick={() => {
                       setEditingMeter(null);
-                      setMeterName('Shelly PRO EM-50');
+                      setMeterName('TecTronic PRO EM-50');
                       setMeterDeviceType('shelly_pro_em_50');
                       setMeterConnType('tcp_ip');
                       setMeterHost('');
