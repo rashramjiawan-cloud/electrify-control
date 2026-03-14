@@ -764,6 +764,7 @@ export type Database = {
           id: number
           meter_id: string
           power_factor: number | null
+          return_energy: number | null
           timestamp: string
           total_energy: number | null
           voltage: number | null
@@ -777,6 +778,7 @@ export type Database = {
           id?: never
           meter_id: string
           power_factor?: number | null
+          return_energy?: number | null
           timestamp?: string
           total_energy?: number | null
           voltage?: number | null
@@ -790,6 +792,7 @@ export type Database = {
           id?: never
           meter_id?: string
           power_factor?: number | null
+          return_energy?: number | null
           timestamp?: string
           total_energy?: number | null
           voltage?: number | null

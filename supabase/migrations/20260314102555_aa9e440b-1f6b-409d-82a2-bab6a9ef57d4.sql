@@ -1,0 +1,1 @@
+ALTER TABLE public.meter_readings ADD COLUMN IF NOT EXISTS return_energy numeric DEFAULT NULL;
