@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/AppLayout';
 import { useCustomers, useCreateCustomer } from '@/hooks/useUsers';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,12 +11,13 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
-import { Building2, Plus, ChevronRight, X, Pencil, Trash2, Users, Zap, Loader2, Search, User, Circle, Activity, BatteryCharging, TrendingUp, BarChart3 } from 'lucide-react';
+import { Building2, Plus, ChevronRight, X, Pencil, Trash2, Users, Zap, Loader2, Search, User, Circle, Activity, BatteryCharging, TrendingUp, BarChart3, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
+import { useCustomerImpersonation } from '@/hooks/useCustomerImpersonation';
 
 interface CustomerStats {
   customer_id: string;
@@ -389,12 +391,20 @@ interface CustomerDetailPanelProps {
 const CustomerDetailPanel = ({ customer, stats, transactionStats, onClose }: CustomerDetailPanelProps) => {
   const updateCustomer = useUpdateCustomer();
   const deleteCustomer = useDeleteCustomer();
+  const { startImpersonation } = useCustomerImpersonation();
+  const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(customer.name);
   const [email, setEmail] = useState(customer.contact_email || '');
   const [phone, setPhone] = useState(customer.contact_phone || '');
   const [address, setAddress] = useState(customer.address || '');
   const [description, setDescription] = useState(customer.description || '');
+
+  const handleImpersonate = () => {
+    startImpersonation(customer.id, customer.name);
+    navigate('/');
+    toast.success(`Je bekijkt nu het portaal als "${customer.name}"`);
+  };
 
   // Fetch linked users
   const { data: linkedUsers } = useQuery({
@@ -459,6 +469,9 @@ const CustomerDetailPanel = ({ customer, stats, transactionStats, onClose }: Cus
           )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" onClick={handleImpersonate} title="Bekijk als klant">
+            <Eye className="h-3.5 w-3.5" />
+          </Button>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditing(!editing)}>
             <Pencil className="h-3.5 w-3.5" />
           </Button>
