@@ -1343,9 +1343,9 @@ const SmartCharging = () => {
                   <p className="text-[10px] text-muted-foreground">Het Device ID wordt gebruikt om binnenkomende data te koppelen aan deze meter.</p>
                 </div>
                 <div className="rounded-md bg-muted/50 p-3 space-y-2">
-                  <p className="text-[10px] font-semibold text-foreground">Configuratie op de Shelly:</p>
+                  <p className="text-[10px] font-semibold text-foreground">Configuratie op de TecTronic:</p>
                   <ol className="text-[10px] text-muted-foreground space-y-1 list-decimal list-inside">
-                    <li>Open de Shelly web UI (http://&lt;shelly-ip&gt;)</li>
+                    <li>Open de TecTronic web UI (http://&lt;tectronic-ip&gt;)</li>
                     <li>Ga naar <strong>Scripts</strong> → maak een nieuw script</li>
                     <li>Plak het onderstaande script en pas <code className="bg-muted px-1 rounded">DEVICE_ID</code> en <code className="bg-muted px-1 rounded">API_KEY</code> aan</li>
                     <li>Sla op en zet het script <strong>aan</strong></li>
