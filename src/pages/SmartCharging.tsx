@@ -24,6 +24,7 @@ import { useSystemSettings } from '@/hooks/useSystemSettings';
 import MqttStatusBadge from '@/components/MqttStatusBadge';
 import MqttConfigDialog from '@/components/MqttConfigDialog';
 import { useMqttConfigForAsset } from '@/hooks/useMqttConfigurations';
+import MeterSparkline from '@/components/MeterSparkline';
 
 type ModuleId = 'energy-flow' | 'power-chart' | 'profiles' | 'shelly-meter' | 'ems-auto' | 'sc-visualization' | 'behavior-models' | 'predictive-schedules';
 
@@ -272,9 +273,16 @@ const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt, staleThresho
               </p>
             </div>
           </div>
+          {/* Mini sparkline */}
+          {meter.last_poll_at && (
+            <div className="flex-shrink-0">
+              <MeterSparkline meterId={meter.id} minutes={5} width={120} height={36} />
+              <p className="text-[9px] text-muted-foreground text-center mt-0.5">5 min</p>
+            </div>
+          )}
           {/* Total power summary */}
           {totalPowerW !== null && channels && channels.length > 0 && !webhookStale && meter.last_poll_at && (
-            <div className="text-right">
+            <div className="text-right flex-shrink-0">
               <p className={`font-mono text-lg font-bold ${totalPowerW >= 0 ? 'text-destructive' : 'text-green-600 dark:text-green-400'}`}>
                 {totalPowerW >= 0 ? '↓' : '↑'} {Math.abs(totalPowerW).toFixed(0)} W
               </p>
