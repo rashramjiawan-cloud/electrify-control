@@ -394,7 +394,7 @@ const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt, staleThresho
         <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2">
           <p className="text-xs text-destructive">{localAutoRef.error}</p>
           <p className="text-[10px] text-muted-foreground mt-0.5">
-            Zorg dat de Shelly op hetzelfde netwerk zit als je browser en CORS toestaat.
+            Zorg dat de TecTronic op hetzelfde netwerk zit als je browser en CORS toestaat.
           </p>
         </div>
       )}
