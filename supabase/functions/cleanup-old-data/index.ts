@@ -32,6 +32,7 @@ serve(async (req) => {
         "grid_alerts_retention_days",
         "audit_log_retention_days",
         "load_balance_logs_retention_days",
+        "device_health_retention_days",
       ]);
 
     if (settingsError) throw settingsError;
