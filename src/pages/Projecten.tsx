@@ -15,7 +15,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, Trash2, FolderKanban, ClipboardList, CalendarDays, MessageSquare, X, Send, CheckCircle2, Clock, Pause, XCircle, Wrench, Settings2, Layers } from 'lucide-react';
+import { Plus, Trash2, FolderKanban, ClipboardList, CalendarDays, MessageSquare, X, Send, CheckCircle2, Clock, Pause, XCircle, Wrench, Settings2, Layers, FileUp, FileText, Download, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { nl } from 'date-fns/locale';
 
