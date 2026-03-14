@@ -397,7 +397,7 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
 
             {/* 24h Consumption Chart */}
             {hourlyData.length > 0 && (
-              <div className="rounded-xl border border-border bg-muted/30 p-5">
+              <div className="rounded-xl border border-border bg-muted/30 p-3 sm:p-5">
                 <div className="flex items-center gap-3 mb-4">
                   <Plug className="h-5 w-5 text-muted-foreground" />
                   <div>
