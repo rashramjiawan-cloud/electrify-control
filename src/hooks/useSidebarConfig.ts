@@ -146,11 +146,7 @@ function saveConfig(config: SidebarConfig) {
 }
 
 export function useSidebarConfig() {
-  const [config, setConfig] = useState<SidebarConfig>(loadConfig);
-
-  useEffect(() => {
-    setConfig((prev) => normalizeConfig(prev));
-  }, []);
+  const [config, setConfig] = useState<SidebarConfig>(() => normalizeConfig(loadConfig()));
 
   useEffect(() => {
     saveConfig(config);
