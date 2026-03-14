@@ -390,15 +390,28 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
             {/* 24h Consumption Chart */}
             {hourlyData.length > 0 && (
               <div className="rounded-xl border border-border bg-muted/30 p-5">
-                <div className="flex items-center gap-3 mb-1">
+                <div className="flex items-center gap-3 mb-4">
                   <Plug className="h-5 w-5 text-muted-foreground" />
                   <div>
                     <h3 className="text-sm font-semibold text-foreground">Verbruik</h3>
                     <span className="text-[11px] text-muted-foreground">Laatste 24 uur</span>
                   </div>
-                  <div className="ml-auto text-right">
+                </div>
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  <div className="flex flex-col items-center justify-center rounded-lg border border-chart-3/30 bg-chart-3/5 px-3 py-3">
+                    <span className="font-mono text-lg font-bold text-foreground">{importKwh.toFixed(1)}</span>
+                    <span className="text-[10px] text-muted-foreground">kWh</span>
+                    <span className="text-[9px] text-muted-foreground mt-0.5">Import</span>
+                  </div>
+                  <div className="flex flex-col items-center justify-center rounded-lg border border-primary/30 bg-primary/5 px-3 py-3">
+                    <span className="font-mono text-lg font-bold text-foreground">{exportKwh.toFixed(1)}</span>
+                    <span className="text-[10px] text-muted-foreground">kWh</span>
+                    <span className="text-[9px] text-muted-foreground mt-0.5">Export</span>
+                  </div>
+                  <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-muted/50 px-3 py-3">
                     <span className="font-mono text-lg font-bold text-foreground">{total24hKwh.toFixed(1)}</span>
-                    <span className="text-xs text-muted-foreground ml-1">kWh</span>
+                    <span className="text-[10px] text-muted-foreground">kWh</span>
+                    <span className="text-[9px] text-muted-foreground mt-0.5">Netto</span>
                   </div>
                 </div>
                 <div className="h-[180px] mt-3">
