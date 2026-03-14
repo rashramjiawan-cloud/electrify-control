@@ -15,9 +15,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, Trash2, FolderKanban, ClipboardList, CalendarDays, MessageSquare, X, Send, CheckCircle2, Clock, Pause, XCircle, Wrench, Settings2, Layers, FileUp, FileText, Download, Loader2 } from 'lucide-react';
+import { Plus, Trash2, FolderKanban, ClipboardList, CalendarDays, MessageSquare, X, Send, CheckCircle2, Clock, Pause, XCircle, Wrench, Settings2, Layers, FileUp, FileText, Download, Loader2, LayoutList, GanttChart } from 'lucide-react';
 import { format } from 'date-fns';
 import { nl } from 'date-fns/locale';
+import ProjectGanttChart from '@/components/ProjectGanttChart';
 
 const STATUS_MAP: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   planned: { label: 'Gepland', color: 'bg-muted text-muted-foreground', icon: Clock },
