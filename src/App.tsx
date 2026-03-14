@@ -97,9 +97,12 @@ const App = () => (
         <Toaster />
         <Sonner />
         <AuthProvider>
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
+          <CustomerImpersonationProvider>
+            <BrowserRouter>
+              <ImpersonationBanner />
+              <AppRoutes />
+            </BrowserRouter>
+          </CustomerImpersonationProvider>
         </AuthProvider>
       </TooltipProvider>
     </ThemeProvider>
