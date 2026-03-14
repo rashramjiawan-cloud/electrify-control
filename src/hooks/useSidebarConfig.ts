@@ -43,7 +43,7 @@ const DEFAULT_GROUPS: SidebarGroup[] = [
   {
     id: 'system',
     label: 'Systeem',
-    items: ['/alerts', '/simulator', '/gebruikers', '/instellingen', '/setup-guide'],
+    items: ['/alerts', '/simulator', '/gebruikers', '/klanten', '/instellingen', '/setup-guide'],
     collapsed: false,
   },
 ];
