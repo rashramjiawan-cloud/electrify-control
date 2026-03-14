@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useCustomerImpersonation } from '@/hooks/useCustomerImpersonation';
 
 export interface DbChargePoint {
   id: string;
@@ -31,13 +32,19 @@ export interface DbConnector {
 }
 
 export function useChargePoints() {
+  const { impersonatedCustomerId } = useCustomerImpersonation();
+
   return useQuery({
-    queryKey: ['charge-points'],
+    queryKey: ['charge-points', impersonatedCustomerId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from('charge_points')
         .select('*')
         .order('created_at', { ascending: true });
+      if (impersonatedCustomerId) {
+        q = q.eq('customer_id', impersonatedCustomerId);
+      }
+      const { data, error } = await q;
       if (error) throw error;
       return data as DbChargePoint[];
     },
