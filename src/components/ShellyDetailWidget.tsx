@@ -218,24 +218,24 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
         className="border-b border-border px-5 py-4 flex items-center justify-between cursor-pointer select-none hover:bg-muted/30 transition-colors"
         onClick={() => setExpanded(e => !e)}
       >
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-foreground">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-sm font-semibold text-foreground truncate">
             {meterName || 'Shelly Pro 3EM'}
           </span>
           {hasData && totals && (
-            <span className="text-xs font-mono text-muted-foreground ml-2">
+            <span className="text-xs font-mono text-muted-foreground ml-2 hidden sm:inline">
               {fmtPower(totals.activePower).value} {fmtPower(totals.activePower).unit} · {fmt(totals.current)} A · {totals.avgVoltage} V
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {hasData && (
             <div className="flex items-center gap-1.5">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
               </span>
-              <span className="text-[10px] text-muted-foreground">Live</span>
+              <span className="text-[10px] text-muted-foreground hidden sm:inline">Live</span>
             </div>
           )}
           {expanded ? (
@@ -247,13 +247,13 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
       </div>
 
       {expanded && (
-      <div className="p-5 space-y-6">
+      <div className="p-3 sm:p-5 space-y-4 sm:space-y-6">
         {!hasData ? (
           <p className="text-sm text-muted-foreground text-center py-8">Geen data beschikbaar</p>
         ) : (
           <>
             {/* Phase headers */}
-            <div className="grid grid-cols-[auto_1fr_1fr_1fr] gap-x-3 gap-y-0 items-center mb-1">
+            <div className="hidden sm:grid grid-cols-[auto_1fr_1fr_1fr] gap-x-3 gap-y-0 items-center mb-1">
               <span />
               {phases.map((p, i) => (
                 <span key={p.channel} className={`text-xs font-semibold text-center ${PHASE_COLORS[i]?.label || 'text-foreground'}`}>
@@ -291,16 +291,16 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
             ].map(({ label, render }) => (
               <div key={label}>
                 <span className="text-[11px] text-muted-foreground font-medium mb-2 block">{label}</span>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
                   {phases.map((p, i) => {
                     const { value, unit } = render(p.reading);
                     return (
                       <div
                         key={p.channel}
-                        className={`flex flex-col items-center justify-center rounded-lg border ${PHASE_COLORS[i]?.border || 'border-border'} ${PHASE_COLORS[i]?.bg || 'bg-muted/50'} px-3 py-3`}
+                        className={`flex flex-row sm:flex-col items-center justify-between sm:justify-center rounded-lg border ${PHASE_COLORS[i]?.border || 'border-border'} ${PHASE_COLORS[i]?.bg || 'bg-muted/50'} px-3 py-2 sm:py-3`}
                       >
-                        <span className="font-mono text-lg font-bold text-foreground">{value}</span>
-                        <span className="text-[10px] text-muted-foreground">{unit}</span>
+                        <span className="font-mono text-base sm:text-lg font-bold text-foreground">{value}</span>
+                        <span className="text-[10px] text-muted-foreground ml-1 sm:ml-0">{unit}</span>
                       </div>
                     );
                   })}
@@ -337,7 +337,7 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
             {peaks.size > 0 && (
               <div>
                 <span className="text-[11px] text-muted-foreground font-medium mb-2 block">Hoogste piekvermogen (24u)</span>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
                   {phases.map((p, i) => {
                     const peak = peaks.get(p.channel);
                     if (!peak) return <div key={p.channel} className="rounded-lg border border-border bg-muted/50 px-3 py-3 text-center text-xs text-muted-foreground">—</div>;
@@ -360,7 +360,7 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
             {peaks.size > 0 && (
               <div>
                 <span className="text-[11px] text-muted-foreground font-medium mb-2 block">Gemiddeld vermogen (24u)</span>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
                   {phases.map((p, i) => {
                     const peak = peaks.get(p.channel);
                     if (!peak) return <div key={p.channel} className="rounded-lg border border-border bg-muted/50 px-3 py-3 text-center text-xs text-muted-foreground">—</div>;
@@ -382,7 +382,7 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
             {/* Sparklines per phase */}
             <div>
               <span className="text-[11px] text-muted-foreground font-medium mb-2 block">Vermogensverloop (5 min)</span>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
                 {phases.map((p, i) => (
                   <div
                     key={p.channel}
@@ -397,7 +397,7 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
 
             {/* 24h Consumption Chart */}
             {hourlyData.length > 0 && (
-              <div className="rounded-xl border border-border bg-muted/30 p-5">
+              <div className="rounded-xl border border-border bg-muted/30 p-3 sm:p-5">
                 <div className="flex items-center gap-3 mb-4">
                   <Plug className="h-5 w-5 text-muted-foreground" />
                   <div>
@@ -405,7 +405,7 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
                     <span className="text-[11px] text-muted-foreground">Laatste 24 uur</span>
                   </div>
                 </div>
-                <div className="grid grid-cols-4 gap-3 mb-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-4">
                   <div className="flex flex-col items-center justify-center rounded-lg border border-chart-3/30 bg-chart-3/5 px-3 py-3">
                     <span className="font-mono text-lg font-bold text-foreground">{importKwh.toFixed(1)}</span>
                     <span className="text-[10px] text-muted-foreground">kWh</span>

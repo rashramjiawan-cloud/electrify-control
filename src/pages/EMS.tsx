@@ -101,9 +101,9 @@ const EMS = () => {
             ];
             const labelColors = ['text-primary', 'text-chart-2', 'text-chart-3'];
             return (
-              <div key={p.channel} className={`flex items-center gap-4 rounded-lg border px-4 py-2.5 ${colors[i] || colors[0]}`}>
-                <span className={`text-xs font-semibold whitespace-nowrap ${labelColors[i] || labelColors[0]}`}>Fase {p.channel + 1}</span>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 font-mono text-xs text-muted-foreground">
+              <div key={p.channel} className={`flex items-center gap-2 sm:gap-4 rounded-lg border px-3 sm:px-4 py-2 sm:py-2.5 ${colors[i] || colors[0]}`}>
+                <span className={`text-xs font-semibold whitespace-nowrap ${labelColors[i] || labelColors[0]}`}>F{p.channel + 1}</span>
+                <div className="flex flex-wrap items-center gap-x-2 sm:gap-x-4 gap-y-0.5 font-mono text-[11px] sm:text-xs text-muted-foreground">
                   {p.voltage != null && <span>{p.voltage} V</span>}
                   {p.current != null && <span>{p.current} A</span>}
                   {p.power != null && <span>{p.power} kW</span>}
