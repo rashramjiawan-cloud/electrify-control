@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.shelly-ws]
 verify_jwt = false
+
+[functions.evaluate-meter-models]
+verify_jwt = false
