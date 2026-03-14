@@ -1320,11 +1320,11 @@ const SmartCharging = () => {
               <div className="rounded-lg border border-chart-2/20 bg-chart-2/5 p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <Wifi className="h-3.5 w-3.5 text-chart-2" />
-                  <h4 className="text-xs font-semibold text-foreground">Shelly Outbound Webhook</h4>
+                  <h4 className="text-xs font-semibold text-foreground">TecTronic Outbound Webhook</h4>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Configureer je Shelly om periodiek een HTTP POST te sturen met meterdata. 
-                  Geen cloud key nodig — de Shelly stuurt zelf data naar jouw endpoint.
+                  Configureer je TecTronic om periodiek een HTTP POST te sturen met meterdata. 
+                  Geen cloud key nodig — de TecTronic stuurt zelf data naar jouw endpoint.
                 </p>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Webhook URL</Label>
