@@ -129,6 +129,13 @@ const EMS = () => {
         </div>
       )}
 
+      {/* Shelly Pro 3EM Detail Widget */}
+      {enabledMeter && (
+        <div className="mb-8">
+          <ShellyDetailWidget meterId={enabledMeter.id} meterName={enabledMeter.name} />
+        </div>
+      )}
+
       {/* Energy Flow Diagram - reusable widget */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
