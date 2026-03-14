@@ -405,7 +405,7 @@ export default function ShellyDetailWidget({ meterId, meterName }: ShellyDetailW
                     <span className="text-[11px] text-muted-foreground">Laatste 24 uur</span>
                   </div>
                 </div>
-                <div className="grid grid-cols-4 gap-3 mb-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-4">
                   <div className="flex flex-col items-center justify-center rounded-lg border border-chart-3/30 bg-chart-3/5 px-3 py-3">
                     <span className="font-mono text-lg font-bold text-foreground">{importKwh.toFixed(1)}</span>
                     <span className="text-[10px] text-muted-foreground">kWh</span>
