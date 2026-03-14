@@ -31,6 +31,7 @@ import Facturatie from "./pages/Facturatie";
 import Gebruikers from "./pages/Gebruikers";
 import Klanten from "./pages/Klanten";
 import DeviceHealth from "./pages/DeviceHealth";
+import Projecten from "./pages/Projecten";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -85,6 +86,7 @@ const AppRoutes = () => (
     <Route path="/gebruikers" element={<ProtectedRoute adminOnly><Gebruikers /></ProtectedRoute>} />
     <Route path="/klanten" element={<ProtectedRoute adminOnly><Klanten /></ProtectedRoute>} />
     <Route path="/device-health" element={<ProtectedRoute><DeviceHealth /></ProtectedRoute>} />
+    <Route path="/projecten" element={<ProtectedRoute><Projecten /></ProtectedRoute>} />
     <Route path="/reset-password" element={<ResetPassword />} />
     <Route path="*" element={<NotFound />} />
   </Routes>
