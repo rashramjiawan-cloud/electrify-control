@@ -70,8 +70,12 @@ const MeterItem = ({ meter, pollMeter, deleteMeter, onEdit, onMqtt, staleThresho
 
   // Calculate total power from channels
   const channels = meter.last_reading?.channels as any[] | undefined;
+  const deviceInfo = meter.last_reading?.device_info as any | undefined;
+  const phaseFaults = meter.last_reading?.phase_faults as any[] | undefined;
   const totalPowerW = channels?.reduce((sum: number, ch: any) => sum + (ch.active_power ?? 0), 0) ?? null;
   const totalCurrentA = channels?.reduce((sum: number, ch: any) => sum + (ch.current ?? 0), 0) ?? null;
+  const totalReturnEnergy = channels?.reduce((sum: number, ch: any) => sum + (ch.return_energy ?? 0), 0) ?? null;
+  const totalImportEnergy = channels?.reduce((sum: number, ch: any) => sum + (ch.total_energy ?? 0), 0) ?? null;
 
   const formatAge = (sec: number) => {
     if (sec > 3600) return `${Math.floor(sec / 3600)}u ${Math.floor((sec % 3600) / 60)}m`;
