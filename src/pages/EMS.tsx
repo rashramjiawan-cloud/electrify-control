@@ -125,7 +125,7 @@ const EMS = () => {
             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary" />
           </span>
           <span className="text-xs text-muted-foreground">
-            Live data via <span className="font-medium text-foreground">{enabledMeter?.name || 'Shelly PRO EM-50'}</span>
+            Live data via <span className="font-medium text-foreground">{enabledMeter?.name || 'TecTronic PRO EM-50'}</span>
           </span>
         </div>
       )}
