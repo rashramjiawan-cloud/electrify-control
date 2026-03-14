@@ -254,6 +254,12 @@ const GridPowerHistoryChart = ({ grid }: Props) => {
           <div className="h-full flex items-center justify-center">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
+        ) : !hasRealData ? (
+          <div className="h-full flex flex-col items-center justify-center text-center gap-2">
+            <BarChart3 className="h-8 w-8 text-muted-foreground/40" />
+            <p className="text-sm text-muted-foreground">Geen vermogensdata beschikbaar</p>
+            <p className="text-[11px] text-muted-foreground/70">Er zijn geen metingen gevonden in de laatste {range}.</p>
+          </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData} margin={{ left: 0, right: 4, top: 4, bottom: 0 }}>
