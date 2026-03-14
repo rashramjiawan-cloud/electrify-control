@@ -1010,7 +1010,7 @@ const SmartCharging = () => {
                       </div>
                       <div>
                         <h3 className="text-sm font-semibold text-foreground">Energiemeters</h3>
-                        <p className="text-xs text-muted-foreground">Shelly PRO EM-50 · SmartStuff Ultra X2</p>
+                        <p className="text-xs text-muted-foreground">TecTronic PRO EM-50 · SmartStuff Ultra X2</p>
                       </div>
                     </div>
                     <Button size="sm" className="gap-1.5 text-xs" onClick={() => {
