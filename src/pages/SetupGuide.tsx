@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import {
   Copy, Check, ChevronDown, ChevronRight, Server, Globe, Terminal,
-  Shield, CheckCircle2, ExternalLink, Zap, ArrowRight, FileCode, Settings2
+  Shield, CheckCircle2, ExternalLink, Zap, ArrowRight, FileCode, Settings2,
+  AlertTriangle, Plug
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
