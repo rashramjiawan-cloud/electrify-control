@@ -156,6 +156,12 @@ const BackendCard = ({ backend }: { backend: OcppProxyBackend }) => {
         </div>
       )}
 
+      {/* Charge Point Filter */}
+      <ChargePointFilter
+        selected={backend.charge_point_filter || []}
+        onChange={(ids) => update.mutate({ id: backend.id, charge_point_filter: ids })}
+      />
+
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
         <div className="flex items-center gap-1">
           <ArrowLeftRight className="h-3 w-3" />
