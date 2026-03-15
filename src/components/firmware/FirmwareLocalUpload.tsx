@@ -84,15 +84,16 @@ const FirmwareLocalUpload = ({ chargePoints }: FirmwareLocalUploadProps) => {
 
       setProgress(90);
 
-      // Also create a firmware_updates record
-      await supabase.from('firmware_updates').insert({
-        charge_point_id: selectedCp,
-        type: 'Firmware',
-        location: `storage://firmware/${filePath}`,
-        status: 'Downloaded',
-        retries: 0,
-        retry_interval: 0,
-      });
+      if (selectedCp) {
+        await supabase.from('firmware_updates').insert({
+          charge_point_id: selectedCp,
+          type: 'Firmware',
+          location: `storage://firmware/${filePath}`,
+          status: 'Downloaded',
+          retries: 0,
+          retry_interval: 0,
+        });
+      }
 
       setProgress(100);
       toast.success(`Firmware "${file.name}" geüpload voor ${chargePoints?.find(cp => cp.id === selectedCp)?.name || selectedCp}`);
