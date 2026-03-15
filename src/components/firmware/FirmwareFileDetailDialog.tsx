@@ -60,6 +60,7 @@ function bytesToHex(bytes: Uint8Array): string {
 }
 
 const FirmwareFileDetailDialog = ({ open, onOpenChange, file, chargePoints }: Props) => {
+  const [activeTab, setActiveTab] = useState('metadata');
   const [hexData, setHexData] = useState<string>('');
   const [hexLoading, setHexLoading] = useState(false);
   const [rawBytes, setRawBytes] = useState<Uint8Array | null>(null);
@@ -98,8 +99,16 @@ const FirmwareFileDetailDialog = ({ open, onOpenChange, file, chargePoints }: Pr
       setRawBytes(null);
       setAiAnalysis('');
       setReplaceFile(null);
+      setActiveTab('metadata');
     }
   }, [open]);
+
+  // Auto-load hex when tab switches to hex
+  useEffect(() => {
+    if (activeTab === 'hex' && file && !hexData && !hexLoading) {
+      loadHex();
+    }
+  }, [activeTab, file, hexData, hexLoading]);
 
   const loadHex = useCallback(async () => {
     if (!file || hexData) return;
@@ -206,10 +215,10 @@ const FirmwareFileDetailDialog = ({ open, onOpenChange, file, chargePoints }: Pr
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="metadata" className="mt-2">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-2">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="metadata" className="gap-1 text-xs"><Info className="h-3 w-3" />Metadata</TabsTrigger>
-            <TabsTrigger value="hex" className="gap-1 text-xs" onClick={loadHex}><Binary className="h-3 w-3" />Hex</TabsTrigger>
+            <TabsTrigger value="hex" className="gap-1 text-xs"><Binary className="h-3 w-3" />Hex</TabsTrigger>
             <TabsTrigger value="ai" className="gap-1 text-xs"><Brain className="h-3 w-3" />AI Analyse</TabsTrigger>
             <TabsTrigger value="edit" className="gap-1 text-xs"><Pencil className="h-3 w-3" />Bewerken</TabsTrigger>
           </TabsList>
@@ -346,10 +355,10 @@ const FirmwareFileDetailDialog = ({ open, onOpenChange, file, chargePoints }: Pr
 
               <div className="space-y-1.5">
                 <Label className="text-xs">Toewijzen aan laadpaal</Label>
-                <Select value={assignedCp} onValueChange={setAssignedCp}>
+                <Select value={assignedCp || 'none'} onValueChange={(v) => setAssignedCp(v === 'none' ? '' : v)}>
                   <SelectTrigger><SelectValue placeholder="Geen toewijzing" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Geen toewijzing</SelectItem>
+                    <SelectItem value="none">Geen toewijzing</SelectItem>
                     {chargePoints?.map(cp => (
                       <SelectItem key={cp.id} value={cp.id}>{cp.name} ({cp.id})</SelectItem>
                     ))}
