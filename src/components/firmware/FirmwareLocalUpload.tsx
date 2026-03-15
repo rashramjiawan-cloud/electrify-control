@@ -212,7 +212,7 @@ const FirmwareLocalUpload = ({ chargePoints }: FirmwareLocalUploadProps) => {
           )}
 
           <div className="space-y-1">
-            <Button onClick={handleUpload} disabled={uploading || !file || !selectedCp} className="gap-2">
+            <Button onClick={handleUpload} disabled={uploading || !file} className="gap-2">
               <Upload className="h-4 w-4" />
               {uploading ? 'Uploaden...' : 'Firmware uploaden'}
             </Button>
