@@ -67,7 +67,9 @@ const FirmwareLocalUpload = ({ chargePoints }: FirmwareLocalUploadProps) => {
 
     try {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const filePath = `${selectedCp}/${timestamp}_${file.name}`;
+      const filePath = selectedCp
+        ? `${selectedCp}/${timestamp}_${file.name}`
+        : `general/${timestamp}_${file.name}`;
 
       setProgress(30);
 
