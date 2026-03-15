@@ -32,11 +32,34 @@ const FirmwareLocalUpload = ({ chargePoints }: FirmwareLocalUploadProps) => {
   const { data: uploadedFiles, isLoading: filesLoading } = useQuery({
     queryKey: ['firmware-files'],
     queryFn: async () => {
-      const { data, error } = await supabase.storage.from('firmware').list('', {
+      // First list root to find folders
+      const { data: rootItems, error: rootErr } = await supabase.storage.from('firmware').list('', {
         sortBy: { column: 'created_at', order: 'desc' },
       });
-      if (error) throw error;
-      return data || [];
+      if (rootErr) throw rootErr;
+
+      // Collect all actual files from subfolders
+      const allFiles: Array<{ id: string; name: string; created_at: string; metadata: Record<string, unknown> | null; folder: string }> = [];
+
+      for (const item of rootItems || []) {
+        // If item has no metadata/id it's a folder — list its contents
+        if (!item.id) {
+          const { data: folderFiles, error: folderErr } = await supabase.storage.from('firmware').list(item.name, {
+            sortBy: { column: 'created_at', order: 'desc' },
+          });
+          if (!folderErr && folderFiles) {
+            for (const f of folderFiles) {
+              if (f.id) {
+                allFiles.push({ ...f, folder: item.name, name: `${item.name}/${f.name}`, metadata: f.metadata as Record<string, unknown> | null });
+              }
+            }
+          }
+        } else {
+          allFiles.push({ ...item, folder: '', metadata: item.metadata as Record<string, unknown> | null });
+        }
+      }
+
+      return allFiles;
     },
   });
 
