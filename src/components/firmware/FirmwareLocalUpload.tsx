@@ -96,7 +96,7 @@ const FirmwareLocalUpload = ({ chargePoints }: FirmwareLocalUploadProps) => {
       }
 
       setProgress(100);
-      toast.success(`Firmware "${file.name}" geüpload voor ${chargePoints?.find(cp => cp.id === selectedCp)?.name || selectedCp}`);
+      toast.success(`Firmware "${file.name}" geüpload${selectedCp ? ` voor ${chargePoints?.find(cp => cp.id === selectedCp)?.name || selectedCp}` : ''}`);
       setFile(null);
       qc.invalidateQueries({ queryKey: ['firmware-files'] });
       qc.invalidateQueries({ queryKey: ['firmware-updates'] });
