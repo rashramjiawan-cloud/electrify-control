@@ -64,6 +64,7 @@ const FirmwareFileDetailDialog = ({ open, onOpenChange, file, chargePoints }: Pr
   const [hexData, setHexData] = useState<string>('');
   const [hexLoading, setHexLoading] = useState(false);
   const [rawBytes, setRawBytes] = useState<Uint8Array | null>(null);
+  const [hexMode, setHexMode] = useState<'preview' | 'full'>('preview');
   const [aiAnalysis, setAiAnalysis] = useState<string>('');
   const [aiLoading, setAiLoading] = useState(false);
   const [hexDecode, setHexDecode] = useState<string>('');
@@ -112,24 +113,34 @@ const FirmwareFileDetailDialog = ({ open, onOpenChange, file, chargePoints }: Pr
       setCustomFollowUp('');
       setReplaceFile(null);
       setActiveTab('metadata');
+      setHexMode('preview');
     }
   }, [open]);
 
   // Auto-load hex when tab switches to hex
   useEffect(() => {
     if (activeTab === 'hex' && file && !hexData && !hexLoading) {
-      loadHex();
+      loadHex(hexMode);
     }
   }, [activeTab, file, hexData, hexLoading]);
 
-  const loadHex = useCallback(async () => {
-    if (!file || hexData) return;
+  // Reload when hexMode changes
+  useEffect(() => {
+    if (activeTab === 'hex' && file) {
+      loadHex(hexMode);
+    }
+  }, [hexMode]);
+
+  const loadHex = useCallback(async (mode: 'preview' | 'full') => {
+    if (!file) return;
     setHexLoading(true);
+    setHexData('');
+    setRawBytes(null);
     try {
       const { data, error } = await supabase.storage.from('firmware').download(file.name);
       if (error) throw error;
       const buffer = await data.arrayBuffer();
-      const bytes = new Uint8Array(buffer.slice(0, 512));
+      const bytes = new Uint8Array(mode === 'preview' ? buffer.slice(0, 512) : buffer);
       setRawBytes(bytes);
       setHexData(bytesToHex(bytes));
     } catch (err) {
@@ -137,7 +148,7 @@ const FirmwareFileDetailDialog = ({ open, onOpenChange, file, chargePoints }: Pr
     } finally {
       setHexLoading(false);
     }
-  }, [file, hexData]);
+  }, [file]);
 
   const runAiAnalysis = async () => {
     if (!file) return;
@@ -316,8 +327,22 @@ const FirmwareFileDetailDialog = ({ open, onOpenChange, file, chargePoints }: Pr
               </div>
             ) : hexData ? (
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground">Eerste 512 bytes van het bestand</p>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs text-muted-foreground">
+                      {hexMode === 'preview' ? 'Eerste 512 bytes' : `Volledig bestand (${fileSize ? formatBytes(fileSize) : '?'})`}
+                    </p>
+                    <div className="flex rounded-md border border-border overflow-hidden">
+                      <button
+                        className={`px-2 py-0.5 text-[10px] font-medium transition-colors ${hexMode === 'preview' ? 'bg-primary text-primary-foreground' : 'bg-muted/30 text-muted-foreground hover:bg-muted'}`}
+                        onClick={() => setHexMode('preview')}
+                      >512 bytes</button>
+                      <button
+                        className={`px-2 py-0.5 text-[10px] font-medium transition-colors ${hexMode === 'full' ? 'bg-primary text-primary-foreground' : 'bg-muted/30 text-muted-foreground hover:bg-muted'}`}
+                        onClick={() => setHexMode('full')}
+                      >Alles</button>
+                    </div>
+                  </div>
                   <Button
                     size="sm"
                     variant="outline"
