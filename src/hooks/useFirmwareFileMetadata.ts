@@ -6,6 +6,7 @@ export interface FirmwareFileMetadata {
   file_path: string;
   label: string | null;
   notes: string | null;
+  ai_decode: string | null;
   assigned_charge_point_id: string | null;
   created_at: string;
   updated_at: string;
