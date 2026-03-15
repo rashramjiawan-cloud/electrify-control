@@ -34,6 +34,7 @@ const iconMap: Record<string, LucideIcon> = {
   '/device-health': HeartPulse,
   '/klanten': Building2,
   '/projecten': FolderKanban,
+  '/ecclite': Activity,
 };
 
 const labelMap: Record<string, string> = {
@@ -59,9 +60,10 @@ const labelMap: Record<string, string> = {
   '/device-health': 'Device Health',
   '/klanten': 'Klanten',
   '/projecten': 'Projecten',
+  '/ecclite': 'ECClite Emulator',
 };
 
-const adminOnlyRoutes = new Set(['/simulator', '/gebruikers', '/klanten', '/projecten']);
+const adminOnlyRoutes = new Set(['/simulator', '/ecclite', '/gebruikers', '/klanten', '/projecten']);
 
 interface AppSidebarProps {
   open: boolean;
