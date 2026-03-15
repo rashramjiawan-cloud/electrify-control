@@ -107,7 +107,13 @@ const FirmwareEditor = () => {
   const [configLoading, setConfigLoading] = useState(false);
   const [configAnalysis, setConfigAnalysis] = useState('');
   const [extractedConfig, setExtractedConfig] = useState<{ parameters: { name: string; value: string; offset: string; size_bytes: number; type: string; description: string; editable: boolean; category: string }[] } | null>(null);
-  const [editedParams, setEditedParams] = useState<Record<string, string>>({});
+  const [editedParams, setEditedParams] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {};
+    KNOWN_CONFIG_PARAMS.forEach(p => { initial[p.name] = p.defaultValue; });
+    return initial;
+  });
+  const [aiMergedOffsets, setAiMergedOffsets] = useState<Record<string, { offset: string; type: string }>>({});
+  const [configFilter, setConfigFilter] = useState<string>('all');
 
   // Merge mode
   const [mergeFileA, setMergeFileA] = useState('');
@@ -340,11 +346,28 @@ const FirmwareEditor = () => {
       setConfigAnalysis(fnData.analysis || '');
       if (fnData.config?.parameters) {
         setExtractedConfig(fnData.config);
-        const initial: Record<string, string> = {};
-        fnData.config.parameters.forEach((p: { name: string; value: string }) => {
-          initial[p.name] = p.value;
+        // Merge AI values into editedParams and track offsets
+        const newOffsets: Record<string, { offset: string; type: string }> = {};
+        setEditedParams(prev => {
+          const merged = { ...prev };
+          fnData.config.parameters.forEach((p: { name: string; value: string; offset: string; type: string }) => {
+            // Try to match AI param name to known param
+            const matchKey = KNOWN_CONFIG_PARAMS.find(k =>
+              p.name.toLowerCase().includes(k.name.toLowerCase()) ||
+              k.name.toLowerCase().includes(p.name.toLowerCase().replace(/_/g, ''))
+            );
+            if (matchKey) {
+              merged[matchKey.name] = p.value;
+              newOffsets[matchKey.name] = { offset: p.offset, type: p.type };
+            }
+            // Always store under AI name too
+            merged[p.name] = p.value;
+            newOffsets[p.name] = { offset: p.offset, type: p.type };
+          });
+          return merged;
         });
-        setEditedParams(initial);
+        setAiMergedOffsets(prev => ({ ...prev, ...newOffsets }));
+        toast.success(`${fnData.config.parameters.length} parameters geëxtraheerd en gemerged`);
       }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Configuratie extractie mislukt');
@@ -352,6 +375,15 @@ const FirmwareEditor = () => {
       setConfigLoading(false);
     }
   };
+
+  // Get unique categories for filter
+  const allCategories = useMemo(() => {
+    const cats = new Set(KNOWN_CONFIG_PARAMS.map(p => p.category));
+    if (extractedConfig) {
+      extractedConfig.parameters.forEach(p => cats.add(p.category));
+    }
+    return ['all', ...Array.from(cats).sort()];
+  }, [extractedConfig]);
 
   // Merge analysis
   const runMergeAnalysis = async () => {
@@ -634,54 +666,35 @@ const FirmwareEditor = () => {
 
             {/* Config Extractor tab */}
             <TabsContent value="config" className="mt-4 space-y-4">
-              {/* Bekende OCPP configuratieparameters */}
+              {/* AI Extractie + Filter toolbar */}
               <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-                <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                  <Settings2 className="h-4 w-4 text-primary" />
-                  Bekende OCPP / EV-laadpaal configuratieparameters
-                </h4>
-                <p className="text-xs text-muted-foreground">
-                  Standaard configuratieparameters voor OCPP 1.6 laadpalen (Ecotap EVC/ECC). Gebruik de AI-extractie hieronder om de werkelijke waarden uit de firmware te lezen.
-                </p>
-                <div className="overflow-x-auto rounded-lg border border-border">
-                  <table className="w-full text-xs">
-                    <thead className="bg-muted/50">
-                      <tr>
-                        <th className="px-3 py-2 text-left text-muted-foreground font-medium">Parameter</th>
-                        <th className="px-3 py-2 text-left text-muted-foreground font-medium">Standaard</th>
-                        <th className="px-3 py-2 text-left text-muted-foreground font-medium">Categorie</th>
-                        <th className="px-3 py-2 text-left text-muted-foreground font-medium">Beschrijving</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {KNOWN_CONFIG_PARAMS.map((p, i) => (
-                        <tr key={i} className={`border-t border-border ${i % 2 === 0 ? 'bg-background' : 'bg-muted/20'}`}>
-                          <td className="px-3 py-2 font-mono font-medium text-foreground whitespace-nowrap">{p.name}</td>
-                          <td className="px-3 py-2 font-mono text-foreground">{p.defaultValue}</td>
-                          <td className="px-3 py-2">
-                            <Badge variant="secondary" className="text-[9px]">{p.category}</Badge>
-                          </td>
-                          <td className="px-3 py-2 text-muted-foreground max-w-[300px]">{p.description}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <Settings2 className="h-4 w-4 text-primary" />
+                    OCPP / EV-laadpaal configuratie
+                  </h4>
+                  <div className="flex items-center gap-2">
+                    <Select value={configFilter} onValueChange={setConfigFilter}>
+                      <SelectTrigger className="text-xs h-8 w-[140px]">
+                        <SelectValue placeholder="Filter..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allCategories.map(cat => (
+                          <SelectItem key={cat} value={cat}>
+                            <span className="text-xs">{cat === 'all' ? 'Alle categorieën' : cat}</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button onClick={runExtractConfig} disabled={configLoading || !editedBytes} size="sm" className="gap-1.5 text-xs h-8">
+                      <Brain className="h-3.5 w-3.5" />
+                      {configLoading ? 'Scannen...' : 'AI Scan firmware'}
+                    </Button>
+                  </div>
                 </div>
-              </div>
-
-              {/* AI Extractie */}
-              <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-                <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                  <Brain className="h-4 w-4 text-primary" />
-                  AI configuratie-extractie
-                </h4>
                 <p className="text-xs text-muted-foreground">
-                  Laat AI de werkelijke configuratiewaarden uit de geladen firmware binary extraheren en bewerkbaar maken.
+                  Alle bekende OCPP 1.6 parameters — bewerkbaar. Klik <strong>AI Scan firmware</strong> om werkelijke waarden uit de binary te lezen en automatisch in te vullen.
                 </p>
-                <Button onClick={runExtractConfig} disabled={configLoading || !editedBytes} className="gap-2">
-                  <Settings2 className="h-4 w-4" />
-                  {configLoading ? 'Extraheren...' : 'Extraheer uit firmware'}
-                </Button>
               </div>
 
               {configLoading && (
@@ -692,57 +705,97 @@ const FirmwareEditor = () => {
                 </div>
               )}
 
-              {extractedConfig && (
-                <div className="rounded-xl border border-border bg-card p-4 space-y-4">
-                  <h4 className="text-sm font-semibold text-foreground">Geëxtraheerde parameters</h4>
-                  <div className="overflow-x-auto rounded-lg border border-border">
-                    <table className="w-full text-xs">
-                      <thead className="bg-muted/50">
-                        <tr>
-                          <th className="px-3 py-2 text-left text-muted-foreground font-medium">Parameter</th>
-                          <th className="px-3 py-2 text-left text-muted-foreground font-medium">Waarde</th>
-                          <th className="px-3 py-2 text-left text-muted-foreground font-medium">Offset</th>
-                          <th className="px-3 py-2 text-left text-muted-foreground font-medium">Type</th>
-                          <th className="px-3 py-2 text-left text-muted-foreground font-medium">Categorie</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {extractedConfig.parameters.map((param, i) => (
-                          <tr key={i} className="border-t border-border">
+              {/* Geïntegreerde bewerkbare parametertabel */}
+              <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+                <div className="overflow-x-auto rounded-lg border border-border">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="px-3 py-2 text-left text-muted-foreground font-medium w-[200px]">Parameter</th>
+                        <th className="px-3 py-2 text-left text-muted-foreground font-medium w-[200px]">Waarde</th>
+                        <th className="px-3 py-2 text-left text-muted-foreground font-medium w-[100px]">Offset</th>
+                        <th className="px-3 py-2 text-left text-muted-foreground font-medium w-[80px]">Categorie</th>
+                        <th className="px-3 py-2 text-left text-muted-foreground font-medium">Beschrijving</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {KNOWN_CONFIG_PARAMS
+                        .filter(p => configFilter === 'all' || p.category === configFilter)
+                        .map((p, i) => {
+                          const hasAiValue = !!aiMergedOffsets[p.name];
+                          return (
+                            <tr key={p.name} className={`border-t border-border transition-colors ${i % 2 === 0 ? 'bg-background' : 'bg-muted/20'} ${hasAiValue ? 'ring-1 ring-inset ring-primary/20' : ''}`}>
+                              <td className="px-3 py-2 font-mono font-medium text-foreground whitespace-nowrap">
+                                <div className="flex items-center gap-1.5">
+                                  {p.name}
+                                  {hasAiValue && (
+                                    <Badge variant="default" className="text-[8px] px-1 py-0 h-4">AI</Badge>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-3 py-2">
+                                <Input
+                                  value={editedParams[p.name] ?? p.defaultValue}
+                                  onChange={e => setEditedParams(prev => ({ ...prev, [p.name]: e.target.value }))}
+                                  className={`text-xs h-7 font-mono ${p.name === 'CentralSystemUrl' ? 'w-64' : 'w-36'}`}
+                                  placeholder={p.defaultValue || 'Niet ingesteld'}
+                                />
+                              </td>
+                              <td className="px-3 py-2 font-mono text-muted-foreground text-[10px]">
+                                {aiMergedOffsets[p.name]?.offset || '—'}
+                              </td>
+                              <td className="px-3 py-2">
+                                <Badge variant="secondary" className="text-[9px]">{p.category}</Badge>
+                              </td>
+                              <td className="px-3 py-2 text-muted-foreground">{p.description}</td>
+                            </tr>
+                          );
+                        })}
+
+                      {/* Extra AI-gevonden parameters die niet in de bekende lijst staan */}
+                      {extractedConfig?.parameters
+                        .filter(p => {
+                          const isKnown = KNOWN_CONFIG_PARAMS.some(k =>
+                            p.name.toLowerCase().includes(k.name.toLowerCase()) ||
+                            k.name.toLowerCase().includes(p.name.toLowerCase().replace(/_/g, ''))
+                          );
+                          return !isKnown && (configFilter === 'all' || p.category === configFilter);
+                        })
+                        .map((param, i) => (
+                          <tr key={`ai-${i}`} className={`border-t border-border bg-primary/5`}>
                             <td className="px-3 py-2">
-                              <div>
-                                <div className="font-medium text-foreground">{param.name}</div>
-                                <div className="text-[10px] text-muted-foreground">{param.description}</div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono font-medium text-foreground">{param.name}</span>
+                                <Badge variant="default" className="text-[8px] px-1 py-0 h-4">AI</Badge>
                               </div>
+                              <div className="text-[10px] text-muted-foreground mt-0.5">{param.description}</div>
                             </td>
                             <td className="px-3 py-2">
                               {param.editable ? (
                                 <Input
-                                  value={editedParams[param.name] || param.value}
+                                  value={editedParams[param.name] ?? param.value}
                                   onChange={e => setEditedParams(prev => ({ ...prev, [param.name]: e.target.value }))}
-                                  className="text-xs h-7 w-28 font-mono"
+                                  className="text-xs h-7 w-36 font-mono"
                                 />
                               ) : (
-                                <span className="font-mono text-foreground">{param.value}</span>
+                                <span className="font-mono text-foreground text-[11px]">{param.value}</span>
                               )}
                             </td>
-                            <td className="px-3 py-2 font-mono text-muted-foreground">{param.offset}</td>
-                            <td className="px-3 py-2">
-                              <Badge variant="outline" className="text-[9px]">{param.type}</Badge>
-                            </td>
+                            <td className="px-3 py-2 font-mono text-muted-foreground text-[10px]">{param.offset}</td>
                             <td className="px-3 py-2">
                               <Badge variant="secondary" className="text-[9px]">{param.category}</Badge>
                             </td>
+                            <td className="px-3 py-2 text-muted-foreground">{param.description}</td>
                           </tr>
                         ))}
-                      </tbody>
-                    </table>
-                  </div>
+                    </tbody>
+                  </table>
                 </div>
-              )}
+              </div>
 
-              {configAnalysis && !extractedConfig && (
+              {configAnalysis && (
                 <div className="rounded-xl border border-border bg-card p-4">
+                  <h4 className="text-sm font-semibold text-foreground mb-2">AI Analyse</h4>
                   <div className="prose prose-sm dark:prose-invert max-w-none text-sm">
                     <ReactMarkdown>{configAnalysis}</ReactMarkdown>
                   </div>
