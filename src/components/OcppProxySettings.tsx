@@ -292,16 +292,19 @@ const AddBackendDialog = () => {
             )}
           </div>
 
-          {form.backend_type === 'http_webhook' && (
-            <div className="space-y-1.5">
-              <Label className="text-xs">Authorization header (optioneel)</Label>
-              <Input
-                placeholder="Bearer sk-..."
-                value={form.auth_header}
-                onChange={(e) => setForm({ ...form, auth_header: e.target.value })}
-              />
-            </div>
-          )}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Authorization header (optioneel)</Label>
+            <Input
+              placeholder={form.backend_type === 'ocpp_ws' ? 'Basic dXNlcjpwYXNz...' : 'Bearer sk-...'}
+              value={form.auth_header}
+              onChange={(e) => setForm({ ...form, auth_header: e.target.value })}
+            />
+            {form.backend_type === 'ocpp_ws' && (
+              <p className="text-[10px] text-muted-foreground">
+                Wordt als HTTP header meegestuurd bij het opzetten van de WebSocket-verbinding
+              </p>
+            )}
+          </div>
 
           <div className="flex items-center justify-between rounded-lg border border-border p-3">
             <div>
