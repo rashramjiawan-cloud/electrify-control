@@ -24,6 +24,11 @@ export interface ControllerState {
   config: Record<string, string>;
 }
 
+export type OcppSendFn = (
+  action: string,
+  payload: Record<string, unknown>
+) => Promise<unknown>;
+
 const DEFAULT_CONFIG: Record<string, string> = {
   'chg_RatedCurrent': '16,16',
   'chg_StationMaxCurrent': '25',
@@ -52,6 +57,10 @@ const DEFAULT_CONFIG: Record<string, string> = {
 
 const ECCliteEmulator = () => {
   const logCounterRef = useRef(0);
+  const wsRef = useRef<WebSocket | null>(null);
+  const pendingRef = useRef<Map<string, { resolve: (v: unknown) => void; reject: (e: Error) => void }>>(new Map());
+  const seqRef = useRef(3200);
+
   const [logs, setLogs] = useState<ECCliteLogEntry[]>([]);
   const [controller, setController] = useState<ControllerState>({
     connected: false,
@@ -82,6 +91,149 @@ const ECCliteEmulator = () => {
     }));
   }, []);
 
+  // Send an OCPP CALL [2, uniqueId, action, payload] and await the response
+  const sendOcpp: OcppSendFn = useCallback(async (action, payload) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      throw new Error('WebSocket not connected');
+    }
+
+    seqRef.current++;
+    const uniqueId = String(seqRef.current);
+    const message = [2, uniqueId, action, payload];
+    const raw = JSON.stringify(message);
+
+    addLog(`OCPP OUTREQ[${action}]`, 'blue');
+    addLog(`OCPP OUT:[0][${raw.length}]---------`, 'blue');
+    addLog(raw, 'blue');
+    addLog(`END--------------`, 'blue');
+
+    ws.send(raw);
+
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        pendingRef.current.delete(uniqueId);
+        reject(new Error(`OCPP timeout for ${action} (${uniqueId})`));
+      }, 15000);
+
+      pendingRef.current.set(uniqueId, {
+        resolve: (v) => {
+          clearTimeout(timeout);
+          resolve(v);
+        },
+        reject: (e) => {
+          clearTimeout(timeout);
+          reject(e);
+        },
+      });
+    });
+  }, [addLog]);
+
+  // Handle incoming WS messages
+  const handleWsMessage = useCallback((event: MessageEvent) => {
+    const raw = typeof event.data === 'string' ? event.data : '';
+    addLog(`OCPP INPUT:[${raw.length}]---------`, 'blue');
+    addLog(raw, 'green');
+    addLog(`END--------------`, 'blue');
+
+    try {
+      const msg = JSON.parse(raw);
+      if (!Array.isArray(msg)) return;
+
+      const typeId = msg[0];
+      const uniqueId = String(msg[1]);
+
+      if (typeId === 3) {
+        // CALLRESULT
+        addLog(`OCPP RESP [${uniqueId}] OK`, 'green');
+        const pending = pendingRef.current.get(uniqueId);
+        if (pending) {
+          pendingRef.current.delete(uniqueId);
+          pending.resolve(msg[2]);
+        }
+      } else if (typeId === 4) {
+        // CALLERROR
+        addLog(`OCPP RESP [${uniqueId}] ERROR: ${msg[2]} - ${msg[3]}`, 'red');
+        const pending = pendingRef.current.get(uniqueId);
+        if (pending) {
+          pendingRef.current.delete(uniqueId);
+          pending.reject(new Error(`${msg[2]}: ${msg[3]}`));
+        }
+      } else if (typeId === 2) {
+        // Incoming CALL from CSMS (e.g. GetConfiguration, RemoteStartTransaction)
+        const action = msg[2];
+        const payload = msg[3] || {};
+        addLog(`OCPP INBOUND REQ [${action}] from CSMS`, 'yellow');
+        handleIncomingCall(uniqueId, action, payload);
+      }
+    } catch {
+      addLog(`Failed to parse OCPP message`, 'red');
+    }
+  }, [addLog]);
+
+  // Handle incoming CALL from CSMS
+  const handleIncomingCall = useCallback((uniqueId: string, action: string, payload: Record<string, unknown>) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+    let response: Record<string, unknown> = {};
+
+    switch (action) {
+      case 'GetConfiguration': {
+        const keys = (payload.key as string[]) || [];
+        const configKeys = keys.length > 0 ? keys : Object.keys(controller.config);
+        const configurationKey = configKeys
+          .filter(k => controller.config[k] !== undefined)
+          .map(k => ({ key: k, readonly: false, value: controller.config[k] }));
+        const unknownKey = keys.filter(k => controller.config[k] === undefined);
+        response = { configurationKey, unknownKey };
+        addLog(`Responding to GetConfiguration with ${configurationKey.length} keys`, 'blue');
+        break;
+      }
+      case 'ChangeConfiguration': {
+        const key = payload.key as string;
+        const value = payload.value as string;
+        if (key && value !== undefined) {
+          updateConfig(key, value);
+          response = { status: 'Accepted' };
+          addLog(`Configuration changed: ${key} = ${value}`, 'green');
+        } else {
+          response = { status: 'Rejected' };
+        }
+        break;
+      }
+      case 'Reset': {
+        response = { status: 'Accepted' };
+        addLog(`Reset requested: ${payload.type || 'Soft'}`, 'yellow');
+        break;
+      }
+      case 'RemoteStartTransaction': {
+        response = { status: 'Accepted' };
+        addLog(`RemoteStart accepted for tag ${payload.idTag}`, 'green');
+        break;
+      }
+      case 'RemoteStopTransaction': {
+        response = { status: 'Accepted' };
+        addLog(`RemoteStop accepted for txId ${payload.transactionId}`, 'yellow');
+        break;
+      }
+      case 'TriggerMessage': {
+        response = { status: 'Accepted' };
+        addLog(`TriggerMessage: ${payload.requestedMessage}`, 'blue');
+        break;
+      }
+      default: {
+        response = {};
+        addLog(`Unknown CSMS action: ${action}, responding empty`, 'yellow');
+      }
+    }
+
+    const resp = JSON.stringify([3, uniqueId, response]);
+    addLog(`OCPP OUT RESP:[${resp.length}]---------`, 'blue');
+    addLog(resp, 'blue');
+    ws.send(resp);
+  }, [controller.config, addLog, updateConfig]);
+
   return (
     <AppLayout title="ECClite Emulator" subtitle="Ecotap Controller Configuration Lite – EVC4.x / EVC5.x / ECC.x (V32Rx)">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -111,6 +263,9 @@ const ECCliteEmulator = () => {
                 controller={controller}
                 setController={setController}
                 addLog={addLog}
+                wsRef={wsRef}
+                onWsMessage={handleWsMessage}
+                sendOcpp={sendOcpp}
               />
             </TabsContent>
             <TabsContent value="firmware">
@@ -128,7 +283,11 @@ const ECCliteEmulator = () => {
               />
             </TabsContent>
             <TabsContent value="debug">
-              <ECCliteDebugLog controller={controller} addLog={addLog} />
+              <ECCliteDebugLog
+                controller={controller}
+                addLog={addLog}
+                sendOcpp={sendOcpp}
+              />
             </TabsContent>
           </Tabs>
         </div>
