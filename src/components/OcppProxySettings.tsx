@@ -226,11 +226,12 @@ const AddBackendDialog = () => {
         url: form.url,
         auth_header: form.auth_header || null,
         allow_commands: form.allow_commands,
+        charge_point_filter: form.charge_point_filter,
       },
       {
         onSuccess: () => {
           setOpen(false);
-          setForm({ name: '', backend_type: 'ocpp_ws', url: '', auth_header: '', allow_commands: false });
+          setForm({ name: '', backend_type: 'ocpp_ws', url: '', auth_header: '', allow_commands: false, charge_point_filter: [] });
         },
       }
     );
