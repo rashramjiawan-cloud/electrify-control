@@ -4,10 +4,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import { Upload, File, CheckCircle2, XCircle, HardDrive, Trash2 } from 'lucide-react';
+import { Upload, File, CheckCircle2, XCircle, HardDrive, Trash2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import FirmwareFileDetailDialog from './FirmwareFileDetailDialog';
 
 interface ChargePoint {
   id: string;
