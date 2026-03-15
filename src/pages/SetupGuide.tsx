@@ -742,6 +742,41 @@ sudo certbot --nginx -d ocpp.jouwdomein.nl`} />
             </p>
           </div>
 
+          {/* Keuzehulp TLS-alternatieven */}
+          <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3 mt-2">
+            <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">
+              🧭 Welke oplossing past bij jouw situatie?
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="rounded-md border border-primary/30 bg-primary/5 p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">🔀</span>
+                  <span className="text-xs font-semibold text-foreground">Optie 1: WS→WSS Gateway</span>
+                </div>
+                <ul className="text-[11px] text-muted-foreground space-y-1 list-disc list-inside">
+                  <li>✅ <strong className="text-foreground">Bidirectioneel</strong> — remote commands werken (Reset, RemoteStart, SetChargingProfile)</li>
+                  <li>✅ Volledige OCPP 1.6J ondersteuning</li>
+                  <li>✅ Realtime WebSocket-verbinding</li>
+                  <li>⚠️ Vereist permanente draaiende Node.js service</li>
+                </ul>
+                <p className="text-[10px] text-primary font-medium">👉 Kies dit als je laadpalen op afstand wilt aansturen</p>
+              </div>
+              <div className="rounded-md border border-border bg-background p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">📡</span>
+                  <span className="text-xs font-semibold text-foreground">Optie 2: Ingest API Forwarder</span>
+                </div>
+                <ul className="text-[11px] text-muted-foreground space-y-1 list-disc list-inside">
+                  <li>✅ <strong className="text-foreground">Eenvoudiger</strong> — geen permanente WS-verbinding nodig</li>
+                  <li>✅ HTTP POST naar de Ingest API</li>
+                  <li>✅ Geschikt voor monitoring &amp; data-ingest</li>
+                  <li>⚠️ Geen remote commands mogelijk (alleen data ontvangen)</li>
+                </ul>
+                <p className="text-[10px] text-muted-foreground font-medium">👉 Kies dit als je alleen data wilt inlezen (status, meterstanden, transacties)</p>
+              </div>
+            </div>
+          </div>
+
           {/* WS→WSS Proxy */}
           <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-3 mt-2">
             <div className="flex items-center justify-between">
