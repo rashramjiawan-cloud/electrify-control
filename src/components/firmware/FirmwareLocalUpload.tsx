@@ -266,6 +266,13 @@ const FirmwareLocalUpload = ({ chargePoints }: FirmwareLocalUploadProps) => {
           </div>
         )}
       </div>
+
+      <FirmwareFileDetailDialog
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        file={detailFile}
+        chargePoints={chargePoints}
+      />
     </div>
   );
 };
