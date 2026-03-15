@@ -91,6 +91,9 @@ const Instellingen = () => {
           </div>
         </div>
 
+        {/* OCPP Proxy */}
+        <OcppProxySettings />
+
         {/* MQTT Connections */}
         <MqttSettingsPanel />
 
