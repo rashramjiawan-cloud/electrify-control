@@ -6,6 +6,7 @@ import ECCliteFirmware from '@/components/ecclite/ECCliteFirmware';
 import ECCliteConfig from '@/components/ecclite/ECCliteConfig';
 import ECCliteDebugLog from '@/components/ecclite/ECCliteDebugLog';
 import ECCliteSerial from '@/components/ecclite/ECCliteSerial';
+import ECCliteSniffer from '@/components/ecclite/ECCliteSniffer';
 import { useState, useCallback, useRef } from 'react';
 
 export interface ECCliteLogEntry {
