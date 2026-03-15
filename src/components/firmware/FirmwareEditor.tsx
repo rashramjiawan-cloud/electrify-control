@@ -324,7 +324,7 @@ const FirmwareEditor = () => {
     if (!editedBytes || !selectedFile) return;
     setSaving(true);
     try {
-      const blob = new Blob([editedBytes.buffer], { type: 'application/octet-stream' });
+      const blob = new Blob([editedBytes.buffer as ArrayBuffer], { type: 'application/octet-stream' });
       const name = selectedFile.split('/').pop() || 'firmware.bin';
       const folder = selectedFile.includes('/') ? selectedFile.split('/').slice(0, -1).join('/') : 'general';
       const newPath = `${folder}/patched_${Date.now()}_${name}`;
