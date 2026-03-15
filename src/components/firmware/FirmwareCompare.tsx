@@ -392,9 +392,39 @@ const FirmwareCompare = () => {
 
           {aiAnalysis && !aiLoading && (
             <div className="rounded-xl border border-primary/20 bg-primary/5 p-6">
-              <div className="flex items-center gap-2 mb-3">
-                <Brain className="h-4 w-4 text-primary" />
-                <h4 className="text-sm font-semibold text-primary">AI Vergelijkingsanalyse</h4>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Brain className="h-4 w-4 text-primary" />
+                  <h4 className="text-sm font-semibold text-primary">AI Vergelijkingsanalyse</h4>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 text-xs h-7"
+                  disabled={upsertMeta.isPending || saved}
+                  onClick={async () => {
+                    const compareReport = `## Vergelijking: ${getLabel(fileA)} → ${getLabel(fileB)}\n\nIdentiek: ${diffResult?.identical} | Gewijzigd: ${diffResult?.changed} | Toegevoegd: ${diffResult?.added} | Verwijderd: ${diffResult?.removed}\nOvereenkomst: ${diffResult ? ((diffResult.identical / (diffResult.identical + totalChanges)) * 100).toFixed(1) : 0}%\n\n${aiAnalysis}`;
+                    try {
+                      const existingMeta = allMetadata?.find(m => m.file_path === fileB);
+                      await upsertMeta.mutateAsync({
+                        file_path: fileB,
+                        label: existingMeta?.label || null,
+                        notes: existingMeta?.notes
+                          ? `${existingMeta.notes}\n\n---\n[Vergelijking met ${getLabel(fileA)}]`
+                          : `Vergelijking met ${getLabel(fileA)}`,
+                        ai_decode: compareReport,
+                        assigned_charge_point_id: existingMeta?.assigned_charge_point_id || null,
+                      });
+                      setSaved(true);
+                      toast.success('Vergelijkingsanalyse opgeslagen bij nieuw bestand');
+                    } catch {
+                      toast.error('Opslaan mislukt');
+                    }
+                  }}
+                >
+                  <Save className="h-3 w-3" />
+                  {saved ? 'Opgeslagen ✓' : 'Opslaan'}
+                </Button>
               </div>
               <div className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
                 {aiAnalysis}
