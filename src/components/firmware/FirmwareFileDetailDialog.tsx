@@ -60,6 +60,7 @@ function bytesToHex(bytes: Uint8Array): string {
 }
 
 const FirmwareFileDetailDialog = ({ open, onOpenChange, file, chargePoints }: Props) => {
+  const [activeTab, setActiveTab] = useState('metadata');
   const [hexData, setHexData] = useState<string>('');
   const [hexLoading, setHexLoading] = useState(false);
   const [rawBytes, setRawBytes] = useState<Uint8Array | null>(null);
