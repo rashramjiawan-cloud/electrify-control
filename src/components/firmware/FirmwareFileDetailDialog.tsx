@@ -113,6 +113,7 @@ const FirmwareFileDetailDialog = ({ open, onOpenChange, file, chargePoints }: Pr
       setCustomFollowUp('');
       setReplaceFile(null);
       setActiveTab('metadata');
+      setHexMode('preview');
     }
   }, [open]);
 
