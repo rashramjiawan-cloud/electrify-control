@@ -1278,6 +1278,11 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ─── Proxy fan-out: forward to all enabled backends (fire-and-forget) ───
+    proxyFanOut(chargePointId, action, payload || {}, response).catch(err => {
+      console.error("[PROXY] Fan-out error:", err);
+    });
+
     // Return OCPP CallResult format
     const ocppResponse = [CALLRESULT, body.uniqueId || "0", response];
 
