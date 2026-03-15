@@ -4,10 +4,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import { Upload, File, CheckCircle2, XCircle, HardDrive, Trash2, Search } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Upload, File, CheckCircle2, XCircle, HardDrive, Trash2, Search, Tag, StickyNote, Cpu, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAllFirmwareFileMetadata } from '@/hooks/useFirmwareFileMetadata';
 import FirmwareFileDetailDialog from './FirmwareFileDetailDialog';
 
 interface ChargePoint {
@@ -28,6 +30,7 @@ const FirmwareLocalUpload = ({ chargePoints }: FirmwareLocalUploadProps) => {
   const qc = useQueryClient();
   const [detailFile, setDetailFile] = useState<any>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const { data: allMetadata } = useAllFirmwareFileMetadata();
 
   const { data: uploadedFiles, isLoading: filesLoading } = useQuery({
     queryKey: ['firmware-files'],
@@ -248,7 +251,12 @@ const FirmwareLocalUpload = ({ chargePoints }: FirmwareLocalUploadProps) => {
 
       {/* Uploaded files list */}
       <div className="rounded-xl border border-border bg-card p-6">
-        <h3 className="text-sm font-semibold text-foreground mb-4">Opgeslagen firmware bestanden</h3>
+        <h3 className="text-sm font-semibold text-foreground mb-4">
+          Opgeslagen firmware bestanden
+          {uploadedFiles && uploadedFiles.length > 0 && (
+            <Badge variant="secondary" className="ml-2">{uploadedFiles.length}</Badge>
+          )}
+        </h3>
         {filesLoading ? (
           <p className="text-sm text-muted-foreground">Laden...</p>
         ) : !uploadedFiles || uploadedFiles.length === 0 ? (
@@ -258,31 +266,70 @@ const FirmwareLocalUpload = ({ chargePoints }: FirmwareLocalUploadProps) => {
           </div>
         ) : (
           <div className="space-y-2">
-            {uploadedFiles.map(f => (
-              <div key={f.id} className="flex items-center justify-between rounded-lg border border-border bg-muted/20 px-4 py-3 cursor-pointer hover:bg-muted/40 transition-colors" onClick={() => { setDetailFile(f); setDetailOpen(true); }}>
-                <div className="flex items-center gap-3">
-                  <File className="h-4 w-4 text-primary" />
-                  <div>
-                    <p className="text-sm font-medium text-foreground font-mono">{f.name.split('/').pop()}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {f.metadata && typeof f.metadata === 'object' && 'size' in f.metadata
-                        ? formatFileSize(f.metadata.size as number)
-                        : '—'}{' '}
-                      · {formatDate(f.created_at)}
-                      {('folder' in f && f.folder) ? ` · 📁 ${f.folder}` : ''}
-                    </p>
+            {uploadedFiles.map(f => {
+              const meta = allMetadata?.find(m => m.file_path === f.name);
+              const cpName = meta?.assigned_charge_point_id
+                ? chargePoints?.find(cp => cp.id === meta.assigned_charge_point_id)?.name || meta.assigned_charge_point_id
+                : null;
+
+              return (
+                <div key={f.id} className="flex items-center justify-between rounded-lg border border-border bg-muted/20 px-4 py-3 cursor-pointer hover:bg-muted/40 transition-colors" onClick={() => { setDetailFile(f); setDetailOpen(true); }}>
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <File className="h-4 w-4 text-primary shrink-0" />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-medium text-foreground font-mono truncate">{f.name.split('/').pop()}</p>
+                        {meta?.label && (
+                          <Badge variant="secondary" className="gap-1 text-[10px]">
+                            <Tag className="h-2.5 w-2.5" />
+                            {meta.label}
+                          </Badge>
+                        )}
+                        {cpName && (
+                          <Badge variant="outline" className="gap-1 text-[10px]">
+                            <Cpu className="h-2.5 w-2.5" />
+                            {cpName}
+                          </Badge>
+                        )}
+                        {meta?.ai_decode && (
+                          <Badge variant="default" className="gap-1 text-[10px] bg-primary/10 text-primary border-primary/20">
+                            AI
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        {f.metadata && typeof f.metadata === 'object' && 'size' in f.metadata
+                          ? formatFileSize(f.metadata.size as number)
+                          : '—'}{' '}
+                        · {formatDate(f.created_at)}
+                        {('folder' in f && f.folder) ? ` · 📁 ${f.folder}` : ''}
+                      </p>
+                      {meta?.notes && (
+                        <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1 truncate max-w-[400px]">
+                          <StickyNote className="h-2.5 w-2.5 shrink-0" />
+                          {meta.notes}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setDetailFile(f); setDetailOpen(true); }}>
+                      <Search className="h-3.5 w-3.5 text-primary" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={async (e) => {
+                      e.stopPropagation();
+                      const { data } = await supabase.storage.from('firmware').createSignedUrl(f.name, 60);
+                      if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+                    }}>
+                      <Download className="h-3.5 w-3.5 text-muted-foreground" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleDelete(f.name); }}>
+                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                    </Button>
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setDetailFile(f); setDetailOpen(true); }}>
-                    <Search className="h-3.5 w-3.5 text-primary" />
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleDelete(f.name); }}>
-                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
