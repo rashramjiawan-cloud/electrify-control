@@ -4,10 +4,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Copy, Check, Plus, Trash2, Network, Globe, Webhook, ArrowLeftRight, Shield } from 'lucide-react';
+import { Copy, Check, Plus, Trash2, Network, Globe, Webhook, ArrowLeftRight, Shield, Filter } from 'lucide-react';
 import {
   useOcppProxyBackends,
   useCreateProxyBackend,
@@ -15,6 +16,7 @@ import {
   useDeleteProxyBackend,
   OcppProxyBackend,
 } from '@/hooks/useOcppProxyBackends';
+import { useChargePoints } from '@/hooks/useChargePoints';
 
 const statusColors: Record<string, string> = {
   connected: 'bg-green-500/10 text-green-600 border-green-500/20',
