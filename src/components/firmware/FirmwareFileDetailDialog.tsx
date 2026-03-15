@@ -325,12 +325,24 @@ const FirmwareFileDetailDialog = ({ open, onOpenChange, file, chargePoints }: Pr
                       if (!file) return;
                       setHexDecodeLoading(true);
                       setHexDecode('');
+                      setDecodeNextSteps([]);
+                      setDecodeHistory([]);
+                      setDecodeConversation([]);
                       try {
                         const { data: fnData, error: fnError } = await supabase.functions.invoke('analyze-firmware', {
                           body: { fileName: file.name, fileSize, hexPreview: hexData, mode: 'decode' },
                         });
                         if (fnError) throw fnError;
-                        setHexDecode(fnData.analysis || 'Geen decodering beschikbaar.');
+                        const analysis = fnData.analysis || 'Geen decodering beschikbaar.';
+                        setHexDecode(analysis);
+                        setDecodeNextSteps(fnData.nextSteps || []);
+                        setDecodeHistory([
+                          { role: 'user', content: `Decodeer hex dump van ${file.name}` },
+                          { role: 'assistant', content: analysis },
+                        ]);
+                        setDecodeConversation([
+                          { role: 'assistant', text: analysis },
+                        ]);
                       } catch (err: unknown) {
                         const msg = err instanceof Error ? err.message : 'Decodering mislukt';
                         toast.error(msg);
@@ -343,10 +355,10 @@ const FirmwareFileDetailDialog = ({ open, onOpenChange, file, chargePoints }: Pr
                     className="gap-1.5 text-xs"
                   >
                     <Brain className="h-3.5 w-3.5" />
-                    {hexDecodeLoading ? 'Decoderen...' : 'Decodeer met AI'}
+                    {hexDecodeLoading ? 'Decoderen...' : decodeConversation.length > 0 ? 'Opnieuw analyseren' : 'Decodeer met AI'}
                   </Button>
                 </div>
-                <pre className="rounded-lg border border-border bg-muted/30 p-4 text-[11px] font-mono text-foreground overflow-x-auto max-h-[350px] overflow-y-auto leading-relaxed">
+                <pre className="rounded-lg border border-border bg-muted/30 p-4 text-[11px] font-mono text-foreground overflow-x-auto max-h-[250px] overflow-y-auto leading-relaxed">
                   {hexData}
                 </pre>
                 {hexDecodeLoading && (
@@ -356,37 +368,208 @@ const FirmwareFileDetailDialog = ({ open, onOpenChange, file, chargePoints }: Pr
                     <Skeleton className="h-4 w-2/3" />
                   </div>
                 )}
-                {hexDecode && (
-                  <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Brain className="h-4 w-4 text-primary" />
-                        <span className="text-xs font-semibold text-primary">AI Hex Decodering</span>
+
+                {/* Interactive conversation */}
+                {decodeConversation.length > 0 && (
+                  <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                    {decodeConversation.map((msg, i) => (
+                      <div key={i} className={`rounded-lg border p-4 text-sm whitespace-pre-wrap leading-relaxed ${
+                        msg.role === 'assistant'
+                          ? 'border-primary/20 bg-primary/5'
+                          : 'border-accent bg-accent/30 ml-8'
+                      }`}>
+                        {msg.role === 'assistant' && i === 0 && (
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <Brain className="h-4 w-4 text-primary" />
+                              <span className="text-xs font-semibold text-primary">AI Hex Decodering</span>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="gap-1.5 text-xs h-7"
+                              onClick={async () => {
+                                const fullText = decodeConversation
+                                  .map(m => m.role === 'assistant' ? m.text : `> ${m.text}`)
+                                  .join('\n\n---\n\n');
+                                try {
+                                  await upsertMeta.mutateAsync({
+                                    file_path: filePath,
+                                    label: label || null,
+                                    notes: notes || null,
+                                    ai_decode: fullText || null,
+                                    assigned_charge_point_id: assignedCp || null,
+                                  });
+                                  toast.success('Volledige AI analyse opgeslagen');
+                                } catch {
+                                  toast.error('Opslaan mislukt');
+                                }
+                              }}
+                            >
+                              <Save className="h-3 w-3" />
+                              Opslaan
+                            </Button>
+                          </div>
+                        )}
+                        {msg.role === 'user' && (
+                          <div className="flex items-center gap-2 mb-1">
+                            <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="text-xs font-semibold text-muted-foreground">Vervolgvraag</span>
+                          </div>
+                        )}
+                        {msg.role === 'assistant' && i > 0 && (
+                          <div className="flex items-center gap-2 mb-1">
+                            <Brain className="h-3.5 w-3.5 text-primary" />
+                            <span className="text-xs font-semibold text-primary">AI Antwoord</span>
+                          </div>
+                        )}
+                        <div className="text-foreground">{msg.text}</div>
                       </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="gap-1.5 text-xs h-7"
-                        onClick={async () => {
-                          try {
-                            await upsertMeta.mutateAsync({
-                              file_path: filePath,
-                              label: label || null,
-                              notes: notes || null,
-                              ai_decode: hexDecode || null,
-                              assigned_charge_point_id: assignedCp || null,
-                            });
-                            toast.success('AI decodering opgeslagen');
-                          } catch {
-                            toast.error('Opslaan mislukt');
-                          }
-                        }}
-                      >
-                        <Save className="h-3 w-3" />
-                        Opslaan
-                      </Button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Next steps buttons */}
+                {decodeNextSteps.length > 0 && !hexDecodeLoading && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Volgende stappen</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {decodeNextSteps.map((step, i) => (
+                        <Button
+                          key={i}
+                          variant="outline"
+                          size="sm"
+                          className="h-auto py-2.5 px-3 justify-start text-left gap-2 whitespace-normal"
+                          disabled={hexDecodeLoading}
+                          onClick={async () => {
+                            if (!file) return;
+                            setHexDecodeLoading(true);
+                            const question = `${step.title}: ${step.description}`;
+                            setDecodeConversation(prev => [...prev, { role: 'user', text: question }]);
+                            try {
+                              const newHistory = [
+                                ...decodeHistory,
+                                { role: 'user', content: question },
+                              ];
+                              const { data: fnData, error: fnError } = await supabase.functions.invoke('analyze-firmware', {
+                                body: {
+                                  fileName: file.name,
+                                  fileSize,
+                                  hexPreview: hexData,
+                                  mode: 'followup',
+                                  followUp: question,
+                                  conversationHistory: newHistory,
+                                },
+                              });
+                              if (fnError) throw fnError;
+                              const answer = fnData.analysis || 'Geen antwoord.';
+                              setDecodeConversation(prev => [...prev, { role: 'assistant', text: answer }]);
+                              setDecodeHistory([...newHistory, { role: 'assistant', content: answer }]);
+                              setDecodeNextSteps(fnData.nextSteps || []);
+                              setHexDecode(prev => prev + '\n\n---\n\n' + answer);
+                            } catch (err: unknown) {
+                              const msg = err instanceof Error ? err.message : 'Vervolgvraag mislukt';
+                              toast.error(msg);
+                              setDecodeConversation(prev => [...prev, { role: 'assistant', text: `Fout: ${msg}` }]);
+                            } finally {
+                              setHexDecodeLoading(false);
+                            }
+                          }}
+                        >
+                          <ArrowRight className="h-3.5 w-3.5 shrink-0 text-primary" />
+                          <div>
+                            <div className="text-xs font-semibold">{step.title}</div>
+                            <div className="text-[11px] text-muted-foreground font-normal">{step.description}</div>
+                          </div>
+                        </Button>
+                      ))}
                     </div>
-                    {hexDecode}
+                  </div>
+                )}
+
+                {/* Custom follow-up input */}
+                {decodeConversation.length > 0 && !hexDecodeLoading && (
+                  <div className="flex gap-2">
+                    <Input
+                      value={customFollowUp}
+                      onChange={e => setCustomFollowUp(e.target.value)}
+                      placeholder="Stel een eigen vervolgvraag..."
+                      className="text-xs h-9"
+                      onKeyDown={async (e) => {
+                        if (e.key === 'Enter' && customFollowUp.trim() && file) {
+                          e.preventDefault();
+                          const question = customFollowUp.trim();
+                          setCustomFollowUp('');
+                          setHexDecodeLoading(true);
+                          setDecodeConversation(prev => [...prev, { role: 'user', text: question }]);
+                          try {
+                            const newHistory = [...decodeHistory, { role: 'user', content: question }];
+                            const { data: fnData, error: fnError } = await supabase.functions.invoke('analyze-firmware', {
+                              body: {
+                                fileName: file.name,
+                                fileSize,
+                                hexPreview: hexData,
+                                mode: 'followup',
+                                followUp: question,
+                                conversationHistory: newHistory,
+                              },
+                            });
+                            if (fnError) throw fnError;
+                            const answer = fnData.analysis || 'Geen antwoord.';
+                            setDecodeConversation(prev => [...prev, { role: 'assistant', text: answer }]);
+                            setDecodeHistory([...newHistory, { role: 'assistant', content: answer }]);
+                            setDecodeNextSteps(fnData.nextSteps || []);
+                            setHexDecode(prev => prev + '\n\n---\n\n' + answer);
+                          } catch (err: unknown) {
+                            const msg = err instanceof Error ? err.message : 'Vervolgvraag mislukt';
+                            toast.error(msg);
+                            setDecodeConversation(prev => [...prev, { role: 'assistant', text: `Fout: ${msg}` }]);
+                          } finally {
+                            setHexDecodeLoading(false);
+                          }
+                        }
+                      }}
+                    />
+                    <Button
+                      size="sm"
+                      className="h-9 gap-1.5 text-xs shrink-0"
+                      disabled={!customFollowUp.trim() || hexDecodeLoading}
+                      onClick={async () => {
+                        if (!file || !customFollowUp.trim()) return;
+                        const question = customFollowUp.trim();
+                        setCustomFollowUp('');
+                        setHexDecodeLoading(true);
+                        setDecodeConversation(prev => [...prev, { role: 'user', text: question }]);
+                        try {
+                          const newHistory = [...decodeHistory, { role: 'user', content: question }];
+                          const { data: fnData, error: fnError } = await supabase.functions.invoke('analyze-firmware', {
+                            body: {
+                              fileName: file.name,
+                              fileSize,
+                              hexPreview: hexData,
+                              mode: 'followup',
+                              followUp: question,
+                              conversationHistory: newHistory,
+                            },
+                          });
+                          if (fnError) throw fnError;
+                          const answer = fnData.analysis || 'Geen antwoord.';
+                          setDecodeConversation(prev => [...prev, { role: 'assistant', text: answer }]);
+                          setDecodeHistory([...newHistory, { role: 'assistant', content: answer }]);
+                          setDecodeNextSteps(fnData.nextSteps || []);
+                          setHexDecode(prev => prev + '\n\n---\n\n' + answer);
+                        } catch (err: unknown) {
+                          const msg = err instanceof Error ? err.message : 'Vervolgvraag mislukt';
+                          toast.error(msg);
+                          setDecodeConversation(prev => [...prev, { role: 'assistant', text: `Fout: ${msg}` }]);
+                        } finally {
+                          setHexDecodeLoading(false);
+                        }
+                      }}
+                    >
+                      <MessageSquare className="h-3.5 w-3.5" />
+                      Vraag
+                    </Button>
                   </div>
                 )}
               </div>
