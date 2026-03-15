@@ -1171,6 +1171,56 @@ export type Database = {
         }
         Relationships: []
       }
+      ocpp_proxy_log: {
+        Row: {
+          action: string | null
+          backend_id: string
+          backend_name: string
+          charge_point_id: string
+          created_at: string
+          direction: string
+          error_message: string | null
+          id: number
+          latency_ms: number | null
+          message_type: string | null
+          status: string
+        }
+        Insert: {
+          action?: string | null
+          backend_id: string
+          backend_name: string
+          charge_point_id: string
+          created_at?: string
+          direction?: string
+          error_message?: string | null
+          id?: never
+          latency_ms?: number | null
+          message_type?: string | null
+          status?: string
+        }
+        Update: {
+          action?: string | null
+          backend_id?: string
+          backend_name?: string
+          charge_point_id?: string
+          created_at?: string
+          direction?: string
+          error_message?: string | null
+          id?: never
+          latency_ms?: number | null
+          message_type?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ocpp_proxy_log_backend_id_fkey"
+            columns: ["backend_id"]
+            isOneToOne: false
+            referencedRelation: "ocpp_proxy_backends"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
