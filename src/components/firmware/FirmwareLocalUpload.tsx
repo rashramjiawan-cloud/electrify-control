@@ -30,6 +30,7 @@ const FirmwareLocalUpload = ({ chargePoints }: FirmwareLocalUploadProps) => {
   const qc = useQueryClient();
   const [detailFile, setDetailFile] = useState<any>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const { data: allMetadata } = useAllFirmwareFileMetadata();
 
   const { data: uploadedFiles, isLoading: filesLoading } = useQuery({
     queryKey: ['firmware-files'],
