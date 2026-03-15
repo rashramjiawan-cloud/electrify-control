@@ -512,6 +512,7 @@ export type Database = {
       }
       firmware_file_metadata: {
         Row: {
+          ai_decode: string | null
           assigned_charge_point_id: string | null
           created_at: string
           file_path: string
@@ -521,6 +522,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ai_decode?: string | null
           assigned_charge_point_id?: string | null
           created_at?: string
           file_path: string
@@ -530,6 +532,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ai_decode?: string | null
           assigned_charge_point_id?: string | null
           created_at?: string
           file_path?: string
