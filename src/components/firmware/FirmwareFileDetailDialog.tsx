@@ -64,6 +64,7 @@ const FirmwareFileDetailDialog = ({ open, onOpenChange, file, chargePoints }: Pr
   const [hexData, setHexData] = useState<string>('');
   const [hexLoading, setHexLoading] = useState(false);
   const [rawBytes, setRawBytes] = useState<Uint8Array | null>(null);
+  const [hexMode, setHexMode] = useState<'preview' | 'full'>('preview');
   const [aiAnalysis, setAiAnalysis] = useState<string>('');
   const [aiLoading, setAiLoading] = useState(false);
   const [hexDecode, setHexDecode] = useState<string>('');
