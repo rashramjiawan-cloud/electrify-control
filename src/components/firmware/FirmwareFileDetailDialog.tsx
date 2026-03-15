@@ -99,8 +99,16 @@ const FirmwareFileDetailDialog = ({ open, onOpenChange, file, chargePoints }: Pr
       setRawBytes(null);
       setAiAnalysis('');
       setReplaceFile(null);
+      setActiveTab('metadata');
     }
   }, [open]);
+
+  // Auto-load hex when tab switches to hex
+  useEffect(() => {
+    if (activeTab === 'hex' && file && !hexData && !hexLoading) {
+      loadHex();
+    }
+  }, [activeTab, file, hexData, hexLoading]);
 
   const loadHex = useCallback(async () => {
     if (!file || hexData) return;
