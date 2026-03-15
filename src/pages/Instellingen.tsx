@@ -95,6 +95,9 @@ const Instellingen = () => {
         {/* OCPP Proxy */}
         <OcppProxySettings />
 
+        {/* Proxy Audit Log */}
+        <OcppProxyLogWidget />
+
         {/* MQTT Connections */}
         <MqttSettingsPanel />
 
