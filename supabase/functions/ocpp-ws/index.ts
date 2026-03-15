@@ -14,17 +14,228 @@ const CALLERROR = 4;
 const OCPP_HTTP_URL = `${Deno.env.get("SUPABASE_URL")}/functions/v1/ocpp-handler`;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+// ─── Proxy: connected charge point sockets (for bidirectional commands) ───
+const chargePointSockets = new Map<string, WebSocket>();
+
+// ─── Proxy: active WebSocket connections to external OCPP backends ───
+const backendWsSockets = new Map<string, WebSocket>();
+
+interface ProxyBackend {
+  id: string;
+  name: string;
+  backend_type: string;
+  url: string;
+  enabled: boolean;
+  ocpp_subprotocol: string | null;
+  auth_header: string | null;
+  allow_commands: boolean;
+  charge_point_filter: string[];
+}
+
+// Load proxy backends from DB
+async function loadBackends(): Promise<ProxyBackend[]> {
+  const { data, error } = await supabase
+    .from("ocpp_proxy_backends")
+    .select("*")
+    .eq("enabled", true);
+  if (error) {
+    console.error("[OCPP-PROXY] Failed to load backends:", error);
+    return [];
+  }
+  return data || [];
+}
+
+// Check if backend should receive messages for this charge point
+function matchesChargePoint(backend: ProxyBackend, chargePointId: string): boolean {
+  if (!backend.charge_point_filter || backend.charge_point_filter.length === 0) return true;
+  return backend.charge_point_filter.includes(chargePointId);
+}
+
+// Fan-out: forward message to all matching backends
+async function fanOutMessage(chargePointId: string, rawMessage: string, parsedMessage: unknown[]) {
+  const backends = await loadBackends();
+
+  for (const backend of backends) {
+    if (!matchesChargePoint(backend, chargePointId)) continue;
+
+    try {
+      if (backend.backend_type === "http_webhook") {
+        await forwardToWebhook(backend, chargePointId, rawMessage, parsedMessage);
+      } else if (backend.backend_type === "ocpp_ws") {
+        await forwardToOcppWs(backend, chargePointId, rawMessage);
+      }
+    } catch (err) {
+      console.error(`[OCPP-PROXY] Error forwarding to ${backend.name}:`, err);
+      // Update last_error
+      supabase
+        .from("ocpp_proxy_backends")
+        .update({ last_error: (err as Error).message, connection_status: "error" })
+        .eq("id", backend.id)
+        .then(() => {});
+    }
+  }
+}
+
+// Forward to HTTP webhook backend
+async function forwardToWebhook(
+  backend: ProxyBackend,
+  chargePointId: string,
+  _rawMessage: string,
+  parsedMessage: unknown[]
+) {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (backend.auth_header) {
+    headers["Authorization"] = backend.auth_header;
+  }
+
+  const messageTypeId = parsedMessage[0];
+  const body: Record<string, unknown> = {
+    chargePointId,
+    messageTypeId,
+    timestamp: new Date().toISOString(),
+  };
+
+  if (messageTypeId === CALL) {
+    body.uniqueId = parsedMessage[1];
+    body.action = parsedMessage[2];
+    body.payload = parsedMessage[3] || {};
+  } else if (messageTypeId === CALLRESULT) {
+    body.uniqueId = parsedMessage[1];
+    body.payload = parsedMessage[2] || {};
+  } else if (messageTypeId === CALLERROR) {
+    body.uniqueId = parsedMessage[1];
+    body.errorCode = parsedMessage[2];
+    body.errorDescription = parsedMessage[3];
+    body.errorDetails = parsedMessage[4] || {};
+  }
+
+  const res = await fetch(backend.url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+  }
+
+  console.log(`[OCPP-PROXY] → ${backend.name} (webhook): OK`);
+}
+
+// Forward to external OCPP WebSocket backend
+async function forwardToOcppWs(backend: ProxyBackend, chargePointId: string, rawMessage: string) {
+  const wsKey = `${backend.id}:${chargePointId}`;
+  let ws = backendWsSockets.get(wsKey);
+
+  // Connect if not already connected
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    const wsUrl = backend.url.endsWith("/")
+      ? `${backend.url}${chargePointId}`
+      : `${backend.url}/${chargePointId}`;
+
+    ws = new WebSocket(wsUrl, backend.ocpp_subprotocol || "ocpp1.6");
+
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("WS connect timeout")), 10000);
+      ws!.onopen = () => {
+        clearTimeout(timeout);
+        console.log(`[OCPP-PROXY] Connected to ${backend.name} for ${chargePointId}`);
+
+        supabase
+          .from("ocpp_proxy_backends")
+          .update({
+            connection_status: "connected",
+            last_connected_at: new Date().toISOString(),
+            last_error: null,
+          })
+          .eq("id", backend.id)
+          .then(() => {});
+
+        resolve();
+      };
+      ws!.onerror = (e) => {
+        clearTimeout(timeout);
+        reject(e);
+      };
+    });
+
+    // Handle messages FROM external backend (bidirectional commands)
+    ws.onmessage = (event) => {
+      console.log(`[OCPP-PROXY] ← ${backend.name} for ${chargePointId}:`, event.data);
+
+      if (!backend.allow_commands) {
+        console.log(`[OCPP-PROXY] Commands not allowed from ${backend.name}, ignoring`);
+        return;
+      }
+
+      // Forward command to charge point
+      const cpSocket = chargePointSockets.get(chargePointId);
+      if (cpSocket && cpSocket.readyState === WebSocket.OPEN) {
+        cpSocket.send(event.data);
+        console.log(`[OCPP-PROXY] Forwarded command from ${backend.name} → ${chargePointId}`);
+      } else {
+        console.warn(`[OCPP-PROXY] Charge point ${chargePointId} not connected, can't forward command`);
+      }
+    };
+
+    ws.onclose = () => {
+      console.log(`[OCPP-PROXY] Disconnected from ${backend.name} for ${chargePointId}`);
+      backendWsSockets.delete(wsKey);
+    };
+
+    backendWsSockets.set(wsKey, ws);
+  }
+
+  // Forward the raw OCPP message
+  ws.send(rawMessage);
+  console.log(`[OCPP-PROXY] → ${backend.name} (ws): forwarded`);
+}
+
+// ─── Fan-out response from this CSMS back to backends ───
+async function fanOutResponse(chargePointId: string, responseRaw: string) {
+  const backends = await loadBackends();
+
+  for (const backend of backends) {
+    if (!matchesChargePoint(backend, chargePointId)) continue;
+    if (backend.backend_type !== "http_webhook") continue;
+
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (backend.auth_header) headers["Authorization"] = backend.auth_header;
+
+      await fetch(backend.url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          chargePointId,
+          type: "csms_response",
+          message: JSON.parse(responseRaw),
+          timestamp: new Date().toISOString(),
+        }),
+      });
+    } catch (err) {
+      console.error(`[OCPP-PROXY] Error sending response to ${backend.name}:`, err);
+    }
+  }
+}
+
 Deno.serve((req: Request) => {
   const upgrade = (req.headers.get("upgrade") || "").toLowerCase();
 
   if (upgrade !== "websocket") {
-    // Return connection info for non-WS requests
+    // Check if this is a proxy command from an external backend
+    if (req.method === "POST") {
+      return handleProxyCommand(req);
+    }
+
     return new Response(
       JSON.stringify({
         protocol: "OCPP 1.6J",
         transport: "WebSocket",
         status: "online",
+        proxy: "fan-out enabled",
         usage: "Connect your charge point to: wss://<host>/functions/v1/ocpp-ws/<ChargePointId>",
+        commands: "POST to /functions/v1/ocpp-ws with { api_key, charge_point_id, message }",
         supportedActions: [
           "BootNotification", "Heartbeat", "StatusNotification",
           "StartTransaction", "StopTransaction", "MeterValues",
@@ -36,16 +247,16 @@ Deno.serve((req: Request) => {
         headers: {
           "Content-Type": "application/json",
           "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
         },
       }
     );
   }
 
   // Extract charge point ID from URL path
-  // URL pattern: /functions/v1/ocpp-ws/CHARGE_POINT_ID
   const url = new URL(req.url);
   const pathParts = url.pathname.split("/").filter(Boolean);
-  // Last segment is the charge point ID
   const chargePointId = pathParts[pathParts.length - 1];
 
   if (!chargePointId || chargePointId === "ocpp-ws") {
@@ -68,6 +279,8 @@ Deno.serve((req: Request) => {
 
   socket.onopen = () => {
     console.log(`[OCPP-WS] ${chargePointId}: WebSocket opened`);
+    // Register socket for bidirectional commands
+    chargePointSockets.set(chargePointId, socket);
   };
 
   socket.onmessage = async (event) => {
@@ -83,13 +296,17 @@ Deno.serve((req: Request) => {
         return;
       }
 
+      // ─── Fan-out: broadcast to all proxy backends ───
+      fanOutMessage(chargePointId, raw, message).catch(err => {
+        console.error(`[OCPP-PROXY] Fan-out error:`, err);
+      });
+
       const messageTypeId = message[0];
 
       if (messageTypeId === CALL) {
-        // CALL: [2, uniqueId, action, payload]
         const [, uniqueId, action, payload] = message;
 
-        // Forward to HTTP handler
+        // Forward to internal HTTP handler (this CSMS)
         const httpResponse = await fetch(OCPP_HTTP_URL, {
           method: "POST",
           headers: {
@@ -107,19 +324,19 @@ Deno.serve((req: Request) => {
         });
 
         const result = await httpResponse.json();
-        // result is [3, uniqueId, responsePayload]
         const wsResponse = JSON.stringify(result);
         console.log(`[OCPP-WS] ${chargePointId} ←`, wsResponse);
         socket.send(wsResponse);
 
-      } else if (messageTypeId === CALLRESULT) {
-        // CALLRESULT from charge point (response to our command)
-        console.log(`[OCPP-WS] ${chargePointId}: Received CALLRESULT:`, raw);
-        // Could store pending commands and match by uniqueId in the future
+        // Fan-out our response to webhook backends
+        fanOutResponse(chargePointId, wsResponse).catch(err => {
+          console.error(`[OCPP-PROXY] Response fan-out error:`, err);
+        });
 
+      } else if (messageTypeId === CALLRESULT) {
+        console.log(`[OCPP-WS] ${chargePointId}: Received CALLRESULT:`, raw);
       } else if (messageTypeId === CALLERROR) {
         console.log(`[OCPP-WS] ${chargePointId}: Received CALLERROR:`, raw);
-
       } else {
         const errResp = [CALLERROR, message[1] || "0", "FormationViolation", `Unknown messageTypeId: ${messageTypeId}`, {}];
         socket.send(JSON.stringify(errResp));
@@ -138,6 +355,16 @@ Deno.serve((req: Request) => {
 
   socket.onclose = () => {
     console.log(`[OCPP-WS] ${chargePointId}: Connection closed`);
+    chargePointSockets.delete(chargePointId);
+
+    // Close any backend WS connections for this charge point
+    for (const [key, ws] of backendWsSockets) {
+      if (key.endsWith(`:${chargePointId}`)) {
+        ws.close();
+        backendWsSockets.delete(key);
+      }
+    }
+
     // Mark charge point as unavailable
     supabase
       .from("charge_points")
@@ -150,3 +377,74 @@ Deno.serve((req: Request) => {
 
   return response;
 });
+
+// ─── Handle proxy commands from external backends ───
+async function handleProxyCommand(req: Request): Promise<Response> {
+  const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Content-Type": "application/json",
+  };
+
+  try {
+    const body = await req.json();
+    const { api_key, charge_point_id, message } = body;
+
+    if (!api_key || !charge_point_id || !message) {
+      return new Response(
+        JSON.stringify({ error: "Missing required fields: api_key, charge_point_id, message" }),
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    // Validate API key against backends
+    const { data: backend, error } = await supabase
+      .from("ocpp_proxy_backends")
+      .select("*")
+      .eq("command_api_key", api_key)
+      .eq("allow_commands", true)
+      .eq("enabled", true)
+      .single();
+
+    if (error || !backend) {
+      return new Response(
+        JSON.stringify({ error: "Invalid API key or commands not allowed" }),
+        { status: 403, headers: corsHeaders }
+      );
+    }
+
+    // Check charge point filter
+    if (backend.charge_point_filter?.length > 0 && !backend.charge_point_filter.includes(charge_point_id)) {
+      return new Response(
+        JSON.stringify({ error: "Charge point not in allowed filter for this backend" }),
+        { status: 403, headers: corsHeaders }
+      );
+    }
+
+    // Find connected charge point
+    const cpSocket = chargePointSockets.get(charge_point_id);
+    if (!cpSocket || cpSocket.readyState !== WebSocket.OPEN) {
+      return new Response(
+        JSON.stringify({ error: "Charge point not connected", charge_point_id }),
+        { status: 404, headers: corsHeaders }
+      );
+    }
+
+    // Send OCPP message to charge point
+    const rawMessage = typeof message === "string" ? message : JSON.stringify(message);
+    cpSocket.send(rawMessage);
+
+    console.log(`[OCPP-PROXY] Command from ${backend.name} → ${charge_point_id}:`, rawMessage);
+
+    return new Response(
+      JSON.stringify({ status: "sent", charge_point_id, backend: backend.name }),
+      { status: 200, headers: corsHeaders }
+    );
+
+  } catch (err) {
+    return new Response(
+      JSON.stringify({ error: (err as Error).message }),
+      { status: 500, headers: corsHeaders }
+    );
+  }
+}
