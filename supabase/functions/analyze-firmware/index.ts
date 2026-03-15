@@ -10,46 +10,81 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { fileName, fileSize, hexPreview, chargePointInfo, mode } = await req.json();
+    const { fileName, fileSize, hexPreview, chargePointInfo, mode, followUp, conversationHistory } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     let systemPrompt: string;
 
-    if (mode === "decode") {
+    if (mode === "decode" || mode === "followup") {
       systemPrompt = `Je bent een embedded systems firmware reverse-engineering expert, gespecialiseerd in EV-laadpalen (Ecotap EVC/ECC controllers, OCPP 1.6).
 
-Analyseer de hex dump en decodeer de binaire structuur byte-voor-byte. Geef je analyse in het Nederlands:
+${mode === "followup" ? "De gebruiker stelt een vervolgvraag over een eerdere hex-analyse. Beantwoord deze specifiek en gedetailleerd." : "Analyseer de hex dump en decodeer de binaire structuur byte-voor-byte."}
 
-1. **Magic Bytes & Header**: Identificeer het bestandsformaat uit de eerste bytes (ELF, ARM Cortex-M, Intel HEX, custom bootloader, etc.)
-2. **Interrupt Vector Table**: Als aanwezig, decodeer de vector table entries (Reset, NMI, HardFault, etc.) met geheugen-adressen
-3. **Geheugen Layout**: Identificeer code-segmenten, data-segmenten, stack pointer initialisatie
-4. **Strings & Configuratie**: Vind embedded strings, versienummers, endpoints, OCPP parameters
-5. **Checksums & CRC**: Identificeer checksum-velden en hun positie
-6. **Processor Architectuur**: Identificeer de target MCU (ARM Cortex-M0/M3/M4, LPC, STM32, etc.)
-7. **Annotated Hex**: Geef een geannoteerde versie van de belangrijkste secties met uitleg per byte-groep
+Geef je analyse in het Nederlands. Structureer je antwoord als volgt:
+
+## Analyse
+[Je gedetailleerde analyse hier]
+
+${mode !== "followup" ? `Behandel:
+1. **Magic Bytes & Header**: Identificeer het bestandsformaat (ELF, ARM Cortex-M, Intel HEX, custom bootloader, etc.)
+2. **Interrupt Vector Table**: Decodeer vector table entries met geheugen-adressen
+3. **Geheugen Layout**: Code-segmenten, data-segmenten, stack pointer
+4. **Strings & Configuratie**: Embedded strings, versienummers, OCPP parameters
+5. **Checksums & CRC**: Checksum-velden en posities
+6. **Processor Architectuur**: Target MCU (ARM Cortex-M0/M3/M4, LPC, STM32, etc.)
+7. **Annotated Hex**: Geannoteerde versie van belangrijkste secties` : ""}
+
+## Volgende stappen
+Geef 2-4 concrete vervolgacties die de gebruiker kan uitvoeren. Elke actie op een eigen regel, beginnend met "→ " gevolgd door een korte actietitel en dan "|" en een beschrijving.
+Voorbeeld formaat:
+→ Analyseer interrupt handlers|Decodeer de functies achter de vector table adressen
+→ Zoek OCPP configuratie|Scan naar embedded OCPP endpoint URLs en parameters
+→ Vergelijk met bekende firmware|Check of dit bestand overeenkomt met bekende Ecotap releases
+→ Extraheer embedded certificaten|Zoek naar TLS/SSL certificaten in de binary
 
 Gebruik tabellen en code-blokken voor duidelijkheid. Wees zo specifiek mogelijk over offsets en waarden.`;
     } else {
-      systemPrompt = `Je bent een firmware-analyse expert voor EV-laadpalen (OCPP). Analyseer het firmware-bestand op basis van de bestandsnaam, grootte en hex-preview (eerste bytes).
+      systemPrompt = `Je bent een firmware-analyse expert voor EV-laadpalen (OCPP). Analyseer het firmware-bestand op basis van de bestandsnaam, grootte en hex-preview.
 
 Geef een gestructureerde analyse in het Nederlands met:
-1. **Bestandstype**: Wat voor soort firmware-bestand dit waarschijnlijk is (binary, compressed archive, etc.)
-2. **Formaat**: Herken het bestandsformaat uit de magic bytes (ZIP, GZIP, ELF, PE, etc.)
-3. **Versie-indicatie**: Als de bestandsnaam een versienummer bevat, benoem dit
-4. **Compatibiliteit**: Op basis van de naam en context, voor welke laadpalen dit geschikt zou kunnen zijn
-5. **Risico-beoordeling**: Mogelijke risico's bij het flashen van deze firmware
-6. **Aanbevelingen**: Tips voor het veilig toepassen van de update
+1. **Bestandstype**: Wat voor soort firmware-bestand
+2. **Formaat**: Herken het bestandsformaat uit de magic bytes
+3. **Versie-indicatie**: Versienummer uit bestandsnaam
+4. **Compatibiliteit**: Voor welke laadpalen geschikt
+5. **Risico-beoordeling**: Risico's bij flashen
+6. **Aanbevelingen**: Tips voor veilig updaten
 
 Houd het beknopt maar informatief.`;
     }
 
-    const userContent = `Firmware bestand: ${fileName}
+    const messages: { role: string; content: string }[] = [
+      { role: "system", content: systemPrompt },
+    ];
+
+    if (conversationHistory && Array.isArray(conversationHistory)) {
+      messages.push(...conversationHistory);
+    }
+
+    if (mode === "followup" && followUp) {
+      messages.push({
+        role: "user",
+        content: `Vervolgvraag over de firmware "${fileName}" (${fileSize} bytes):
+
+${followUp}
+
+Originele hex preview:
+${hexPreview}`,
+      });
+    } else {
+      const userContent = `Firmware bestand: ${fileName}
 Grootte: ${fileSize} bytes
 ${chargePointInfo ? `Laadpaal context: ${chargePointInfo}` : ""}
 
 Hex preview (eerste 512 bytes):
 ${hexPreview}`;
+      messages.push({ role: "user", content: userContent });
+    }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -59,10 +94,7 @@ ${hexPreview}`;
       },
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userContent },
-        ],
+        messages,
         stream: false,
       }),
     });
@@ -91,7 +123,15 @@ ${hexPreview}`;
     const result = await response.json();
     const analysis = result.choices?.[0]?.message?.content || "Geen analyse beschikbaar.";
 
-    return new Response(JSON.stringify({ analysis }), {
+    // Parse next steps from the analysis
+    const nextSteps: { title: string; description: string }[] = [];
+    const stepRegex = /^→\s*(.+?)\|(.+)$/gm;
+    let match;
+    while ((match = stepRegex.exec(analysis)) !== null) {
+      nextSteps.push({ title: match[1].trim(), description: match[2].trim() });
+    }
+
+    return new Response(JSON.stringify({ analysis, nextSteps }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
