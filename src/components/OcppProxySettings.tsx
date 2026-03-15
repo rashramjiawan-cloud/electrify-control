@@ -316,6 +316,12 @@ const AddBackendDialog = () => {
             />
           </div>
 
+          {/* Charge Point Filter */}
+          <ChargePointFilter
+            selected={form.charge_point_filter}
+            onChange={(ids) => setForm({ ...form, charge_point_filter: ids })}
+          />
+
           <Button onClick={handleSubmit} className="w-full" disabled={create.isPending}>
             {create.isPending ? 'Bezig...' : 'Toevoegen'}
           </Button>
