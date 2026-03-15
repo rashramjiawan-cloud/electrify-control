@@ -57,10 +57,6 @@ const FirmwareLocalUpload = ({ chargePoints }: FirmwareLocalUploadProps) => {
   };
 
   const handleUpload = async () => {
-    if (!selectedCp) {
-      toast.error('Selecteer eerst een laadpaal');
-      return;
-    }
     if (!file) {
       toast.error('Selecteer eerst een firmware bestand');
       return;
@@ -71,7 +67,9 @@ const FirmwareLocalUpload = ({ chargePoints }: FirmwareLocalUploadProps) => {
 
     try {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const filePath = `${selectedCp}/${timestamp}_${file.name}`;
+      const filePath = selectedCp
+        ? `${selectedCp}/${timestamp}_${file.name}`
+        : `general/${timestamp}_${file.name}`;
 
       setProgress(30);
 
@@ -86,18 +84,19 @@ const FirmwareLocalUpload = ({ chargePoints }: FirmwareLocalUploadProps) => {
 
       setProgress(90);
 
-      // Also create a firmware_updates record
-      await supabase.from('firmware_updates').insert({
-        charge_point_id: selectedCp,
-        type: 'Firmware',
-        location: `storage://firmware/${filePath}`,
-        status: 'Downloaded',
-        retries: 0,
-        retry_interval: 0,
-      });
+      if (selectedCp) {
+        await supabase.from('firmware_updates').insert({
+          charge_point_id: selectedCp,
+          type: 'Firmware',
+          location: `storage://firmware/${filePath}`,
+          status: 'Downloaded',
+          retries: 0,
+          retry_interval: 0,
+        });
+      }
 
       setProgress(100);
-      toast.success(`Firmware "${file.name}" geüpload voor ${chargePoints?.find(cp => cp.id === selectedCp)?.name || selectedCp}`);
+      toast.success(`Firmware "${file.name}" geüpload${selectedCp ? ` voor ${chargePoints?.find(cp => cp.id === selectedCp)?.name || selectedCp}` : ''}`);
       setFile(null);
       qc.invalidateQueries({ queryKey: ['firmware-files'] });
       qc.invalidateQueries({ queryKey: ['firmware-updates'] });
@@ -213,14 +212,11 @@ const FirmwareLocalUpload = ({ chargePoints }: FirmwareLocalUploadProps) => {
           )}
 
           <div className="space-y-1">
-            <Button onClick={handleUpload} disabled={uploading || !file || !selectedCp} className="gap-2">
+            <Button onClick={handleUpload} disabled={uploading || !file} className="gap-2">
               <Upload className="h-4 w-4" />
               {uploading ? 'Uploaden...' : 'Firmware uploaden'}
             </Button>
-            {!selectedCp && file && (
-              <p className="text-xs text-destructive">⚠ Selecteer eerst een laadpaal hierboven</p>
-            )}
-            {!file && selectedCp && (
+            {!file && (
               <p className="text-xs text-destructive">⚠ Selecteer eerst een firmware bestand</p>
             )}
           </div>
