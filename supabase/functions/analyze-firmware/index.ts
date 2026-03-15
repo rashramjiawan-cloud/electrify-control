@@ -10,7 +10,8 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { fileName, fileSize, hexPreview: rawHex, chargePointInfo, mode, followUp, conversationHistory, fileNameA, fileNameB, fileSizeA, fileSizeB, labelA, labelB, stats, diffSummary } = await req.json();
+    const body = await req.json();
+    const { fileName, fileSize, hexPreview: rawHex, chargePointInfo, mode, followUp, conversationHistory, fileNameA, fileNameB, fileSizeA, fileSizeB, labelA, labelB, stats, diffSummary, editInstruction, hexContext, mergeInstructions, fileNames, fileSizes } = body;
     const MAX_HEX_CHARS = 8000;
     const hexPreview = typeof rawHex === 'string' && rawHex.length > MAX_HEX_CHARS
       ? rawHex.slice(0, MAX_HEX_CHARS) + `\n... (afgekapt, ${rawHex.length} tekens totaal)`
@@ -20,7 +21,130 @@ serve(async (req) => {
 
     let messages: { role: string; content: string }[] = [];
 
-    if (mode === "compare") {
+    if (mode === "edit-patch") {
+      // AI-gestuurde patches: gebruiker beschrijft wat hij wil veranderen
+      const editPrompt = `Je bent een embedded systems firmware patch expert voor EV-laadpalen (Ecotap EVC/ECC, OCPP 1.6).
+
+De gebruiker wil de firmware bewerken. Genereer exacte hex patches op basis van de instructie.
+
+Firmware: ${fileName} (${fileSize} bytes)
+
+BELANGRIJK: Geef je antwoord in het Nederlands, gestructureerd als:
+
+## Patch Analyse
+
+### Instructie
+Herhaal kort wat de gebruiker wil bereiken.
+
+### Gevonden locaties
+Identificeer de relevante offsets in de hex dump.
+
+### Voorgestelde patches
+Geef EXACTE patches in dit formaat (één per regel):
+\`\`\`patch
+OFFSET: OUD_HEX -> NIEUW_HEX | Beschrijving
+\`\`\`
+
+Voorbeeld:
+\`\`\`patch
+0x00000A4: 2C 01 -> 58 02 | HeartbeatInterval van 300 naar 600 sec
+0x00000B8: 3C 00 -> 78 00 | ConnectionTimeout van 60 naar 120 sec
+\`\`\`
+
+### Risico's
+Beoordeel het risico van elke patch (laag/middel/hoog).
+
+### Validatie
+Hoe kan de gebruiker controleren of de patch correct is toegepast.
+
+Wees EXTREEM voorzichtig en expliciet. Bij twijfel, geef aan dat handmatige verificatie nodig is.`;
+
+      messages = [
+        { role: "system", content: editPrompt },
+        { role: "user", content: `Hex context:\n${hexContext || hexPreview}\n\nGewenste wijziging: ${editInstruction}` },
+      ];
+    } else if (mode === "extract-config") {
+      // Configuratie-extractor
+      const extractPrompt = `Je bent een embedded firmware configuratie-extractor voor EV-laadpalen (Ecotap EVC/ECC, OCPP 1.6).
+
+Analyseer de hex dump en extraheer ALLE herkenbare configuratiewaarden.
+
+Firmware: ${fileName} (${fileSize} bytes)
+
+Geef je antwoord in het Nederlands als gestructureerde JSON gevolgd door uitleg:
+
+## Geëxtraheerde Configuratie
+
+\`\`\`json
+{
+  "parameters": [
+    {
+      "name": "parameter_naam",
+      "value": "huidige_waarde",
+      "offset": "0x00000000",
+      "size_bytes": 2,
+      "type": "uint16_le",
+      "description": "Beschrijving van de parameter",
+      "editable": true,
+      "category": "OCPP|Network|Hardware|Security|Timing"
+    }
+  ]
+}
+\`\`\`
+
+## Analyse
+Geef context bij de gevonden parameters. Zoek specifiek naar:
+1. **OCPP Parameters**: HeartbeatInterval, MeterValueSampleInterval, ConnectionTimeOut
+2. **Netwerk**: IP-adressen, poorten, URLs, APN instellingen
+3. **Hardware**: Baudrates, GPIO configuratie, ADC kalibratie
+4. **Security**: Certificaat-locaties, encryptie-instellingen
+5. **Timing**: Watchdog timers, polling intervals
+
+Als een parameter niet met zekerheid geïdentificeerd kan worden, markeer deze als \`"editable": false\`.`;
+
+      messages = [
+        { role: "system", content: extractPrompt },
+        { role: "user", content: `Hex dump:\n${hexPreview}` },
+      ];
+    } else if (mode === "merge") {
+      // Binary merge/splice
+      const mergePrompt = `Je bent een firmware binary merge expert voor EV-laadpalen (Ecotap EVC/ECC).
+
+De gebruiker wil delen van meerdere firmware bestanden combineren.
+
+Bestanden:
+${(fileNames || []).map((n: string, i: number) => `- ${n} (${(fileSizes || [])[i] || '?'} bytes)`).join('\n')}
+
+Geef je antwoord in het Nederlands:
+
+## Merge Analyse
+
+### Compatibiliteit
+Analyseer of de bestanden compatibel zijn om te mergen (zelfde platform, zelfde geheugen-layout).
+
+### Merge Plan
+Beschrijf stap voor stap welke secties van welk bestand moeten worden gebruikt:
+
+\`\`\`merge-plan
+SECTIE: OFFSET_START - OFFSET_END | BRON_BESTAND | BESCHRIJVING
+\`\`\`
+
+### Header Aanpassingen
+Welke header-velden moeten worden aangepast na de merge (checksums, grootte, etc.).
+
+### Risico's
+Uitgebreide risico-analyse van de merge operatie.
+
+### Aanbevelingen
+Concrete stappen om de gemergte firmware te valideren voordat deze wordt geflasht.
+
+WAARSCHUWING: Binary merging is een risicovol proces. Wees expliciet over alle gevaren.`;
+
+      messages = [
+        { role: "system", content: mergePrompt },
+        { role: "user", content: `Merge instructie: ${mergeInstructions}\n\nHex previews:\n${hexPreview}` },
+      ];
+    } else if (mode === "compare") {
       const comparePrompt = `Je bent een embedded systems firmware reverse-engineering expert, gespecialiseerd in EV-laadpalen (Ecotap EVC/ECC controllers, OCPP 1.6).
 
 Vergelijk twee firmware bestanden en geef een gedetailleerde analyse van de verschillen.
@@ -176,7 +300,33 @@ Houd het beknopt maar informatief.`;
       nextSteps.push({ title: match[1].trim(), description: match[2].trim() });
     }
 
-    return new Response(JSON.stringify({ analysis, nextSteps }), {
+    // Parse patches from edit-patch mode
+    let patches: { offset: string; oldHex: string; newHex: string; description: string }[] = [];
+    if (mode === "edit-patch") {
+      const patchRegex = /^(0x[0-9A-Fa-f]+):\s*([0-9A-Fa-f\s]+)\s*->\s*([0-9A-Fa-f\s]+)\s*\|\s*(.+)$/gm;
+      let pm;
+      while ((pm = patchRegex.exec(analysis)) !== null) {
+        patches.push({
+          offset: pm[1].trim(),
+          oldHex: pm[2].trim(),
+          newHex: pm[3].trim(),
+          description: pm[4].trim(),
+        });
+      }
+    }
+
+    // Parse config from extract-config mode
+    let config = null;
+    if (mode === "extract-config") {
+      const jsonMatch = analysis.match(/```json\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        try {
+          config = JSON.parse(jsonMatch[1]);
+        } catch { /* ignore parse errors */ }
+      }
+    }
+
+    return new Response(JSON.stringify({ analysis, nextSteps, patches, config }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
