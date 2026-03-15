@@ -3,10 +3,10 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { GitCompareArrows, Brain, File, ArrowRight, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
+import { GitCompareArrows, Brain, File, ArrowRight, AlertTriangle, CheckCircle2, Info, Save } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
-import { useAllFirmwareFileMetadata } from '@/hooks/useFirmwareFileMetadata';
+import { useAllFirmwareFileMetadata, useUpsertFirmwareFileMetadata } from '@/hooks/useFirmwareFileMetadata';
 import { toast } from 'sonner';
 
 interface StorageFile {
