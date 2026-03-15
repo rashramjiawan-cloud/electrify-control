@@ -92,7 +92,22 @@ const FirmwareFileDetailDialog = ({ open, onOpenChange, file, chargePoints }: Pr
       setLabel(metadata.label || '');
       setNotes(metadata.notes || '');
       setAssignedCp(metadata.assigned_charge_point_id || '');
-      if (metadata.ai_decode) setHexDecode(metadata.ai_decode);
+      if (metadata.ai_decode) {
+        setHexDecode(metadata.ai_decode);
+        // Restore saved conversation so the UI displays the saved analysis
+        if (decodeConversation.length === 0) {
+          const parts = metadata.ai_decode.split('\n\n---\n\n');
+          const restored: { role: string; text: string }[] = [];
+          parts.forEach((part, i) => {
+            if (part.startsWith('> ')) {
+              restored.push({ role: 'user', text: part.replace(/^> /, '') });
+            } else {
+              restored.push({ role: 'assistant', text: part });
+            }
+          });
+          setDecodeConversation(restored);
+        }
+      }
     } else {
       setLabel('');
       setNotes('');
