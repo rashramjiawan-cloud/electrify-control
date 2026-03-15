@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import AppLayout from '@/components/AppLayout';
+import EcotapSetupWizard from '@/components/EcotapSetupWizard';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import {
