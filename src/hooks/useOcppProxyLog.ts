@@ -22,11 +22,28 @@ export function useOcppProxyLog(filters?: {
   status?: string;
   limit?: number;
 }) {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('ocpp-proxy-log-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'ocpp_proxy_log' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['ocpp-proxy-log'] });
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
+
   return useQuery({
     queryKey: ['ocpp-proxy-log', filters],
     queryFn: async () => {
       let q = supabase
-        .from('ocpp_proxy_log' as any)
+        .from('ocpp_proxy_log')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(filters?.limit || 100);
@@ -37,6 +54,6 @@ export function useOcppProxyLog(filters?: {
       if (error) throw error;
       return (data as unknown) as ProxyLogEntry[];
     },
-    refetchInterval: 10_000,
+    refetchInterval: 30_000,
   });
 }
