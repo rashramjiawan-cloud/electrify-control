@@ -107,7 +107,13 @@ const FirmwareEditor = () => {
   const [configLoading, setConfigLoading] = useState(false);
   const [configAnalysis, setConfigAnalysis] = useState('');
   const [extractedConfig, setExtractedConfig] = useState<{ parameters: { name: string; value: string; offset: string; size_bytes: number; type: string; description: string; editable: boolean; category: string }[] } | null>(null);
-  const [editedParams, setEditedParams] = useState<Record<string, string>>({});
+  const [editedParams, setEditedParams] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {};
+    KNOWN_CONFIG_PARAMS.forEach(p => { initial[p.name] = p.defaultValue; });
+    return initial;
+  });
+  const [aiMergedOffsets, setAiMergedOffsets] = useState<Record<string, { offset: string; type: string }>>({});
+  const [configFilter, setConfigFilter] = useState<string>('all');
 
   // Merge mode
   const [mergeFileA, setMergeFileA] = useState('');
