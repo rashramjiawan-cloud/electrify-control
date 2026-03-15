@@ -327,21 +327,22 @@ const FirmwareFileDetailDialog = ({ open, onOpenChange, file, chargePoints }: Pr
               </div>
             ) : hexData ? (
               <div className="space-y-3">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-xs text-muted-foreground">
-                    {hexMode === 'preview' ? 'Eerste 512 bytes' : `Volledig bestand (${fileSize ? formatBytes(fileSize) : '?'})`}
-                  </p>
-                  <div className="flex rounded-md border border-border overflow-hidden">
-                    <button
-                      className={`px-2 py-0.5 text-[10px] font-medium transition-colors ${hexMode === 'preview' ? 'bg-primary text-primary-foreground' : 'bg-muted/30 text-muted-foreground hover:bg-muted'}`}
-                      onClick={() => setHexMode('preview')}
-                    >512 bytes</button>
-                    <button
-                      className={`px-2 py-0.5 text-[10px] font-medium transition-colors ${hexMode === 'full' ? 'bg-primary text-primary-foreground' : 'bg-muted/30 text-muted-foreground hover:bg-muted'}`}
-                      onClick={() => setHexMode('full')}
-                    >Alles</button>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs text-muted-foreground">
+                      {hexMode === 'preview' ? 'Eerste 512 bytes' : `Volledig bestand (${fileSize ? formatBytes(fileSize) : '?'})`}
+                    </p>
+                    <div className="flex rounded-md border border-border overflow-hidden">
+                      <button
+                        className={`px-2 py-0.5 text-[10px] font-medium transition-colors ${hexMode === 'preview' ? 'bg-primary text-primary-foreground' : 'bg-muted/30 text-muted-foreground hover:bg-muted'}`}
+                        onClick={() => setHexMode('preview')}
+                      >512 bytes</button>
+                      <button
+                        className={`px-2 py-0.5 text-[10px] font-medium transition-colors ${hexMode === 'full' ? 'bg-primary text-primary-foreground' : 'bg-muted/30 text-muted-foreground hover:bg-muted'}`}
+                        onClick={() => setHexMode('full')}
+                      >Alles</button>
+                    </div>
                   </div>
-                </div>
                   <Button
                     size="sm"
                     variant="outline"
