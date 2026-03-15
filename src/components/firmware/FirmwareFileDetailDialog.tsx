@@ -215,10 +215,10 @@ const FirmwareFileDetailDialog = ({ open, onOpenChange, file, chargePoints }: Pr
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="metadata" className="mt-2">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-2">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="metadata" className="gap-1 text-xs"><Info className="h-3 w-3" />Metadata</TabsTrigger>
-            <TabsTrigger value="hex" className="gap-1 text-xs" onClick={loadHex}><Binary className="h-3 w-3" />Hex</TabsTrigger>
+            <TabsTrigger value="hex" className="gap-1 text-xs"><Binary className="h-3 w-3" />Hex</TabsTrigger>
             <TabsTrigger value="ai" className="gap-1 text-xs"><Brain className="h-3 w-3" />AI Analyse</TabsTrigger>
             <TabsTrigger value="edit" className="gap-1 text-xs"><Pencil className="h-3 w-3" />Bewerken</TabsTrigger>
           </TabsList>
