@@ -12,6 +12,19 @@ export interface FirmwareFileMetadata {
   updated_at: string;
 }
 
+export function useAllFirmwareFileMetadata() {
+  return useQuery({
+    queryKey: ['firmware-file-metadata'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('firmware_file_metadata')
+        .select('*');
+      if (error) throw error;
+      return (data as unknown) as FirmwareFileMetadata[];
+    },
+  });
+}
+
 export function useFirmwareFileMetadata(filePath?: string) {
   return useQuery({
     queryKey: ['firmware-file-metadata', filePath],
