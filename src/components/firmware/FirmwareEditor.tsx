@@ -346,11 +346,28 @@ const FirmwareEditor = () => {
       setConfigAnalysis(fnData.analysis || '');
       if (fnData.config?.parameters) {
         setExtractedConfig(fnData.config);
-        const initial: Record<string, string> = {};
-        fnData.config.parameters.forEach((p: { name: string; value: string }) => {
-          initial[p.name] = p.value;
+        // Merge AI values into editedParams and track offsets
+        const newOffsets: Record<string, { offset: string; type: string }> = {};
+        setEditedParams(prev => {
+          const merged = { ...prev };
+          fnData.config.parameters.forEach((p: { name: string; value: string; offset: string; type: string }) => {
+            // Try to match AI param name to known param
+            const matchKey = KNOWN_CONFIG_PARAMS.find(k =>
+              p.name.toLowerCase().includes(k.name.toLowerCase()) ||
+              k.name.toLowerCase().includes(p.name.toLowerCase().replace(/_/g, ''))
+            );
+            if (matchKey) {
+              merged[matchKey.name] = p.value;
+              newOffsets[matchKey.name] = { offset: p.offset, type: p.type };
+            }
+            // Always store under AI name too
+            merged[p.name] = p.value;
+            newOffsets[p.name] = { offset: p.offset, type: p.type };
+          });
+          return merged;
         });
-        setEditedParams(initial);
+        setAiMergedOffsets(prev => ({ ...prev, ...newOffsets }));
+        toast.success(`${fnData.config.parameters.length} parameters geëxtraheerd en gemerged`);
       }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Configuratie extractie mislukt');
@@ -358,6 +375,15 @@ const FirmwareEditor = () => {
       setConfigLoading(false);
     }
   };
+
+  // Get unique categories for filter
+  const allCategories = useMemo(() => {
+    const cats = new Set(KNOWN_CONFIG_PARAMS.map(p => p.category));
+    if (extractedConfig) {
+      extractedConfig.parameters.forEach(p => cats.add(p.category));
+    }
+    return ['all', ...Array.from(cats).sort()];
+  }, [extractedConfig]);
 
   // Merge analysis
   const runMergeAnalysis = async () => {
