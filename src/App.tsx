@@ -32,6 +32,7 @@ import Gebruikers from "./pages/Gebruikers";
 import Klanten from "./pages/Klanten";
 import DeviceHealth from "./pages/DeviceHealth";
 import Projecten from "./pages/Projecten";
+import ECCliteEmulator from "./pages/ECCliteEmulator";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
