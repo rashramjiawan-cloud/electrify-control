@@ -120,18 +120,27 @@ const FirmwareFileDetailDialog = ({ open, onOpenChange, file, chargePoints }: Pr
   // Auto-load hex when tab switches to hex
   useEffect(() => {
     if (activeTab === 'hex' && file && !hexData && !hexLoading) {
-      loadHex();
+      loadHex(hexMode);
     }
   }, [activeTab, file, hexData, hexLoading]);
 
-  const loadHex = useCallback(async () => {
-    if (!file || hexData) return;
+  // Reload when hexMode changes
+  useEffect(() => {
+    if (activeTab === 'hex' && file) {
+      loadHex(hexMode);
+    }
+  }, [hexMode]);
+
+  const loadHex = useCallback(async (mode: 'preview' | 'full') => {
+    if (!file) return;
     setHexLoading(true);
+    setHexData('');
+    setRawBytes(null);
     try {
       const { data, error } = await supabase.storage.from('firmware').download(file.name);
       if (error) throw error;
       const buffer = await data.arrayBuffer();
-      const bytes = new Uint8Array(buffer.slice(0, 512));
+      const bytes = new Uint8Array(mode === 'preview' ? buffer.slice(0, 512) : buffer);
       setRawBytes(bytes);
       setHexData(bytesToHex(bytes));
     } catch (err) {
@@ -139,7 +148,7 @@ const FirmwareFileDetailDialog = ({ open, onOpenChange, file, chargePoints }: Pr
     } finally {
       setHexLoading(false);
     }
-  }, [file, hexData]);
+  }, [file]);
 
   const runAiAnalysis = async () => {
     if (!file) return;
