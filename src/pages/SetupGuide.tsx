@@ -871,6 +871,220 @@ server.listen(LOCAL_PORT, () => {
             </div>
           </div>
 
+          {/* Ingest API Forwarder (Optie 2) */}
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-3 mt-2">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider flex items-center gap-2">
+                📡 Alternatief: Ingest API Forwarder (voor palen zonder TLS)
+              </h4>
+              <span className="text-[10px] font-mono uppercase tracking-wider bg-primary/10 text-primary rounded-md px-2 py-0.5">
+                Node.js
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Dit script draait een lokale OCPP 1.6J server die onversleutelde <code className="font-mono text-foreground">ws://</code> verbindingen accepteert 
+              en alle events via <code className="font-mono text-foreground">HTTPS POST</code> doorstuurt naar de Ingest API. 
+              Ideaal als je <strong className="text-foreground">geen proxy-backend nodig hebt</strong> en alleen data wilt ontvangen in VoltControl.
+            </p>
+
+            <div className="flex items-center gap-2 flex-wrap text-xs font-mono text-muted-foreground">
+              <div className="flex items-center gap-2 rounded-lg bg-muted/50 border border-border px-3 py-2">
+                <Plug className="h-3.5 w-3.5 text-primary" />
+                <span>Ecotap (ws://)</span>
+              </div>
+              <ArrowRight className="h-3.5 w-3.5" />
+              <div className="flex items-center gap-2 rounded-lg bg-primary/10 border border-primary/20 px-3 py-2 text-primary">
+                <Server className="h-3.5 w-3.5" />
+                <span>Lokale OCPP :9200</span>
+              </div>
+              <ArrowRight className="h-3.5 w-3.5" />
+              <div className="flex items-center gap-2 rounded-lg bg-muted/50 border border-border px-3 py-2">
+                <Globe className="h-3.5 w-3.5 text-primary" />
+                <span>Ingest API (https://)</span>
+              </div>
+              <ArrowRight className="h-3.5 w-3.5" />
+              <div className="flex items-center gap-2 rounded-lg bg-muted/50 border border-border px-3 py-2">
+                <Settings2 className="h-3.5 w-3.5 text-primary" />
+                <span>Dashboard</span>
+              </div>
+            </div>
+
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">1. Installeren</h4>
+            <CopyBlock code={`mkdir ocpp-forwarder && cd ocpp-forwarder\nnpm init -y\nnpm install ocpp-rpc`} />
+
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-2">2. forwarder.js</h4>
+            <CopyBlock code={`const { RPCServer } = require('ocpp-rpc');
+const http = require('http');
+
+const LOCAL_PORT = parseInt(process.env.LOCAL_PORT || '9200');
+const INGEST_URL = process.env.INGEST_URL || '${INGEST_URL}';
+const API_KEY    = process.env.API_KEY    || '${apiKey}';
+
+async function forward(event, chargePointId, data = {}, connectorId) {
+  try {
+    const res = await fetch(INGEST_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': API_KEY,
+      },
+      body: JSON.stringify({
+        event,
+        chargePointId,
+        connectorId,
+        timestamp: new Date().toISOString(),
+        data,
+      }),
+    });
+    const json = await res.json();
+    console.log(\`✅ \${event} [\${chargePointId}] → \${res.status}\`);
+    return json;
+  } catch (err) {
+    console.error(\`❌ \${event} [\${chargePointId}]:\`, err.message);
+    return null;
+  }
+}
+
+const rpcServer = new RPCServer({
+  protocols: ['ocpp1.6'],
+  strictMode: false,  // Ecotap stuurt soms vendor-specifieke keys
+});
+
+rpcServer.auth((accept, reject, handshake) => {
+  console.log(\`🔌 Verbinding: \${handshake.identity}\`);
+  accept();
+});
+
+rpcServer.on('client', async (client) => {
+  const cpId = client.identity;
+
+  client.handle('BootNotification', async ({ params }) => {
+    await forward('BootNotification', cpId, {
+      model: params.chargePointModel,
+      vendor: params.chargePointVendor,
+      serialNumber: params.chargePointSerialNumber,
+      firmwareVersion: params.firmwareVersion,
+    });
+    return {
+      status: 'Accepted',
+      interval: 300,
+      currentTime: new Date().toISOString(),
+    };
+  });
+
+  client.handle('Heartbeat', async () => {
+    await forward('Heartbeat', cpId);
+    return { currentTime: new Date().toISOString() };
+  });
+
+  client.handle('StatusNotification', async ({ params }) => {
+    await forward('StatusNotification', cpId, {
+      status: params.status,
+      errorCode: params.errorCode,
+      info: params.info,
+    }, params.connectorId);
+    return {};
+  });
+
+  client.handle('StartTransaction', async ({ params }) => {
+    const result = await forward('StartTransaction', cpId, {
+      idTag: params.idTag,
+      meterStart: params.meterStart,
+    }, params.connectorId);
+    return {
+      transactionId: result?.transactionId || 0,
+      idTagInfo: { status: 'Accepted' },
+    };
+  });
+
+  client.handle('StopTransaction', async ({ params }) => {
+    await forward('StopTransaction', cpId, {
+      transactionId: params.transactionId,
+      meterStop: params.meterStop,
+      reason: params.reason,
+    });
+    return { idTagInfo: { status: 'Accepted' } };
+  });
+
+  client.handle('MeterValues', async ({ params }) => {
+    const values = [];
+    for (const mv of params.meterValue || []) {
+      for (const sv of mv.sampledValue || []) {
+        values.push({
+          measurand: sv.measurand || 'Energy.Active.Import.Register',
+          value: parseFloat(sv.value),
+          unit: sv.unit || 'Wh',
+        });
+      }
+    }
+    await forward('MeterValues', cpId, {
+      transactionId: params.transactionId,
+      values,
+    }, params.connectorId);
+    return {};
+  });
+
+  client.handle('Authorize', async ({ params }) => {
+    await forward('Authorize', cpId, { idTag: params.idTag });
+    return { idTagInfo: { status: 'Accepted' } };
+  });
+
+  client.handle('DataTransfer', async ({ params }) => {
+    console.log(\`📦 [\${cpId}] DataTransfer: \${params.vendorId}/\${params.messageId}\`);
+    return { status: 'Accepted' };
+  });
+
+  // Ecotap-specifieke firmware events
+  client.handle('FirmwareStatusNotification', async ({ params }) => {
+    console.log(\`🔧 [\${cpId}] Firmware: \${params.status}\`);
+    return {};
+  });
+
+  client.handle('DiagnosticsStatusNotification', async ({ params }) => {
+    console.log(\`📋 [\${cpId}] Diagnostics: \${params.status}\`);
+    return {};
+  });
+});
+
+// Health-check + HTTP server
+const httpServer = http.createServer((req, res) => {
+  if (req.url === '/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      status: 'ok',
+      uptime: process.uptime(),
+      startedAt: new Date().toISOString(),
+    }));
+    return;
+  }
+  res.writeHead(404);
+  res.end();
+});
+
+httpServer.on('upgrade', rpcServer.handleUpgrade);
+httpServer.listen(LOCAL_PORT, () => {
+  console.log(\`⚡ OCPP Forwarder draait op ws://0.0.0.0:\${LOCAL_PORT}\`);
+  console.log(\`🎯 Events → \${INGEST_URL}\`);
+  console.log(\`🩺 Health: http://localhost:\${LOCAL_PORT}/health\`);
+});`} lang="javascript" />
+
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-2">3. Ecotap endpoint instellen</h4>
+            <CopyBlock code={`com_Endpoint → <FORWARDER_IP>:9200/<OCPP_ID>\n\n# Voorbeeld:\ncom_Endpoint → 192.168.1.50:9200/#OSN#`} />
+
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-2">4. .env bestand</h4>
+            <CopyBlock code={`LOCAL_PORT=9200\nINGEST_URL=${INGEST_URL}\nAPI_KEY=${apiKey}`} />
+
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-2">5. Starten</h4>
+            <CopyBlock code={`# Test\nnode forwarder.js\n\n# Productie met pm2\nnpm install -g pm2\npm2 start forwarder.js --name ocpp-forwarder\npm2 save && pm2 startup`} />
+
+            <div className="rounded-lg bg-muted/30 border border-border p-3 text-xs text-muted-foreground mt-1">
+              <strong className="text-foreground">🔄 Verschil met WS→WSS Gateway:</strong> De gateway stuurt 
+              ruwe WebSocket-frames door (bidirectioneel), waardoor remote commands (SetChargingProfile, Reset, etc.) ook werken.
+              De Ingest API forwarder verwerkt berichten en stuurt ze als HTTP POST — hiermee kun je <strong className="text-foreground">geen</strong> remote 
+              commands naar de paal sturen, maar het is eenvoudiger op te zetten en vereist geen permanente WSS-verbinding.
+            </div>
+          </div>
+
           {/* Step C: Important parameters */}
           <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-4">C. Relevante Ecotap parameters</h4>
           <p className="text-xs text-muted-foreground mb-2">
