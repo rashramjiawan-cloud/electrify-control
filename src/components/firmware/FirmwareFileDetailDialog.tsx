@@ -106,6 +106,10 @@ const FirmwareFileDetailDialog = ({ open, onOpenChange, file, chargePoints }: Pr
       setRawBytes(null);
       setAiAnalysis('');
       setHexDecode('');
+      setDecodeNextSteps([]);
+      setDecodeHistory([]);
+      setDecodeConversation([]);
+      setCustomFollowUp('');
       setReplaceFile(null);
       setActiveTab('metadata');
     }
