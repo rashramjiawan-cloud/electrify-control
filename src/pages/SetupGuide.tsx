@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import {
   Copy, Check, ChevronDown, ChevronRight, Server, Globe, Terminal,
-  Shield, CheckCircle2, ExternalLink, Zap, ArrowRight, FileCode, Settings2
+  Shield, CheckCircle2, ExternalLink, Zap, ArrowRight, FileCode, Settings2,
+  AlertTriangle, Plug
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -665,8 +666,170 @@ sudo certbot --nginx -d ocpp.jouwdomein.nl`} />
           </p>
         </StepCard>
 
-        {/* Step 6: Test */}
-        <StepCard step={6} title="Testen">
+        {/* Step 6: Ecotap via OCPP Proxy */}
+        <StepCard step={6} title="Ecotap laadpaal koppelen via OCPP Proxy">
+          <p className="text-sm text-muted-foreground mb-3">
+            Ecotap-laadpalen (zoals de EVC2.2) communiceren via OCPP 1.6J. Met de OCPP Proxy kun je de paal verbinden met VoltControl 
+            én tegelijk het bestaande backend (bijv. Evinity) behouden.
+          </p>
+
+          {/* Architecture diagram */}
+          <div className="flex items-center gap-2 flex-wrap text-xs font-mono text-muted-foreground mb-4">
+            <div className="flex items-center gap-2 rounded-lg bg-muted/50 border border-border px-3 py-2">
+              <Plug className="h-3.5 w-3.5 text-primary" />
+              <span>Ecotap EVC2.2</span>
+            </div>
+            <ArrowRight className="h-3.5 w-3.5" />
+            <div className="flex items-center gap-2 rounded-lg bg-primary/10 border border-primary/20 px-3 py-2 text-primary">
+              <Globe className="h-3.5 w-3.5" />
+              <span>VoltControl WSS</span>
+            </div>
+            <ArrowRight className="h-3.5 w-3.5" />
+            <div className="flex items-center gap-2 rounded-lg bg-muted/50 border border-border px-3 py-2">
+              <Server className="h-3.5 w-3.5 text-primary" />
+              <span>Evinity (Proxy)</span>
+            </div>
+          </div>
+
+          {/* Step A: Add proxy backend */}
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">A. Voeg het huidige backend toe als proxy</h4>
+          <p className="text-xs text-muted-foreground mb-2">
+            Ga naar <strong className="text-foreground">Instellingen → OCPP Proxy</strong> en maak een nieuwe backend aan:
+          </p>
+          <div className="rounded-lg border border-border overflow-hidden mb-4">
+            <table className="w-full text-sm">
+              <tbody>
+                {[
+                  ['Naam', 'Evinity Portal'],
+                  ['Type', 'ocpp_ws'],
+                  ['URL', 'ws://portal.evinity.io:80/cpms/websockets/<OCPP_ID>'],
+                  ['Subprotocol', 'ocpp1.6'],
+                  ['Charge Point Filter', '<OCPP_ID> (optioneel)'],
+                ].map(([key, value]) => (
+                  <tr key={key} className="border-b border-border last:border-0">
+                    <td className="px-4 py-2.5 font-medium text-foreground whitespace-nowrap">{key}</td>
+                    <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Step B: Change endpoint */}
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">B. Wijzig het endpoint op de Ecotap</h4>
+          <p className="text-xs text-muted-foreground mb-2">
+            Pas de volgende parameter aan in de configuratie van de laadpaal:
+          </p>
+          <CopyBlock code={`com_Endpoint → ${SUPABASE_URL?.replace('https://', '') || '<project>.supabase.co'}/functions/v1/ocpp-ws/#OSN#`} />
+          <p className="text-xs text-muted-foreground mt-2">
+            <code className="font-mono text-foreground">#OSN#</code> wordt automatisch vervangen door het OCPP-ID van de paal (bijv. <code className="font-mono text-foreground">11727832</code>).
+          </p>
+
+          {/* TLS warning */}
+          <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-4 space-y-2 mt-2">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-yellow-500 shrink-0" />
+              <h4 className="text-xs font-semibold text-foreground">TLS/SSL vereist</h4>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              VoltControl vereist <code className="font-mono text-foreground">wss://</code> (TLS). Controleer of je Ecotap TLS ondersteunt 
+              en schakel het in:
+            </p>
+            <CopyBlock code={`com_OptionsUseTLS=1\n\n# Of via OCPP ChangeConfiguration:\n# key: com_Options\n# value: comMaster=1,Events=1,BlockBeforeBoot=1,Wdt=0,updSendInIdle=0,UseTLS=1,blockLgFull=0`} />
+            <p className="text-xs text-muted-foreground">
+              Als de paal geen TLS ondersteunt (oudere firmware), gebruik dan een <strong className="text-foreground">lokale gateway</strong> (bijv. een Raspberry Pi of VPS) 
+              die WS naar WSS proxied.
+            </p>
+          </div>
+
+          {/* Step C: Important parameters */}
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-4">C. Relevante Ecotap parameters</h4>
+          <p className="text-xs text-muted-foreground mb-2">
+            Hieronder de belangrijkste OCPP-gerelateerde instellingen van een Ecotap EVC2.2:
+          </p>
+          <div className="rounded-lg border border-border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/30">
+                  <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">Parameter</th>
+                  <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">Waarde</th>
+                  <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">Toelichting</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ['com_ProtType', 'OCPP1.6J', 'Protocol (compatibel ✅)'],
+                  ['com_OCPPID', '<sn>', 'Uniek OCPP Charge Point ID'],
+                  ['NumberOfConnectors', '2', 'Aantal aansluitingen'],
+                  ['HeartbeatInterval', '900', '15 min (aanpasbaar)'],
+                  ['MeterValueSampleInterval', '60', 'Meterwaarden elke 60s'],
+                  ['MeterValuesSampledData', 'Energy, Voltage, Current L1-L3', 'Uitgebreide metingen'],
+                  ['SupportedFeatureProfiles', 'Core, FW, Reservation, Smart Charging, Remote Trigger', 'Alle relevante profielen actief'],
+                  ['chg_RatedCurrent', '32,32', 'Max 32A per connector'],
+                  ['chg_StationMaxCurrent', '63', 'Max totaal 63A'],
+                  ['chg_MinChargingCurrent', '10', 'Minimum 10A'],
+                  ['StopTransactionOnEVSideDisconnect', 'false', 'Transactie stopt niet bij disconnect'],
+                  ['AuthorizeRemoteTxRequests', 'true', 'Remote start toegestaan'],
+                  ['WebSocketPingInterval', '30', 'Ping elke 30s'],
+                ].map(([param, value, desc]) => (
+                  <tr key={param} className="border-b border-border last:border-0">
+                    <td className="px-4 py-2 font-mono text-xs text-foreground whitespace-nowrap">{param}</td>
+                    <td className="px-4 py-2 font-mono text-xs text-muted-foreground">{value}</td>
+                    <td className="px-4 py-2 text-xs text-muted-foreground">{desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Grid / Load balancing */}
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-4">D. Grid & Load Balancing</h4>
+          <p className="text-xs text-muted-foreground mb-2">
+            De Ecotap heeft eigen load balancing instellingen. Bij gebruik van VoltControl's Smart Charging 
+            kun je de interne grid-controller uitschakelen:
+          </p>
+          <div className="rounded-lg border border-border overflow-hidden">
+            <table className="w-full text-sm">
+              <tbody>
+                {[
+                  ['grid_Role', 'station_ctrl', 'Huidige rol (lokale controller)'],
+                  ['grid_InstallationMaxCurrent', '32', 'Max installatiestroom'],
+                  ['grid_CommChannel', 'canbus', 'Communicatie via CAN-bus'],
+                  ['chg_Mode3Current', '0,0', 'Dynamisch beheerd'],
+                ].map(([param, value, desc]) => (
+                  <tr key={param} className="border-b border-border last:border-0">
+                    <td className="px-4 py-2 font-mono text-xs text-foreground whitespace-nowrap">{param}</td>
+                    <td className="px-4 py-2 font-mono text-xs text-muted-foreground">{value}</td>
+                    <td className="px-4 py-2 text-xs text-muted-foreground">{desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* GSM info */}
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-4">E. Connectiviteit</h4>
+          <p className="text-xs text-muted-foreground">
+            De Ecotap gebruikt doorgaans een <strong className="text-foreground">GSM/4G modem</strong> (bijv. met IoT SIM van 1nce). 
+            Controleer het signaal (<code className="font-mono text-foreground">gsm_SigQ</code> ≥ 15) en zorg dat de APN correct is ingesteld. 
+            Bij Ethernet-verbinding (<code className="font-mono text-foreground">eth_cfg</code>) kan DHCP gebruikt worden.
+          </p>
+
+          {/* What happens */}
+          <div className="rounded-lg bg-primary/5 border border-primary/20 p-4 space-y-2 mt-3">
+            <p className="font-medium text-foreground text-sm">Wat er dan gebeurt:</p>
+            <ul className="space-y-1 text-xs text-muted-foreground list-disc list-inside">
+              <li>De Ecotap stuurt een <code className="font-mono text-foreground">BootNotification</code> naar VoltControl</li>
+              <li>VoltControl verwerkt het bericht en toont de paal op het dashboard</li>
+              <li>Tegelijkertijd wordt het bericht via de OCPP Proxy doorgestuurd naar Evinity</li>
+              <li>Alle responses worden gelogd in de <strong className="text-foreground">Proxy Audit Log</strong></li>
+              <li>Smart Charging profielen worden via <code className="font-mono text-foreground">SetChargingProfile</code> verstuurd naar de paal</li>
+            </ul>
+          </div>
+        </StepCard>
+
+        {/* Step 7: Test */}
+        <StepCard step={7} title="Testen">
           <p className="text-sm text-muted-foreground">
             Test de Ingest API direct met een cURL commando:
           </p>
@@ -678,7 +841,7 @@ sudo certbot --nginx -d ocpp.jouwdomein.nl`} />
         </StepCard>
 
         {/* Step 7: SmartStuff forwarder */}
-        <StepCard step={7} title="SmartStuff Ultra X2 – MQTT → HTTP Bridge">
+        <StepCard step={8} title="SmartStuff Ultra X2 – MQTT → HTTP Bridge">
           <p className="text-sm text-muted-foreground">
             De SmartStuff Ultra X2 (P1/DSMR dongle) publiceert meterdata via MQTT. Gebruik een van onderstaande forwarder-scripts om de data door te sturen naar je dashboard.
           </p>
