@@ -1,10 +1,11 @@
 import AppLayout from '@/components/AppLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings, Cpu, Terminal, Wifi } from 'lucide-react';
+import { Settings, Cpu, Terminal, Wifi, Usb } from 'lucide-react';
 import ECCliteConnection from '@/components/ecclite/ECCliteConnection';
 import ECCliteFirmware from '@/components/ecclite/ECCliteFirmware';
 import ECCliteConfig from '@/components/ecclite/ECCliteConfig';
 import ECCliteDebugLog from '@/components/ecclite/ECCliteDebugLog';
+import ECCliteSerial from '@/components/ecclite/ECCliteSerial';
 import { useState, useCallback, useRef } from 'react';
 
 export interface ECCliteLogEntry {
@@ -239,10 +240,14 @@ const ECCliteEmulator = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <Tabs defaultValue="connection">
-            <TabsList className="grid w-full grid-cols-4 max-w-lg">
+            <TabsList className="grid w-full grid-cols-5 max-w-2xl">
               <TabsTrigger value="connection" className="gap-1.5 text-xs">
                 <Wifi className="h-3.5 w-3.5" />
                 Verbinding
+              </TabsTrigger>
+              <TabsTrigger value="serial" className="gap-1.5 text-xs">
+                <Usb className="h-3.5 w-3.5" />
+                USB-TTL
               </TabsTrigger>
               <TabsTrigger value="firmware" className="gap-1.5 text-xs">
                 <Cpu className="h-3.5 w-3.5" />
@@ -266,6 +271,14 @@ const ECCliteEmulator = () => {
                 wsRef={wsRef}
                 onWsMessage={handleWsMessage}
                 sendOcpp={sendOcpp}
+              />
+            </TabsContent>
+            <TabsContent value="serial">
+              <ECCliteSerial
+                controller={controller}
+                setController={setController}
+                updateConfig={updateConfig}
+                addLog={addLog}
               />
             </TabsContent>
             <TabsContent value="firmware">
