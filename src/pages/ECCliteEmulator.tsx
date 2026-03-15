@@ -273,6 +273,14 @@ const ECCliteEmulator = () => {
                 sendOcpp={sendOcpp}
               />
             </TabsContent>
+            <TabsContent value="serial">
+              <ECCliteSerial
+                controller={controller}
+                setController={setController}
+                updateConfig={updateConfig}
+                addLog={addLog}
+              />
+            </TabsContent>
             <TabsContent value="firmware">
               <ECCliteFirmware
                 controller={controller}
