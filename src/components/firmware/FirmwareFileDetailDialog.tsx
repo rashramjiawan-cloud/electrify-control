@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Info, Binary, Brain, Pencil, Save, Upload, FileType, HardDrive, Calendar, Hash } from 'lucide-react';
+import { Info, Binary, Brain, Pencil, Save, Upload, FileType, HardDrive, Calendar, Hash, ArrowRight, MessageSquare, RotateCcw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useFirmwareFileMetadata, useUpsertFirmwareFileMetadata } from '@/hooks/useFirmwareFileMetadata';
 import { toast } from 'sonner';
