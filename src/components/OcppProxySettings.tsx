@@ -162,6 +162,13 @@ const BackendCard = ({ backend }: { backend: OcppProxyBackend }) => {
         onChange={(ids) => update.mutate({ id: backend.id, charge_point_filter: ids })}
       />
 
+      {backend.auth_header && (
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Shield className="h-3 w-3" />
+          Auth: <code className="font-mono text-[11px] bg-muted px-1.5 py-0.5 rounded truncate max-w-[200px]">{backend.auth_header.substring(0, 20)}...</code>
+        </div>
+      )}
+
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
         <div className="flex items-center gap-1">
           <ArrowLeftRight className="h-3 w-3" />
