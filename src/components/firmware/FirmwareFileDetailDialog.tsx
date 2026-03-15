@@ -87,6 +87,7 @@ const FirmwareFileDetailDialog = ({ open, onOpenChange, file, chargePoints }: Pr
       setLabel(metadata.label || '');
       setNotes(metadata.notes || '');
       setAssignedCp(metadata.assigned_charge_point_id || '');
+      if (metadata.ai_decode) setHexDecode(metadata.ai_decode);
     } else {
       setLabel('');
       setNotes('');
