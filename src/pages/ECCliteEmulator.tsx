@@ -1,10 +1,11 @@
 import AppLayout from '@/components/AppLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings, Cpu, Terminal, Wifi } from 'lucide-react';
+import { Settings, Cpu, Terminal, Wifi, Usb } from 'lucide-react';
 import ECCliteConnection from '@/components/ecclite/ECCliteConnection';
 import ECCliteFirmware from '@/components/ecclite/ECCliteFirmware';
 import ECCliteConfig from '@/components/ecclite/ECCliteConfig';
 import ECCliteDebugLog from '@/components/ecclite/ECCliteDebugLog';
+import ECCliteSerial from '@/components/ecclite/ECCliteSerial';
 import { useState, useCallback, useRef } from 'react';
 
 export interface ECCliteLogEntry {

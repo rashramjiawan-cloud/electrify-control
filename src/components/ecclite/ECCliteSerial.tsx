@@ -25,7 +25,7 @@ const ECCliteSerial = ({ controller, setController, updateConfig, addLog }: Prop
   const [rawCommand, setRawCommand] = useState('');
   const [sending, setSending] = useState(false);
 
-  const portRef = useRef<SerialPort | null>(null);
+  const portRef = useRef<any>(null);
   const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
   const writerRef = useRef<WritableStreamDefaultWriter<Uint8Array> | null>(null);
   const lineBufferRef = useRef('');
