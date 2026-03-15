@@ -57,10 +57,6 @@ const FirmwareLocalUpload = ({ chargePoints }: FirmwareLocalUploadProps) => {
   };
 
   const handleUpload = async () => {
-    if (!selectedCp) {
-      toast.error('Selecteer eerst een laadpaal');
-      return;
-    }
     if (!file) {
       toast.error('Selecteer eerst een firmware bestand');
       return;
