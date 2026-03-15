@@ -39,6 +39,70 @@ const CopyButton = ({ value }: { value: string }) => {
   );
 };
 
+const ChargePointFilter = ({
+  selected,
+  onChange,
+}: {
+  selected: string[];
+  onChange: (ids: string[]) => void;
+}) => {
+  const { data: chargePoints } = useChargePoints();
+  const [expanded, setExpanded] = useState(false);
+
+  const allMode = !selected || selected.length === 0;
+
+  return (
+    <div className="space-y-2">
+      <div
+        className="flex items-center justify-between cursor-pointer rounded-md border border-border p-2.5 hover:bg-muted/30 transition-colors"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-center gap-1.5 text-xs">
+          <Filter className="h-3 w-3 text-muted-foreground" />
+          <span className="font-medium">Laadpalen filter</span>
+          <span className="text-muted-foreground">
+            {allMode ? '(alle laadpalen)' : `(${selected.length} geselecteerd)`}
+          </span>
+        </div>
+        <span className="text-[10px] text-muted-foreground">{expanded ? '▲' : '▼'}</span>
+      </div>
+
+      {expanded && (
+        <div className="rounded-md border border-border p-3 space-y-2 max-h-40 overflow-y-auto">
+          <label className="flex items-center gap-2 text-xs cursor-pointer">
+            <Checkbox
+              checked={allMode}
+              onCheckedChange={() => onChange([])}
+            />
+            <span className="font-medium">Alle laadpalen</span>
+          </label>
+          {chargePoints?.map((cp) => (
+            <label key={cp.id} className="flex items-center gap-2 text-xs cursor-pointer">
+              <Checkbox
+                checked={selected.includes(cp.id)}
+                onCheckedChange={(checked) => {
+                  if (checked) {
+                    onChange([...selected, cp.id]);
+                  } else {
+                    onChange(selected.filter((id) => id !== cp.id));
+                  }
+                }}
+              />
+              <span className="font-mono">{cp.id}</span>
+              {cp.name !== cp.id && (
+                <span className="text-muted-foreground">({cp.name})</span>
+              )}
+            </label>
+          ))}
+          {(!chargePoints || chargePoints.length === 0) && (
+            <p className="text-[10px] text-muted-foreground">Geen laadpalen gevonden</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const BackendCard = ({ backend }: { backend: OcppProxyBackend }) => {
   const update = useUpdateProxyBackend();
   const remove = useDeleteProxyBackend();
