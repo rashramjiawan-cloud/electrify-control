@@ -4,10 +4,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Copy, Check, Plus, Trash2, Network, Globe, Webhook, ArrowLeftRight, Shield } from 'lucide-react';
+import { Copy, Check, Plus, Trash2, Network, Globe, Webhook, ArrowLeftRight, Shield, Filter } from 'lucide-react';
 import {
   useOcppProxyBackends,
   useCreateProxyBackend,
@@ -15,6 +16,7 @@ import {
   useDeleteProxyBackend,
   OcppProxyBackend,
 } from '@/hooks/useOcppProxyBackends';
+import { useChargePoints } from '@/hooks/useChargePoints';
 
 const statusColors: Record<string, string> = {
   connected: 'bg-green-500/10 text-green-600 border-green-500/20',
@@ -34,6 +36,70 @@ const CopyButton = ({ value }: { value: string }) => {
     <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={copy}>
       {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
     </Button>
+  );
+};
+
+const ChargePointFilter = ({
+  selected,
+  onChange,
+}: {
+  selected: string[];
+  onChange: (ids: string[]) => void;
+}) => {
+  const { data: chargePoints } = useChargePoints();
+  const [expanded, setExpanded] = useState(false);
+
+  const allMode = !selected || selected.length === 0;
+
+  return (
+    <div className="space-y-2">
+      <div
+        className="flex items-center justify-between cursor-pointer rounded-md border border-border p-2.5 hover:bg-muted/30 transition-colors"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-center gap-1.5 text-xs">
+          <Filter className="h-3 w-3 text-muted-foreground" />
+          <span className="font-medium">Laadpalen filter</span>
+          <span className="text-muted-foreground">
+            {allMode ? '(alle laadpalen)' : `(${selected.length} geselecteerd)`}
+          </span>
+        </div>
+        <span className="text-[10px] text-muted-foreground">{expanded ? '▲' : '▼'}</span>
+      </div>
+
+      {expanded && (
+        <div className="rounded-md border border-border p-3 space-y-2 max-h-40 overflow-y-auto">
+          <label className="flex items-center gap-2 text-xs cursor-pointer">
+            <Checkbox
+              checked={allMode}
+              onCheckedChange={() => onChange([])}
+            />
+            <span className="font-medium">Alle laadpalen</span>
+          </label>
+          {chargePoints?.map((cp) => (
+            <label key={cp.id} className="flex items-center gap-2 text-xs cursor-pointer">
+              <Checkbox
+                checked={selected.includes(cp.id)}
+                onCheckedChange={(checked) => {
+                  if (checked) {
+                    onChange([...selected, cp.id]);
+                  } else {
+                    onChange(selected.filter((id) => id !== cp.id));
+                  }
+                }}
+              />
+              <span className="font-mono">{cp.id}</span>
+              {cp.name !== cp.id && (
+                <span className="text-muted-foreground">({cp.name})</span>
+              )}
+            </label>
+          ))}
+          {(!chargePoints || chargePoints.length === 0) && (
+            <p className="text-[10px] text-muted-foreground">Geen laadpalen gevonden</p>
+          )}
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -90,6 +156,12 @@ const BackendCard = ({ backend }: { backend: OcppProxyBackend }) => {
         </div>
       )}
 
+      {/* Charge Point Filter */}
+      <ChargePointFilter
+        selected={backend.charge_point_filter || []}
+        onChange={(ids) => update.mutate({ id: backend.id, charge_point_filter: ids })}
+      />
+
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
         <div className="flex items-center gap-1">
           <ArrowLeftRight className="h-3 w-3" />
@@ -139,6 +211,7 @@ const AddBackendDialog = () => {
     url: '',
     auth_header: '',
     allow_commands: false,
+    charge_point_filter: [] as string[],
   });
 
   const handleSubmit = () => {
@@ -153,11 +226,12 @@ const AddBackendDialog = () => {
         url: form.url,
         auth_header: form.auth_header || null,
         allow_commands: form.allow_commands,
+        charge_point_filter: form.charge_point_filter,
       },
       {
         onSuccess: () => {
           setOpen(false);
-          setForm({ name: '', backend_type: 'ocpp_ws', url: '', auth_header: '', allow_commands: false });
+          setForm({ name: '', backend_type: 'ocpp_ws', url: '', auth_header: '', allow_commands: false, charge_point_filter: [] });
         },
       }
     );
@@ -241,6 +315,12 @@ const AddBackendDialog = () => {
               onCheckedChange={(v) => setForm({ ...form, allow_commands: v })}
             />
           </div>
+
+          {/* Charge Point Filter */}
+          <ChargePointFilter
+            selected={form.charge_point_filter}
+            onChange={(ids) => setForm({ ...form, charge_point_filter: ids })}
+          />
 
           <Button onClick={handleSubmit} className="w-full" disabled={create.isPending}>
             {create.isPending ? 'Bezig...' : 'Toevoegen'}
