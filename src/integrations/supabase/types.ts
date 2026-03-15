@@ -1117,6 +1117,60 @@ export type Database = {
         }
         Relationships: []
       }
+      ocpp_proxy_backends: {
+        Row: {
+          allow_commands: boolean
+          auth_header: string | null
+          backend_type: string
+          charge_point_filter: string[] | null
+          command_api_key: string | null
+          connection_status: string
+          created_at: string
+          enabled: boolean
+          id: string
+          last_connected_at: string | null
+          last_error: string | null
+          name: string
+          ocpp_subprotocol: string | null
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          allow_commands?: boolean
+          auth_header?: string | null
+          backend_type?: string
+          charge_point_filter?: string[] | null
+          command_api_key?: string | null
+          connection_status?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_connected_at?: string | null
+          last_error?: string | null
+          name: string
+          ocpp_subprotocol?: string | null
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          allow_commands?: boolean
+          auth_header?: string | null
+          backend_type?: string
+          charge_point_filter?: string[] | null
+          command_api_key?: string | null
+          connection_status?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_connected_at?: string | null
+          last_error?: string | null
+          name?: string
+          ocpp_subprotocol?: string | null
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
