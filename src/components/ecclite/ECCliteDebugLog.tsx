@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Play, Pause, RotateCcw } from 'lucide-react';
+import { Play, Pause } from 'lucide-react';
 import type { ControllerState, ECCliteLogEntry } from '@/pages/ECCliteEmulator';
 
 interface Props {
@@ -11,117 +11,314 @@ interface Props {
 }
 
 const SCENARIOS = [
-  { id: 'idle', label: 'Idle (standby)' },
-  { id: 'charge_session', label: 'Volledige laadsessie' },
+  { id: 'idle', label: 'Idle – KWH polling + heartbeat' },
+  { id: 'charge_session', label: 'Volledige laadsessie (RFID → Start → Meter → Stop)' },
+  { id: 'kwh_error', label: 'KWH meter timeout errors' },
+  { id: 'ocpp_status_sync', label: 'OCPP Status sync (buffered events)' },
   { id: 'grid_balancing', label: 'Grid load balancing' },
-  { id: 'ocpp_disconnect', label: 'OCPP disconnect/reconnect' },
-  { id: 'error_overcurrent', label: 'Overcurrent fout' },
-  { id: 'kwh_timeout', label: 'KWH meter timeout' },
+  { id: 'ocpp_disconnect', label: 'WebSocket disconnect/reconnect' },
+  { id: 'get_configuration', label: 'OCPP GetConfiguration request' },
+  { id: 'error_overcurrent', label: 'Overcurrent fout (Relay OFF)' },
 ];
 
 const ECCliteDebugLog = ({ controller, addLog }: Props) => {
   const [scenario, setScenario] = useState('idle');
   const [running, setRunning] = useState(false);
 
+  const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
+  const ts = () => new Date().toISOString().slice(0, 19).replace('T', ' ');
+  const isoTs = () => new Date().toISOString().replace(/\.\d+Z$/, '+00:00');
+
   const runScenario = async () => {
     if (!controller.connected) return;
     setRunning(true);
 
-    switch (scenario) {
-      case 'idle':
-        addLog('KWH:AD[1]RG[FC00]REC[9,9]...OK', 'blue');
-        await new Promise(r => setTimeout(r, 300));
-        addLog('KWH:AD[2]RG[FC00]REC[9,9]...OK', 'blue');
-        await new Promise(r => setTimeout(r, 300));
-        addLog('Heartbeat sent', 'blue');
-        addLog('Heartbeat Accepted', 'blue');
-        await new Promise(r => setTimeout(r, 200));
-        addLog('CH1: Available | CH2: Available', 'blue');
-        addLog('Grid: 0.0kW | Station: 0.0kW', 'blue');
-        break;
+    const sn = controller.serialNumber;
+    const ocppId = controller.ocppId;
+    let sq = 3200 + Math.floor(Math.random() * 100);
 
-      case 'charge_session':
-        addLog('CH1: CP signal detected', 'blue');
-        addLog('CH1: State B → Preparing', 'blue');
-        await new Promise(r => setTimeout(r, 300));
-        addLog('RFID: Tag presented: 04:A2:B3:C4:D5:E6', 'blue');
-        addLog('OCPP: Authorize idTag=04A2B3C4D5E6', 'blue');
-        await new Promise(r => setTimeout(r, 200));
-        addLog('OCPP: Authorize Accepted', 'green');
-        addLog('CH1: State C → Charging', 'green');
-        addLog('OCPP: StartTransaction connectorId=1 idTag=04A2B3C4D5E6 meterStart=0', 'blue');
-        await new Promise(r => setTimeout(r, 200));
-        addLog('OCPP: StartTransaction Accepted txId=42001', 'green');
-        
-        for (let i = 1; i <= 5; i++) {
-          await new Promise(r => setTimeout(r, 400));
+    switch (scenario) {
+      case 'idle': {
+        addLog(`SYS:EV[45,625]CAN[1,2]WS[10]`, 'blue');
+        await delay(200);
+        addLog(`KWH:AD[1]RG[8900]REC[221,221]ERR[TO]`, 'red');
+        await delay(200);
+        addLog(`KWH:AD[2]RG[8900]REC[221,221]ERR[TO]`, 'red');
+        await delay(300);
+        addLog(`=========      =======`, 'blue');
+        addLog(`Heap Size      : 0k (max:0k) (10005734-10005734)`, 'blue');
+        addLog(`Stack size     : 0k (10006BD0), max:5.0kb Gap:5.2kb`, 'blue');
+        addLog(`IP free Heap   : 7k`, 'blue');
+        addLog(`=========      =======`, 'blue');
+        await delay(300);
+        sq++;
+        addLog(`OCPP OUTREQ[Heartbeat,181]`, 'blue');
+        addLog(`OCPP OUT:[0][25]---------`, 'blue');
+        addLog(`[2,"${sq}","Heartbeat",{}]`, 'blue');
+        addLog(`END--------------`, 'blue');
+        addLog(`Sending 1/1359 (31b) OCPP EVENTS, 0 waiting`, 'blue');
+        await delay(200);
+        addLog(`OCPP INPUT:[2800][48]---------`, 'blue');
+        addLog(`[3,"${sq}",{"currentTime":"${new Date().toISOString()}"}`, 'green');
+        addLog(`END--------------`, 'blue');
+        addLog(`ocpp_process_incoming_request(2800-2830):`, 'blue');
+        addLog(`get_delim_str([3,"${sq}",{):OK`, 'blue');
+        addLog(`OCPP RESP(280A-2830) Type[3]SQ[${sq}]`, 'blue');
+        addLog(`get_json_str(currentTime):[${new Date().toISOString()}]`, 'blue');
+        addLog(`Date valid:${ts()}`, 'blue');
+        addLog(`OCPP RESP [${sq}] OK`, 'green');
+        break;
+      }
+
+      case 'charge_session': {
+        // CP signal detect
+        addLog(`CHGFLAGS[0][0,12000000][RFID][39]`, 'blue');
+        addLog(`LEDSTATE CH[0] state[Preparing(112)]`, 'blue');
+        await delay(300);
+
+        // StatusNotification Preparing
+        sq++;
+        addLog(`ADDEV[OCPP status,182,100]CH[1]IDX[46]CMD[0]SQ[${sq}]T[${ts()}]`, 'blue');
+        addLog(`OCPP OUTREQ[OCPP status,182]`, 'blue');
+        addLog(`OCPP OUT:[0][165]---------`, 'blue');
+        addLog(`[2,"${sq}","StatusNotification",{"connectorId":1,"status":"Preparing","errorCode":"NoError","info":"M3[0/0]S[12000000:RFID]","timestamp":"${isoTs()}"}]`, 'blue');
+        addLog(`END--------------`, 'blue');
+        addLog(`Sending 1/1357 (173b) OCPP EVENTS, 0 waiting`, 'blue');
+        await delay(200);
+        addLog(`OCPP INPUT:[2800][12]---------`, 'blue');
+        addLog(`[3,"${sq}",{}`, 'green');
+        addLog(`END--------------`, 'blue');
+        addLog(`OCPP RESP [${sq}] OK`, 'green');
+        await delay(300);
+
+        // Authorize
+        sq++;
+        const idTag = '04A2B3C4D5E6';
+        addLog(`PKT found on RFID2 port`, 'blue');
+        addLog(`RFID: Tag read: ${idTag}`, 'blue');
+        addLog(`OCPP OUTREQ[Authorize,101]`, 'blue');
+        addLog(`OCPP OUT:[0][52]---------`, 'blue');
+        addLog(`[2,"${sq}","Authorize",{"idTag":"${idTag}"}]`, 'blue');
+        addLog(`END--------------`, 'blue');
+        await delay(200);
+        addLog(`OCPP INPUT:[2800][42]---------`, 'blue');
+        addLog(`[3,"${sq}",{"idTagInfo":{"status":"Accepted"}}`, 'green');
+        addLog(`END--------------`, 'blue');
+        addLog(`get_json_str(status):[Accepted]`, 'green');
+        addLog(`OCPP RESP [${sq}] OK`, 'green');
+        await delay(200);
+
+        // StartTransaction
+        sq++;
+        addLog(`LEDSTATE CH[0] state[Charging(113)]`, 'green');
+        addLog(`OCPP OUTREQ[StartTransaction,104]`, 'blue');
+        addLog(`OCPP OUT:[0][120]---------`, 'blue');
+        addLog(`[2,"${sq}","StartTransaction",{"connectorId":1,"idTag":"${idTag}","meterStart":0,"timestamp":"${isoTs()}"}]`, 'blue');
+        addLog(`END--------------`, 'blue');
+        addLog(`Sending 1/1356 (128b) OCPP EVENTS, 0 waiting`, 'blue');
+        await delay(300);
+        const txId = 42000 + Math.floor(Math.random() * 1000);
+        addLog(`OCPP INPUT:[2800][60]---------`, 'blue');
+        addLog(`[3,"${sq}",{"idTagInfo":{"status":"Accepted"},"transactionId":${txId}}`, 'green');
+        addLog(`END--------------`, 'blue');
+        addLog(`get_json_int32(transactionId):[${txId}]`, 'blue');
+        addLog(`OCPP RESP [${sq}] OK`, 'green');
+        await delay(300);
+
+        // StatusNotification Charging
+        sq++;
+        addLog(`CHGFLAGS[0][12000000,12000800][KWH error,RFID][28]`, 'yellow');
+        addLog(`ADDEV[OCPP status,182,54]CH[1]IDX[50]CMD[0]SQ[${sq}]T[${ts()}]`, 'blue');
+        addLog(`OCPP OUTREQ[OCPP status,182]`, 'blue');
+        addLog(`OCPP OUT:[0][174]---------`, 'blue');
+        addLog(`[2,"${sq}","StatusNotification",{"connectorId":1,"status":"Charging","errorCode":"NoError","info":"M3[0/0]S[12000800:KWH error,RFID]","timestamp":"${isoTs()}"}]`, 'blue');
+        addLog(`END--------------`, 'blue');
+        await delay(200);
+        addLog(`OCPP INPUT:[2800][12]---------`, 'blue');
+        addLog(`[3,"${sq}",{}`, 'green');
+        addLog(`OCPP RESP [${sq}] OK`, 'green');
+        await delay(400);
+
+        // MeterValues
+        for (let i = 1; i <= 3; i++) {
+          sq++;
           const power = (7200 + Math.random() * 400).toFixed(0);
           const energy = (i * 2400).toFixed(0);
-          addLog(`KWH:CH1 P=${power}W E=${energy}Wh PF=0.98 V=230.${(Math.random() * 9).toFixed(0)}V`, 'blue');
-          addLog(`OCPP: MeterValues txId=42001 P=${power}W E=${energy}Wh`, 'blue');
+          addLog(`KWH:AD[1]RG[FC00]REC[9,9]...OK`, 'blue');
+          addLog(`OCPP OUTREQ[MeterValues,108]`, 'blue');
+          addLog(`OCPP OUT:[0][180]---------`, 'blue');
+          addLog(`[2,"${sq}","MeterValues",{"connectorId":1,"transactionId":${txId},"meterValue":[{"timestamp":"${isoTs()}","sampledValue":[{"value":"${power}","measurand":"Power.Active.Import","unit":"W"},{"value":"${energy}","measurand":"Energy.Active.Import.Register","unit":"Wh"}]}]}]`, 'blue');
+          addLog(`END--------------`, 'blue');
+          await delay(200);
+          addLog(`OCPP INPUT:[2800][12]---------`, 'blue');
+          addLog(`[3,"${sq}",{}`, 'green');
+          addLog(`OCPP RESP [${sq}] OK`, 'green');
+          addLog(`SYS:EV[45,625]CAN[1,2]WS[${10 + i * 5}]`, 'blue');
+          await delay(300);
         }
-        
-        await new Promise(r => setTimeout(r, 300));
-        addLog('CH1: EV stopped charging (State C → B)', 'yellow');
-        addLog('OCPP: StopTransaction txId=42001 meterStop=12000 reason=EVDisconnected', 'blue');
-        addLog('OCPP: StopTransaction Accepted', 'green');
-        addLog('CH1: Cable disconnected → Available', 'blue');
-        addLog('Session complete: 12.0 kWh delivered', 'green');
-        break;
 
-      case 'grid_balancing':
-        addLog('Grid: Role=Station_ctrl MaxCurrent=25A', 'blue');
-        addLog('Grid: CH1 charging at 16A, CH2 charging at 16A', 'blue');
-        addLog('Grid: Total=32A > Max=25A → Balancing required', 'yellow');
-        await new Promise(r => setTimeout(r, 300));
-        addLog('Grid: Adjusting CH1: 16A → 13A', 'yellow');
-        addLog('Grid: Adjusting CH2: 16A → 12A', 'yellow');
-        addLog('Grid: Total=25A ≤ Max=25A → OK', 'green');
-        await new Promise(r => setTimeout(r, 300));
-        addLog('OCPP: SetChargingProfile CH1 limit=13A', 'blue');
-        addLog('OCPP: SetChargingProfile CH2 limit=12A', 'blue');
-        addLog('Grid: Balance maintained', 'green');
-        break;
+        // StopTransaction
+        sq++;
+        addLog(`LEDSTATE CH[0] state[Finishing(114)]`, 'yellow');
+        addLog(`OCPP OUTREQ[StopTransaction,106]`, 'blue');
+        addLog(`OCPP OUT:[0][140]---------`, 'blue');
+        addLog(`[2,"${sq}","StopTransaction",{"transactionId":${txId},"meterStop":12000,"timestamp":"${isoTs()}","idTag":"${idTag}","reason":"EVDisconnected"}]`, 'blue');
+        addLog(`END--------------`, 'blue');
+        addLog(`Sending 1/1354 (148b) OCPP EVENTS, 0 waiting`, 'blue');
+        await delay(300);
+        addLog(`OCPP INPUT:[2800][35]---------`, 'blue');
+        addLog(`[3,"${sq}",{"idTagInfo":{"status":"Accepted"}}`, 'green');
+        addLog(`OCPP RESP [${sq}] OK`, 'green');
 
-      case 'ocpp_disconnect':
-        addLog('OCPP: WebSocket connection lost', 'red');
-        addLog('OCPP: Reconnecting in 30s...', 'yellow');
-        await new Promise(r => setTimeout(r, 600));
-        addLog('OCPP: Reconnect attempt 1/5...', 'yellow');
-        addLog('OCPP: Connection failed (timeout)', 'red');
-        await new Promise(r => setTimeout(r, 400));
-        addLog('OCPP: Reconnect attempt 2/5...', 'yellow');
-        addLog('OCPP: WebSocket connected', 'green');
-        addLog('OCPP: BootNotification sent', 'blue');
-        addLog('OCPP: BootNotification Accepted, interval=300', 'green');
-        addLog('OCPP: Syncing offline transactions...', 'blue');
-        addLog('OCPP: 2 offline transactions synced', 'green');
+        // Back to Available
+        sq++;
+        addLog(`LEDSTATE CH[0] state[Available(110)]`, 'green');
+        addLog(`OCPP OUTREQ[OCPP status,182]`, 'blue');
+        addLog(`OCPP OUT:[0][165]---------`, 'blue');
+        addLog(`[2,"${sq}","StatusNotification",{"connectorId":1,"status":"Available","errorCode":"NoError","info":"M3[0/0]S[12000800:KWH error,RFID]","timestamp":"${isoTs()}"}]`, 'blue');
+        addLog(`END--------------`, 'blue');
+        await delay(200);
+        addLog(`OCPP INPUT:[2800][12]---------`, 'blue');
+        addLog(`[3,"${sq}",{}`, 'green');
+        addLog(`OCPP RESP [${sq}] OK`, 'green');
+        addLog(`Session complete: 12.0 kWh delivered in txId=${txId}`, 'green');
         break;
+      }
 
-      case 'error_overcurrent':
-        addLog('CH1: Charging at 16A', 'blue');
-        addLog('CTRL: Overcurrent detected! I=18.2A > max=16A', 'red');
-        addLog('CTRL: Emergency stop CH1', 'red');
-        addLog('CH1: Relay OFF', 'red');
-        addLog('OCPP: StatusNotification connectorId=1 status=Faulted errorCode=OverCurrentFailure', 'red');
-        await new Promise(r => setTimeout(r, 400));
-        addLog('CTRL: Overcurrent cleared. Waiting 30s cooldown...', 'yellow');
-        await new Promise(r => setTimeout(r, 500));
-        addLog('CTRL: Cooldown complete. CH1 resuming.', 'green');
-        addLog('OCPP: StatusNotification connectorId=1 status=Available errorCode=NoError', 'blue');
+      case 'kwh_error': {
+        for (let i = 0; i < 6; i++) {
+          addLog(`KWH:AD[${(i % 2) + 1}]RG[8900]REC[221,221]ERR[TO]`, 'red');
+          await delay(300);
+          addLog(`SYS:EV[45,616]CAN[1,2]GSM[60,2]`, 'blue');
+          await delay(200);
+        }
+        addLog(`CHGFLAGS[0][12000000,12000800][KWH error,RFID][28]`, 'red');
+        addLog(`CHGFLAGS[1][0,2000800][KWH error][28]`, 'red');
+        addLog(`LEDSTATE CH[0] state[KWH0 error(116)]`, 'red');
+        addLog(`LEDSTATE CH[1] state[KWH0 error(116)]`, 'red');
         break;
+      }
 
-      case 'kwh_timeout':
-        addLog('KWH:AD[1]RG[FC00]REC[9,9]ERR[TO]', 'red');
-        await new Promise(r => setTimeout(r, 300));
-        addLog('KWH:AD[2]RG[FC00]REC[9,9]ERR[TO]', 'red');
-        addLog('MODBUS: No response from meter addr=1 (timeout 2000ms)', 'red');
-        await new Promise(r => setTimeout(r, 300));
-        addLog('KWH:AD[1]RG[FC00]REC[9,9]...OK (retry)', 'yellow');
-        addLog('MODBUS: Meter addr=1 recovered', 'green');
-        addLog('KWH:AD[2]RG[FC00]REC[9,9]...OK (retry)', 'yellow');
-        addLog('MODBUS: Meter addr=2 recovered', 'green');
+      case 'ocpp_status_sync': {
+        const statuses = ['Preparing', 'Charging', 'Available', 'Available'];
+        const connectors = [1, 1, 1, 2];
+        let evCount = 1350;
+        for (let i = 0; i < statuses.length; i++) {
+          sq++;
+          evCount--;
+          addLog(`OCPP OUTREQ[OCPP status,182]`, 'blue');
+          addLog(`OCPP OUT:[0][${165 + i * 4}]---------`, 'blue');
+          addLog(`[2,"${sq}","StatusNotification",{"connectorId":${connectors[i]},"status":"${statuses[i]}","errorCode":"NoError","info":"M3[0/0]S[12000800:KWH error,RFID]","timestamp":"${isoTs()}"}]`, 'blue');
+          addLog(`END--------------`, 'blue');
+          addLog(`Sending 1/${evCount} (${173 + i * 4}b) OCPP EVENTS, 0 waiting`, 'blue');
+          await delay(150);
+          addLog(`OCPP INPUT:[2800][12]---------`, 'blue');
+          addLog(`[3,"${sq}",{}`, 'green');
+          addLog(`END--------------`, 'blue');
+          addLog(`ocpp_process_incoming_request(2800-280C):`, 'blue');
+          addLog(`get_delim_str([3,"${sq}",{):OK`, 'blue');
+          addLog(`OCPP RESP(280A-280C) Type[3]SQ[${sq}]`, 'blue');
+          addLog(`OCPP RESP [${sq}] OK`, 'green');
+          await delay(200);
+        }
+        addLog(`All buffered OCPP events synced`, 'green');
         break;
+      }
+
+      case 'grid_balancing': {
+        const maxI = controller.config['chg_StationMaxCurrent'] || '25';
+        addLog(`PGrid[0:STATION CTRL]MIN.I[6]STATION[${maxI}]INSTALLATION[${controller.config['grid_InstallationMaxcurrent'] || '32'}]SUPERVISOR[0]`, 'blue');
+        addLog(`Grid: CH1 charging at 16A, CH2 charging at 16A`, 'blue');
+        addLog(`Grid: Total=32A > Max=${maxI}A → Balancing required`, 'yellow');
+        await delay(300);
+        addLog(`Grid: Adjusting CH1: 16A → ${Math.ceil(Number(maxI) / 2)}A`, 'yellow');
+        addLog(`Grid: Adjusting CH2: 16A → ${Math.floor(Number(maxI) / 2)}A`, 'yellow');
+        addLog(`Grid: Total=${maxI}A ≤ Max=${maxI}A → OK`, 'green');
+        await delay(300);
+        sq++;
+        addLog(`OCPP OUTREQ[SetChargingProfile]`, 'blue');
+        addLog(`OCPP OUT:[0][95]---------`, 'blue');
+        addLog(`[2,"${sq}","SetChargingProfile",{"connectorId":1,"csChargingProfiles":{"chargingProfileId":1,"stackLevel":0,"chargingProfilePurpose":"TxProfile","chargingProfileKind":"Relative","chargingSchedule":{"chargingRateUnit":"A","chargingSchedulePeriod":[{"startPeriod":0,"limit":${Math.ceil(Number(maxI) / 2)}}]}}}]`, 'blue');
+        addLog(`END--------------`, 'blue');
+        addLog(`Grid: Balance maintained`, 'green');
+        break;
+      }
+
+      case 'ocpp_disconnect': {
+        addLog(`WS CONNECTION LOST`, 'red');
+        addLog(`SYS:EV[45,625]CAN[1,2]`, 'blue');
+        await delay(500);
+        addLog(`HTTP connect to [52.17.114.8][80][1]...TIMEOUT`, 'red');
+        addLog(`WS RECONNECT attempt 1/5...`, 'yellow');
+        await delay(400);
+        addLog(`HTTP connect to [52.17.114.8][80][1]...TIMEOUT`, 'red');
+        addLog(`WS RECONNECT attempt 2/5...`, 'yellow');
+        await delay(400);
+        addLog(`HTTP connect to [52.17.114.8][80][1]`, 'blue');
+        addLog(`WS CONNECTION OK`, 'green');
+        addLog(`FORCE CHANNEL STATUS UPD [0]`, 'blue');
+        addLog(`FORCE CHANNEL STATUS UPD [1]`, 'blue');
+        sq++;
+        addLog(`OCPP OUTREQ[Boot,134]`, 'blue');
+        addLog(`OCPP OUT:[0][273]---------`, 'blue');
+        addLog(`[2,"${sq}","BootNotification",{"chargePointVendor":"Ecotap","chargePointModel":"WG","chargePointSerialNumber":"${sn}","chargeBoxSerialNumber":"${ocppId}","firmwareVersion":"4.3x.32R.16"}]`, 'blue');
+        addLog(`END--------------`, 'blue');
+        await delay(300);
+        addLog(`OCPP INPUT:[2800][83]---------`, 'blue');
+        addLog(`[3,"${sq}",{"currentTime":"${new Date().toISOString()}","interval":240,"status":"Accepted"}`, 'green');
+        addLog(`END--------------`, 'blue');
+        addLog(`${ts()}:OCPP BOOT OK`, 'green');
+        addLog(`OCPP RESP [${sq}] OK`, 'green');
+        addLog(`Sending buffered events: 3 waiting...`, 'yellow');
+        await delay(300);
+        addLog(`All buffered OCPP events synced`, 'green');
+        break;
+      }
+
+      case 'get_configuration': {
+        const uuid = crypto.randomUUID();
+        addLog(`OCPP INPUT:[2800][96]---------`, 'blue');
+        addLog(`[2,"${uuid}","GetConfiguration",{"key":["GetConfigurationMaxKeys"]}`, 'blue');
+        addLog(`END--------------`, 'blue');
+        addLog(`ocpp_process_incoming_request(2800-2860):`, 'blue');
+        addLog(`get_delim_str([2,"${uuid.slice(0, 8)}..."):OK`, 'blue');
+        addLog(`OCPP REQ Type[2] Action[GetConfiguration]`, 'blue');
+        await delay(200);
+        addLog(`OCPP OUT:[0][85]---------`, 'blue');
+        addLog(`[3,"${uuid}",{"configurationKey":[{"key":"GetConfigurationMaxKeys","readonly":true,"value":"40"}],"unknownKey":[]}]`, 'green');
+        addLog(`END--------------`, 'blue');
+        addLog(`OCPP RESP [${uuid.slice(0, 8)}] OK`, 'green');
+        break;
+      }
+
+      case 'error_overcurrent': {
+        addLog(`KWH:AD[1]RG[FC00]REC[9,9]...OK P=7400W I=16.2A`, 'blue');
+        await delay(200);
+        addLog(`KWH:AD[1]RG[FC00]REC[9,9]...OK P=8100W I=18.2A`, 'yellow');
+        addLog(`CTRL: Overcurrent detected! I=18.2A > max=16A`, 'red');
+        addLog(`CTRL: Emergency RELAY OFF CH[0]`, 'red');
+        addLog(`LEDSTATE CH[0] state[Faulted(115)]`, 'red');
+        sq++;
+        addLog(`ADDEV[OCPP status,182,54]CH[1]IDX[53]CMD[0]SQ[${sq}]T[${ts()}]`, 'blue');
+        addLog(`OCPP OUTREQ[OCPP status,182]`, 'blue');
+        addLog(`OCPP OUT:[0][180]---------`, 'blue');
+        addLog(`[2,"${sq}","StatusNotification",{"connectorId":1,"status":"Faulted","errorCode":"OverCurrentFailure","info":"I=18.2A>16A RELAY OFF","timestamp":"${isoTs()}"}]`, 'red');
+        addLog(`END--------------`, 'blue');
+        await delay(400);
+        addLog(`OCPP INPUT:[2800][12]---------`, 'blue');
+        addLog(`[3,"${sq}",{}`, 'green');
+        addLog(`OCPP RESP [${sq}] OK`, 'green');
+        addLog(`CTRL: Cooldown 30s...`, 'yellow');
+        await delay(600);
+        addLog(`CTRL: Cooldown complete. Resuming CH[0].`, 'green');
+        sq++;
+        addLog(`LEDSTATE CH[0] state[Available(110)]`, 'green');
+        addLog(`OCPP OUTREQ[OCPP status,182]`, 'blue');
+        addLog(`[2,"${sq}","StatusNotification",{"connectorId":1,"status":"Available","errorCode":"NoError","timestamp":"${isoTs()}"}]`, 'blue');
+        await delay(200);
+        addLog(`OCPP RESP [${sq}] OK`, 'green');
+        break;
+      }
     }
 
     setRunning(false);
@@ -134,7 +331,7 @@ const ECCliteDebugLog = ({ controller, addLog }: Props) => {
       </div>
       <div className="p-5 space-y-4">
         <p className="text-xs text-muted-foreground">
-          Simuleer verschillende operationele scenario's van de Ecotap controller. Output verschijnt in de seriële log.
+          Simuleer operationele scenario's van de Ecotap ECC controller. Output is gebaseerd op echte ECC seriële logbestanden.
         </p>
 
         <div className="space-y-3">
