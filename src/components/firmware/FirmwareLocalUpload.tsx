@@ -263,12 +263,13 @@ const FirmwareLocalUpload = ({ chargePoints }: FirmwareLocalUploadProps) => {
                 <div className="flex items-center gap-3">
                   <File className="h-4 w-4 text-primary" />
                   <div>
-                    <p className="text-sm font-medium text-foreground font-mono">{f.name}</p>
+                    <p className="text-sm font-medium text-foreground font-mono">{f.name.split('/').pop()}</p>
                     <p className="text-[10px] text-muted-foreground">
                       {f.metadata && typeof f.metadata === 'object' && 'size' in f.metadata
                         ? formatFileSize(f.metadata.size as number)
                         : '—'}{' '}
                       · {formatDate(f.created_at)}
+                      {('folder' in f && f.folder) ? ` · 📁 ${f.folder}` : ''}
                     </p>
                   </div>
                 </div>
