@@ -309,7 +309,7 @@ const FirmwareEditor = () => {
   // Download edited file
   const downloadEdited = () => {
     if (!editedBytes) return;
-    const blob = new Blob([editedBytes.buffer], { type: 'application/octet-stream' });
+    const blob = new Blob([editedBytes.buffer as ArrayBuffer], { type: 'application/octet-stream' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     const name = selectedFile.split('/').pop() || 'firmware.bin';
