@@ -51,25 +51,72 @@ function matchesChargePoint(backend: ProxyBackend, chargePointId: string): boole
   return backend.charge_point_filter.includes(chargePointId);
 }
 
+// Log proxy event to audit table (fire-and-forget)
+function logProxyEvent(params: {
+  backend_id: string;
+  backend_name: string;
+  charge_point_id: string;
+  direction: string;
+  action?: string;
+  message_type?: string;
+  status: string;
+  error_message?: string;
+  latency_ms?: number;
+}) {
+  supabase
+    .from("ocpp_proxy_log")
+    .insert(params)
+    .then(({ error }) => {
+      if (error) console.error("[OCPP-PROXY] Failed to log:", error.message);
+    });
+}
+
 // Fan-out: forward message to all matching backends
 async function fanOutMessage(chargePointId: string, rawMessage: string, parsedMessage: unknown[]) {
   const backends = await loadBackends();
 
+  // Determine OCPP action and message type for logging
+  const msgTypeId = parsedMessage[0];
+  const msgType = msgTypeId === CALL ? "CALL" : msgTypeId === CALLRESULT ? "CALLRESULT" : msgTypeId === CALLERROR ? "CALLERROR" : "UNKNOWN";
+  const action = msgTypeId === CALL ? String(parsedMessage[2] || "") : undefined;
+
   for (const backend of backends) {
     if (!matchesChargePoint(backend, chargePointId)) continue;
 
+    const startTime = Date.now();
     try {
       if (backend.backend_type === "http_webhook") {
         await forwardToWebhook(backend, chargePointId, rawMessage, parsedMessage);
       } else if (backend.backend_type === "ocpp_ws") {
         await forwardToOcppWs(backend, chargePointId, rawMessage);
       }
+      logProxyEvent({
+        backend_id: backend.id,
+        backend_name: backend.name,
+        charge_point_id: chargePointId,
+        direction: "upstream",
+        action,
+        message_type: msgType,
+        status: "success",
+        latency_ms: Date.now() - startTime,
+      });
     } catch (err) {
+      const errorMsg = (err as Error).message;
       console.error(`[OCPP-PROXY] Error forwarding to ${backend.name}:`, err);
-      // Update last_error
+      logProxyEvent({
+        backend_id: backend.id,
+        backend_name: backend.name,
+        charge_point_id: chargePointId,
+        direction: "upstream",
+        action,
+        message_type: msgType,
+        status: "error",
+        error_message: errorMsg,
+        latency_ms: Date.now() - startTime,
+      });
       supabase
         .from("ocpp_proxy_backends")
-        .update({ last_error: (err as Error).message, connection_status: "error" })
+        .update({ last_error: errorMsg, connection_status: "error" })
         .eq("id", backend.id)
         .then(() => {});
     }
