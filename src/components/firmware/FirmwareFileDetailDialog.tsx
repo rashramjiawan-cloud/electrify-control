@@ -66,6 +66,8 @@ const FirmwareFileDetailDialog = ({ open, onOpenChange, file, chargePoints }: Pr
   const [rawBytes, setRawBytes] = useState<Uint8Array | null>(null);
   const [aiAnalysis, setAiAnalysis] = useState<string>('');
   const [aiLoading, setAiLoading] = useState(false);
+  const [hexDecode, setHexDecode] = useState<string>('');
+  const [hexDecodeLoading, setHexDecodeLoading] = useState(false);
   const [label, setLabel] = useState('');
   const [notes, setNotes] = useState('');
   const [assignedCp, setAssignedCp] = useState('');
@@ -98,6 +100,7 @@ const FirmwareFileDetailDialog = ({ open, onOpenChange, file, chargePoints }: Pr
       setHexData('');
       setRawBytes(null);
       setAiAnalysis('');
+      setHexDecode('');
       setReplaceFile(null);
       setActiveTab('metadata');
     }
@@ -303,11 +306,56 @@ const FirmwareFileDetailDialog = ({ open, onOpenChange, file, chargePoints }: Pr
                 <Skeleton className="h-4 w-3/4" />
               </div>
             ) : hexData ? (
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">Eerste 512 bytes van het bestand</p>
-                <pre className="rounded-lg border border-border bg-muted/30 p-4 text-[11px] font-mono text-foreground overflow-x-auto max-h-[400px] overflow-y-auto leading-relaxed">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">Eerste 512 bytes van het bestand</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      if (!file) return;
+                      setHexDecodeLoading(true);
+                      setHexDecode('');
+                      try {
+                        const { data: fnData, error: fnError } = await supabase.functions.invoke('analyze-firmware', {
+                          body: { fileName: file.name, fileSize, hexPreview: hexData, mode: 'decode' },
+                        });
+                        if (fnError) throw fnError;
+                        setHexDecode(fnData.analysis || 'Geen decodering beschikbaar.');
+                      } catch (err: unknown) {
+                        const msg = err instanceof Error ? err.message : 'Decodering mislukt';
+                        toast.error(msg);
+                        setHexDecode(`Fout: ${msg}`);
+                      } finally {
+                        setHexDecodeLoading(false);
+                      }
+                    }}
+                    disabled={hexDecodeLoading}
+                    className="gap-1.5 text-xs"
+                  >
+                    <Brain className="h-3.5 w-3.5" />
+                    {hexDecodeLoading ? 'Decoderen...' : 'Decodeer met AI'}
+                  </Button>
+                </div>
+                <pre className="rounded-lg border border-border bg-muted/30 p-4 text-[11px] font-mono text-foreground overflow-x-auto max-h-[350px] overflow-y-auto leading-relaxed">
                   {hexData}
                 </pre>
+                {hexDecodeLoading && (
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-2/3" />
+                  </div>
+                )}
+                {hexDecode && (
+                  <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Brain className="h-4 w-4 text-primary" />
+                      <span className="text-xs font-semibold text-primary">AI Hex Decodering</span>
+                    </div>
+                    {hexDecode}
+                  </div>
+                )}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">Klik op het tabblad om hex data te laden</p>

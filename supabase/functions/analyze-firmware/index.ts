@@ -10,11 +10,28 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { fileName, fileSize, hexPreview, chargePointInfo } = await req.json();
+    const { fileName, fileSize, hexPreview, chargePointInfo, mode } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const systemPrompt = `Je bent een firmware-analyse expert voor EV-laadpalen (OCPP). Analyseer het firmware-bestand op basis van de bestandsnaam, grootte en hex-preview (eerste bytes).
+    let systemPrompt: string;
+
+    if (mode === "decode") {
+      systemPrompt = `Je bent een embedded systems firmware reverse-engineering expert, gespecialiseerd in EV-laadpalen (Ecotap EVC/ECC controllers, OCPP 1.6).
+
+Analyseer de hex dump en decodeer de binaire structuur byte-voor-byte. Geef je analyse in het Nederlands:
+
+1. **Magic Bytes & Header**: Identificeer het bestandsformaat uit de eerste bytes (ELF, ARM Cortex-M, Intel HEX, custom bootloader, etc.)
+2. **Interrupt Vector Table**: Als aanwezig, decodeer de vector table entries (Reset, NMI, HardFault, etc.) met geheugen-adressen
+3. **Geheugen Layout**: Identificeer code-segmenten, data-segmenten, stack pointer initialisatie
+4. **Strings & Configuratie**: Vind embedded strings, versienummers, endpoints, OCPP parameters
+5. **Checksums & CRC**: Identificeer checksum-velden en hun positie
+6. **Processor Architectuur**: Identificeer de target MCU (ARM Cortex-M0/M3/M4, LPC, STM32, etc.)
+7. **Annotated Hex**: Geef een geannoteerde versie van de belangrijkste secties met uitleg per byte-groep
+
+Gebruik tabellen en code-blokken voor duidelijkheid. Wees zo specifiek mogelijk over offsets en waarden.`;
+    } else {
+      systemPrompt = `Je bent een firmware-analyse expert voor EV-laadpalen (OCPP). Analyseer het firmware-bestand op basis van de bestandsnaam, grootte en hex-preview (eerste bytes).
 
 Geef een gestructureerde analyse in het Nederlands met:
 1. **Bestandstype**: Wat voor soort firmware-bestand dit waarschijnlijk is (binary, compressed archive, etc.)
@@ -25,6 +42,7 @@ Geef een gestructureerde analyse in het Nederlands met:
 6. **Aanbevelingen**: Tips voor het veilig toepassen van de update
 
 Houd het beknopt maar informatief.`;
+    }
 
     const userContent = `Firmware bestand: ${fileName}
 Grootte: ${fileSize} bytes
