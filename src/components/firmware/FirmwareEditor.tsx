@@ -265,6 +265,61 @@ const FirmwareEditor = () => {
     }
   };
 
+  // Smart hex extraction: skip zero-filled regions, sample interesting sections across the entire binary
+  const extractSmartHex = useCallback((bytes: Uint8Array, maxChars = 7000): string => {
+    const sections: { offset: number; data: Uint8Array }[] = [];
+    const BLOCK_SIZE = 256;
+    const totalBlocks = Math.ceil(bytes.length / BLOCK_SIZE);
+
+    for (let b = 0; b < totalBlocks; b++) {
+      const start = b * BLOCK_SIZE;
+      const end = Math.min(start + BLOCK_SIZE, bytes.length);
+      const block = bytes.slice(start, end);
+      // Check if block has non-zero content
+      let hasData = false;
+      for (let i = 0; i < block.length; i++) {
+        if (block[i] !== 0x00 && block[i] !== 0xFF) { hasData = true; break; }
+      }
+      if (hasData) sections.push({ offset: start, data: block });
+    }
+
+    // Build hex output prioritizing: first 1KB, string-rich blocks, evenly sampled blocks
+    const output: string[] = [];
+    let charCount = 0;
+
+    // Always include first 1KB
+    const firstBytes = bytes.slice(0, 1024);
+    const firstHex = bytesToHex(firstBytes);
+    output.push('=== Header (0x0000 - 0x0400) ===');
+    output.push(firstHex);
+    charCount += firstHex.length + 40;
+
+    // Score remaining sections by "interestingness" (printable ASCII density)
+    const scored = sections
+      .filter(s => s.offset >= 1024) // skip already included header
+      .map(s => {
+        let printable = 0;
+        for (let i = 0; i < s.data.length; i++) {
+          if (s.data[i] >= 32 && s.data[i] <= 126) printable++;
+        }
+        return { ...s, score: printable / s.data.length };
+      })
+      .sort((a, b) => b.score - a.score); // most interesting first
+
+    for (const section of scored) {
+      const hex = bytesToHex(section.data);
+      if (charCount + hex.length + 60 > maxChars) break;
+      const offsetHex = section.offset.toString(16).padStart(8, '0');
+      const endHex = (section.offset + section.data.length).toString(16).padStart(8, '0');
+      output.push(`\n=== Sectie 0x${offsetHex} - 0x${endHex} (score: ${(section.score * 100).toFixed(0)}% leesbaar) ===`);
+      output.push(hex);
+      charCount += hex.length + 60;
+    }
+
+    output.push(`\n=== Totaal: ${bytes.length} bytes, ${sections.length} niet-lege blokken van ${totalBlocks} ===`);
+    return output.join('\n');
+  }, []);
+
   // Extract config
   const runExtractConfig = async () => {
     if (!editedBytes) return;
@@ -272,7 +327,7 @@ const FirmwareEditor = () => {
     setConfigAnalysis('');
     setExtractedConfig(null);
     try {
-      const hexContext = bytesToHex(editedBytes.slice(0, 4096));
+      const hexContext = extractSmartHex(editedBytes);
       const { data: fnData, error: fnError } = await supabase.functions.invoke('analyze-firmware', {
         body: {
           mode: 'extract-config',

@@ -64,12 +64,13 @@ Wees EXTREEM voorzichtig en expliciet. Bij twijfel, geef aan dat handmatige veri
         { role: "user", content: `Hex context:\n${hexContext || hexPreview}\n\nGewenste wijziging: ${editInstruction}` },
       ];
     } else if (mode === "extract-config") {
-      // Configuratie-extractor
       const extractPrompt = `Je bent een embedded firmware configuratie-extractor voor EV-laadpalen (Ecotap EVC/ECC, OCPP 1.6).
 
-Analyseer de hex dump en extraheer ALLE herkenbare configuratiewaarden.
+Analyseer de hex dump en extraheer ALLE herkenbare configuratiewaarden. De hex dump bevat slim geselecteerde secties uit het HELE firmware bestand — niet alleen de header maar ook data-secties met hoge leesbaarheid (strings, configuratiewaarden).
 
 Firmware: ${fileName} (${fileSize} bytes)
+
+BELANGRIJK: Wees grondig! Zoek in ALLE aangeleverde secties naar parameters. Besteed extra aandacht aan secties met hoge leesbaarheidsscore — daar zitten vaak strings zoals URLs, IP-adressen, OCPP parameters, etc.
 
 Geef je antwoord in het Nederlands als gestructureerde JSON gevolgd door uitleg:
 
@@ -83,28 +84,30 @@ Geef je antwoord in het Nederlands als gestructureerde JSON gevolgd door uitleg:
       "value": "huidige_waarde",
       "offset": "0x00000000",
       "size_bytes": 2,
-      "type": "uint16_le",
+      "type": "uint16_le|uint32_le|string|float32_le|uint8|bool",
       "description": "Beschrijving van de parameter",
       "editable": true,
-      "category": "OCPP|Network|Hardware|Security|Timing"
+      "category": "OCPP|Network|Hardware|Security|Timing|Firmware|Calibration"
     }
   ]
 }
 \`\`\`
 
 ## Analyse
-Geef context bij de gevonden parameters. Zoek specifiek naar:
-1. **OCPP Parameters**: HeartbeatInterval, MeterValueSampleInterval, ConnectionTimeOut
-2. **Netwerk**: IP-adressen, poorten, URLs, APN instellingen
-3. **Hardware**: Baudrates, GPIO configuratie, ADC kalibratie
-4. **Security**: Certificaat-locaties, encryptie-instellingen
-5. **Timing**: Watchdog timers, polling intervals
+Geef context bij de gevonden parameters. Zoek GRONDIG naar:
+1. **OCPP Parameters**: HeartbeatInterval, MeterValueSampleInterval, ConnectionTimeOut, MeterValuesSampledData, NumberOfConnectors, AuthorizationCacheEnabled, LocalPreAuthorize
+2. **Netwerk**: IP-adressen, poorten, URLs (ws://, wss://, http://), APN instellingen, DNS servers, gateway adressen, MAC adressen
+3. **Hardware**: Baudrates (9600, 19200, 38400, 57600, 115200), GPIO configuratie, ADC kalibratie, max stroom (Ampère), spanningslimieten
+4. **Security**: Certificaat-locaties, encryptie-instellingen, wachtwoorden, API keys
+5. **Timing**: Watchdog timers, polling intervals, retry timeouts, heartbeat intervals
+6. **Strings**: Alle leesbare ASCII strings (firmware versie, model namen, foutmeldingen, menu teksten)
+7. **Calibratie**: Meetwaarde-offsets, schaalfactoren, ADC referentiewaarden
 
-Als een parameter niet met zekerheid geïdentificeerd kan worden, markeer deze als \`"editable": false\`.`;
+Probeer MINSTENS 10-15 parameters te vinden. Als een parameter niet met zekerheid geïdentificeerd kan worden, markeer deze als \`"editable": false\` maar neem hem WEL op in de lijst.`;
 
       messages = [
         { role: "system", content: extractPrompt },
-        { role: "user", content: `Hex dump:\n${hexPreview}` },
+        { role: "user", content: `Smart hex dump (niet-lege secties uit het hele ${fileSize}-byte bestand):\n${hexPreview}` },
       ];
     } else if (mode === "merge") {
       // Binary merge/splice
