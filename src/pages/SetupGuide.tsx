@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const INGEST_URL = `${SUPABASE_URL}/functions/v1/ocpp-ingest`;
+const WS_ENDPOINT = `${SUPABASE_URL?.replace('https://', 'wss://') || 'wss://<project>.supabase.co'}/functions/v1/ocpp-ws`;
 
 // ── Reusable components ──────────────────────────────────────
 
