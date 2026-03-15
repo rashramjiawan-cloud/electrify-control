@@ -387,6 +387,8 @@ client.on('message', async (_topic, payload) => {
       subtitle="Stap-voor-stap: externe OCPP server koppelen aan je dashboard"
     >
       <div className="max-w-3xl space-y-6">
+        {/* Ecotap Setup Wizard */}
+        <EcotapSetupWizard />
         {/* Architecture overview */}
         <div className="rounded-xl border border-border bg-card p-5">
           <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
