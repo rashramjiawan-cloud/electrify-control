@@ -346,10 +346,10 @@ const FirmwareFileDetailDialog = ({ open, onOpenChange, file, chargePoints }: Pr
 
               <div className="space-y-1.5">
                 <Label className="text-xs">Toewijzen aan laadpaal</Label>
-                <Select value={assignedCp} onValueChange={setAssignedCp}>
+                <Select value={assignedCp || 'none'} onValueChange={(v) => setAssignedCp(v === 'none' ? '' : v)}>
                   <SelectTrigger><SelectValue placeholder="Geen toewijzing" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Geen toewijzing</SelectItem>
+                    <SelectItem value="none">Geen toewijzing</SelectItem>
                     {chargePoints?.map(cp => (
                       <SelectItem key={cp.id} value={cp.id}>{cp.name} ({cp.id})</SelectItem>
                     ))}
