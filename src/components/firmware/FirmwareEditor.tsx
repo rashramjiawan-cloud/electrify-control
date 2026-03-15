@@ -51,6 +51,41 @@ function bytesToHex(bytes: Uint8Array): string {
   return lines.join('\n');
 }
 
+const KNOWN_CONFIG_PARAMS = [
+  // OCPP Core
+  { name: 'HeartbeatInterval', defaultValue: '300', category: 'OCPP', description: 'Interval in seconden tussen heartbeat berichten naar het Central System' },
+  { name: 'ConnectionTimeOut', defaultValue: '60', category: 'OCPP', description: 'Timeout in seconden voor het opzetten van een OCPP verbinding' },
+  { name: 'MeterValueSampleInterval', defaultValue: '60', category: 'OCPP', description: 'Interval in seconden tussen meter value samples tijdens een transactie' },
+  { name: 'MeterValuesSampledData', defaultValue: 'Energy.Active.Import.Register', category: 'OCPP', description: 'Comma-separated lijst van meetwaarden die gesampeld worden' },
+  { name: 'ClockAlignedDataInterval', defaultValue: '900', category: 'OCPP', description: 'Interval voor klok-uitgelijnde meter data (0 = uit)' },
+  { name: 'NumberOfConnectors', defaultValue: '2', category: 'Hardware', description: 'Aantal fysieke connectors op de laadpaal' },
+  { name: 'ResetRetries', defaultValue: '3', category: 'OCPP', description: 'Aantal pogingen voor een reset commando' },
+  { name: 'TransactionMessageAttempts', defaultValue: '3', category: 'OCPP', description: 'Aantal pogingen om transactie-gerelateerde berichten te versturen' },
+  { name: 'TransactionMessageRetryInterval', defaultValue: '30', category: 'OCPP', description: 'Interval in seconden tussen herhaalpogingen voor transactie-berichten' },
+  { name: 'UnlockConnectorOnEVSideDisconnect', defaultValue: 'true', category: 'OCPP', description: 'Connector ontgrendelen wanneer EV-zijde kabel loskoppelt' },
+  { name: 'LocalPreAuthorize', defaultValue: 'true', category: 'Security', description: 'Lokale pre-autorisatie met cache van de autorisatielijst' },
+  { name: 'LocalAuthListEnabled', defaultValue: 'true', category: 'Security', description: 'Gebruik van de lokale autorisatielijst inschakelen' },
+  { name: 'AuthorizationCacheEnabled', defaultValue: 'true', category: 'Security', description: 'Autorisatie cache inschakelen voor snellere authenticatie' },
+  { name: 'StopTransactionOnInvalidId', defaultValue: 'true', category: 'Security', description: 'Transactie stoppen als id_tag ongeldig wordt verklaard' },
+  { name: 'StopTransactionOnEVSideDisconnect', defaultValue: 'true', category: 'OCPP', description: 'Transactie stoppen bij loskoppelen van EV-zijde' },
+  // Netwerk
+  { name: 'CentralSystemUrl', defaultValue: 'ws://ocpp.example.com:80', category: 'Network', description: 'WebSocket URL van het OCPP Central System' },
+  { name: 'ChargePointId', defaultValue: 'CP001', category: 'Network', description: 'Unieke identifier van de laadpaal' },
+  { name: 'WebSocketPingInterval', defaultValue: '30', category: 'Network', description: 'Interval in seconden tussen WebSocket ping frames' },
+  { name: 'NetworkConfigurationPriority', defaultValue: 'LAN,WiFi,4G', category: 'Network', description: 'Prioriteitsvolgorde van netwerkinterfaces' },
+  { name: 'APNName', defaultValue: '', category: 'Network', description: 'Access Point Name voor mobiel netwerk (4G/LTE)' },
+  // Hardware / Timing
+  { name: 'MaxChargingCurrent', defaultValue: '32', category: 'Hardware', description: 'Maximale laadstroom in Ampère per connector' },
+  { name: 'MinChargingCurrent', defaultValue: '6', category: 'Hardware', description: 'Minimale laadstroom in Ampère (IEC 61851)' },
+  { name: 'MaxPower', defaultValue: '22000', category: 'Hardware', description: 'Maximaal laadvermogen in Watt' },
+  { name: 'WatchdogTimeout', defaultValue: '30', category: 'Timing', description: 'Watchdog timer timeout in seconden' },
+  { name: 'ModbusBaudrate', defaultValue: '9600', category: 'Hardware', description: 'Baudrate voor Modbus seriële communicatie' },
+  { name: 'ModbusAddress', defaultValue: '1', category: 'Hardware', description: 'Modbus slave adres van de energiemeter' },
+  // Firmware
+  { name: 'FirmwareVersion', defaultValue: '', category: 'Firmware', description: 'Huidige firmware versie string' },
+  { name: 'SupportedFeatureProfiles', defaultValue: 'Core,FirmwareManagement,SmartCharging', category: 'Firmware', description: 'Ondersteunde OCPP feature profiles' },
+];
+
 const FirmwareEditor = () => {
   const [selectedFile, setSelectedFile] = useState('');
   const [editorTab, setEditorTab] = useState('patch');
@@ -544,13 +579,53 @@ const FirmwareEditor = () => {
 
             {/* Config Extractor tab */}
             <TabsContent value="config" className="mt-4 space-y-4">
+              {/* Bekende OCPP configuratieparameters */}
               <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+                <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <Settings2 className="h-4 w-4 text-primary" />
+                  Bekende OCPP / EV-laadpaal configuratieparameters
+                </h4>
                 <p className="text-xs text-muted-foreground">
-                  Laat AI de bekende configuratieparameters uit de firmware extraheren zodat je ze visueel kunt bekijken en aanpassen.
+                  Standaard configuratieparameters voor OCPP 1.6 laadpalen (Ecotap EVC/ECC). Gebruik de AI-extractie hieronder om de werkelijke waarden uit de firmware te lezen.
                 </p>
-                <Button onClick={runExtractConfig} disabled={configLoading} className="gap-2">
+                <div className="overflow-x-auto rounded-lg border border-border">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="px-3 py-2 text-left text-muted-foreground font-medium">Parameter</th>
+                        <th className="px-3 py-2 text-left text-muted-foreground font-medium">Standaard</th>
+                        <th className="px-3 py-2 text-left text-muted-foreground font-medium">Categorie</th>
+                        <th className="px-3 py-2 text-left text-muted-foreground font-medium">Beschrijving</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {KNOWN_CONFIG_PARAMS.map((p, i) => (
+                        <tr key={i} className={`border-t border-border ${i % 2 === 0 ? 'bg-background' : 'bg-muted/20'}`}>
+                          <td className="px-3 py-2 font-mono font-medium text-foreground whitespace-nowrap">{p.name}</td>
+                          <td className="px-3 py-2 font-mono text-foreground">{p.defaultValue}</td>
+                          <td className="px-3 py-2">
+                            <Badge variant="secondary" className="text-[9px]">{p.category}</Badge>
+                          </td>
+                          <td className="px-3 py-2 text-muted-foreground max-w-[300px]">{p.description}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* AI Extractie */}
+              <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+                <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <Brain className="h-4 w-4 text-primary" />
+                  AI configuratie-extractie
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  Laat AI de werkelijke configuratiewaarden uit de geladen firmware binary extraheren en bewerkbaar maken.
+                </p>
+                <Button onClick={runExtractConfig} disabled={configLoading || !editedBytes} className="gap-2">
                   <Settings2 className="h-4 w-4" />
-                  {configLoading ? 'Extraheren...' : 'Extraheer configuratie'}
+                  {configLoading ? 'Extraheren...' : 'Extraheer uit firmware'}
                 </Button>
               </div>
 
