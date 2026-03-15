@@ -212,6 +212,14 @@ async function forwardToOcppWs(backend: ProxyBackend, chargePointId: string, raw
 
       if (!backend.allow_commands) {
         console.log(`[OCPP-PROXY] Commands not allowed from ${backend.name}, ignoring`);
+        logProxyEvent({
+          backend_id: backend.id,
+          backend_name: backend.name,
+          charge_point_id: chargePointId,
+          direction: "downstream",
+          status: "error",
+          error_message: "Commands not allowed for this backend",
+        });
         return;
       }
 
@@ -220,8 +228,23 @@ async function forwardToOcppWs(backend: ProxyBackend, chargePointId: string, raw
       if (cpSocket && cpSocket.readyState === WebSocket.OPEN) {
         cpSocket.send(event.data);
         console.log(`[OCPP-PROXY] Forwarded command from ${backend.name} → ${chargePointId}`);
+        logProxyEvent({
+          backend_id: backend.id,
+          backend_name: backend.name,
+          charge_point_id: chargePointId,
+          direction: "downstream",
+          status: "success",
+        });
       } else {
         console.warn(`[OCPP-PROXY] Charge point ${chargePointId} not connected, can't forward command`);
+        logProxyEvent({
+          backend_id: backend.id,
+          backend_name: backend.name,
+          charge_point_id: chargePointId,
+          direction: "downstream",
+          status: "error",
+          error_message: "Charge point not connected",
+        });
       }
     };
 
