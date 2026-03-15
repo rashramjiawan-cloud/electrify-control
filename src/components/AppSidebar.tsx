@@ -34,6 +34,7 @@ const iconMap: Record<string, LucideIcon> = {
   '/device-health': HeartPulse,
   '/klanten': Building2,
   '/projecten': FolderKanban,
+  '/ecclite': Activity,
 };
 
 const labelMap: Record<string, string> = {
