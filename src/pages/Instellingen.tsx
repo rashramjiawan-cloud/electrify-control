@@ -14,6 +14,7 @@ import IngestApiSettings from '@/components/IngestApiSettings';
 import MqttSettingsPanel from '@/components/MqttSettingsPanel';
 import WebhookHealthSettings from '@/components/WebhookHealthSettings';
 import OcppProxySettings from '@/components/OcppProxySettings';
+import OcppProxyLogWidget from '@/components/OcppProxyLogWidget';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const WS_URL = SUPABASE_URL?.replace('https://', 'wss://') + '/functions/v1/ocpp-ws';
