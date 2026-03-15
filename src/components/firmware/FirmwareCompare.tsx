@@ -45,8 +45,10 @@ const FirmwareCompare = () => {
   const [aiAnalysis, setAiAnalysis] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [showAllDiffs, setShowAllDiffs] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   const { data: allMetadata } = useAllFirmwareFileMetadata();
+  const upsertMeta = useUpsertFirmwareFileMetadata();
 
   const { data: uploadedFiles, isLoading: filesLoading } = useQuery({
     queryKey: ['firmware-files'],
