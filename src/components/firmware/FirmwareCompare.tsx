@@ -88,6 +88,7 @@ const FirmwareCompare = () => {
     setDiffResult(null);
     setAiAnalysis('');
     setShowAllDiffs(false);
+    setSaved(false);
     try {
       const [resA, resB] = await Promise.all([
         supabase.storage.from('firmware').download(fileA),
