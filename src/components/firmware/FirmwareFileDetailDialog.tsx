@@ -87,6 +87,7 @@ const FirmwareFileDetailDialog = ({ open, onOpenChange, file, chargePoints }: Pr
       setLabel(metadata.label || '');
       setNotes(metadata.notes || '');
       setAssignedCp(metadata.assigned_charge_point_id || '');
+      if (metadata.ai_decode) setHexDecode(metadata.ai_decode);
     } else {
       setLabel('');
       setNotes('');
@@ -349,9 +350,33 @@ const FirmwareFileDetailDialog = ({ open, onOpenChange, file, chargePoints }: Pr
                 )}
                 {hexDecode && (
                   <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Brain className="h-4 w-4 text-primary" />
-                      <span className="text-xs font-semibold text-primary">AI Hex Decodering</span>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Brain className="h-4 w-4 text-primary" />
+                        <span className="text-xs font-semibold text-primary">AI Hex Decodering</span>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5 text-xs h-7"
+                        onClick={async () => {
+                          try {
+                            await upsertMeta.mutateAsync({
+                              file_path: filePath,
+                              label: label || null,
+                              notes: notes || null,
+                              ai_decode: hexDecode || null,
+                              assigned_charge_point_id: assignedCp || null,
+                            });
+                            toast.success('AI decodering opgeslagen');
+                          } catch {
+                            toast.error('Opslaan mislukt');
+                          }
+                        }}
+                      >
+                        <Save className="h-3 w-3" />
+                        Opslaan
+                      </Button>
                     </div>
                     {hexDecode}
                   </div>

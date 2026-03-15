@@ -6,6 +6,7 @@ export interface FirmwareFileMetadata {
   file_path: string;
   label: string | null;
   notes: string | null;
+  ai_decode: string | null;
   assigned_charge_point_id: string | null;
   created_at: string;
   updated_at: string;
@@ -35,6 +36,7 @@ export function useUpsertFirmwareFileMetadata() {
       file_path: string;
       label?: string | null;
       notes?: string | null;
+      ai_decode?: string | null;
       assigned_charge_point_id?: string | null;
     }) => {
       const { data, error } = await supabase
@@ -44,6 +46,7 @@ export function useUpsertFirmwareFileMetadata() {
             file_path: params.file_path,
             label: params.label,
             notes: params.notes,
+            ai_decode: params.ai_decode,
             assigned_charge_point_id: params.assigned_charge_point_id,
           } as any,
           { onConflict: 'file_path' }

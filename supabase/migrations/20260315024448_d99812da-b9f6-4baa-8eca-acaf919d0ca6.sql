@@ -1,0 +1,1 @@
+ALTER TABLE public.firmware_file_metadata ADD COLUMN IF NOT EXISTS ai_decode text;
