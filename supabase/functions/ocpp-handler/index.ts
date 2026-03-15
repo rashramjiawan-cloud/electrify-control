@@ -16,6 +16,112 @@ const CALL = 2;
 const CALLRESULT = 3;
 const CALLERROR = 4;
 
+// ─── Proxy fan-out support ───
+
+interface ProxyBackend {
+  id: string;
+  name: string;
+  backend_type: string;
+  url: string;
+  enabled: boolean;
+  auth_header: string | null;
+  charge_point_filter: string[];
+}
+
+async function loadProxyBackends(): Promise<ProxyBackend[]> {
+  const { data, error } = await supabase
+    .from("ocpp_proxy_backends")
+    .select("*")
+    .eq("enabled", true);
+  if (error) {
+    console.error("[PROXY] Failed to load backends:", error);
+    return [];
+  }
+  return data || [];
+}
+
+function logProxyEvent(params: {
+  backend_id: string;
+  backend_name: string;
+  charge_point_id: string;
+  direction: string;
+  action?: string;
+  message_type?: string;
+  status: string;
+  error_message?: string;
+  latency_ms?: number;
+}) {
+  supabase.from("ocpp_proxy_log").insert(params).then(({ error }) => {
+    if (error) console.error("[PROXY] Log error:", error.message);
+  });
+}
+
+async function proxyFanOut(chargePointId: string, action: string, payload: Record<string, unknown>, response: Record<string, unknown>) {
+  const backends = await loadProxyBackends();
+
+  for (const backend of backends) {
+    // Check charge point filter
+    if (backend.charge_point_filter && backend.charge_point_filter.length > 0) {
+      if (!backend.charge_point_filter.includes(chargePointId)) continue;
+    }
+
+    // Only support http_webhook from the HTTP handler
+    if (backend.backend_type !== "http_webhook") continue;
+
+    const startTime = Date.now();
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (backend.auth_header) headers["Authorization"] = backend.auth_header;
+
+      const body = {
+        chargePointId,
+        messageTypeId: CALL,
+        uniqueId: crypto.randomUUID().slice(0, 8),
+        action,
+        payload: payload || {},
+        response,
+        timestamp: new Date().toISOString(),
+      };
+
+      const res = await fetch(backend.url, { method: "POST", headers, body: JSON.stringify(body) });
+      const responseText = await res.text();
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${responseText}`);
+      }
+
+      logProxyEvent({
+        backend_id: backend.id,
+        backend_name: backend.name,
+        charge_point_id: chargePointId,
+        direction: "upstream",
+        action,
+        message_type: "CALL",
+        status: "success",
+        latency_ms: Date.now() - startTime,
+      });
+    } catch (err) {
+      const errorMsg = (err as Error).message;
+      console.error(`[PROXY] Error forwarding to ${backend.name}:`, errorMsg);
+      logProxyEvent({
+        backend_id: backend.id,
+        backend_name: backend.name,
+        charge_point_id: chargePointId,
+        direction: "upstream",
+        action,
+        message_type: "CALL",
+        status: "error",
+        error_message: errorMsg,
+        latency_ms: Date.now() - startTime,
+      });
+      supabase.from("ocpp_proxy_backends")
+        .update({ last_error: errorMsg, connection_status: "error" })
+        .eq("id", backend.id)
+        .then(() => {});
+    }
+  }
+}
+
 interface OcppMessage {
   chargePointId: string;
   messageTypeId: number;
