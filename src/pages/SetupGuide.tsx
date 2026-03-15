@@ -841,7 +841,7 @@ sudo certbot --nginx -d ocpp.jouwdomein.nl`} />
         </StepCard>
 
         {/* Step 7: SmartStuff forwarder */}
-        <StepCard step={7} title="SmartStuff Ultra X2 – MQTT → HTTP Bridge">
+        <StepCard step={8} title="SmartStuff Ultra X2 – MQTT → HTTP Bridge">
           <p className="text-sm text-muted-foreground">
             De SmartStuff Ultra X2 (P1/DSMR dongle) publiceert meterdata via MQTT. Gebruik een van onderstaande forwarder-scripts om de data door te sturen naar je dashboard.
           </p>
