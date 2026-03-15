@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.evaluate-meter-models]
 verify_jwt = false
+
+[functions.analyze-firmware]
+verify_jwt = false

@@ -4,10 +4,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import { Upload, File, CheckCircle2, XCircle, HardDrive, Trash2 } from 'lucide-react';
+import { Upload, File, CheckCircle2, XCircle, HardDrive, Trash2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import FirmwareFileDetailDialog from './FirmwareFileDetailDialog';
 
 interface ChargePoint {
   id: string;
@@ -25,6 +26,8 @@ const FirmwareLocalUpload = ({ chargePoints }: FirmwareLocalUploadProps) => {
   const [progress, setProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const qc = useQueryClient();
+  const [detailFile, setDetailFile] = useState<any>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   const { data: uploadedFiles, isLoading: filesLoading } = useQuery({
     queryKey: ['firmware-files'],
@@ -237,7 +240,7 @@ const FirmwareLocalUpload = ({ chargePoints }: FirmwareLocalUploadProps) => {
         ) : (
           <div className="space-y-2">
             {uploadedFiles.map(f => (
-              <div key={f.id} className="flex items-center justify-between rounded-lg border border-border bg-muted/20 px-4 py-3">
+              <div key={f.id} className="flex items-center justify-between rounded-lg border border-border bg-muted/20 px-4 py-3 cursor-pointer hover:bg-muted/40 transition-colors" onClick={() => { setDetailFile(f); setDetailOpen(true); }}>
                 <div className="flex items-center gap-3">
                   <File className="h-4 w-4 text-primary" />
                   <div>
@@ -250,14 +253,26 @@ const FirmwareLocalUpload = ({ chargePoints }: FirmwareLocalUploadProps) => {
                     </p>
                   </div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => handleDelete(f.name)}>
-                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setDetailFile(f); setDetailOpen(true); }}>
+                    <Search className="h-3.5 w-3.5 text-primary" />
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleDelete(f.name); }}>
+                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      <FirmwareFileDetailDialog
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        file={detailFile}
+        chargePoints={chargePoints}
+      />
     </div>
   );
 };

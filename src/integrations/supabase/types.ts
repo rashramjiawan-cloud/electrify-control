@@ -510,6 +510,44 @@ export type Database = {
         }
         Relationships: []
       }
+      firmware_file_metadata: {
+        Row: {
+          assigned_charge_point_id: string | null
+          created_at: string
+          file_path: string
+          id: string
+          label: string | null
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_charge_point_id?: string | null
+          created_at?: string
+          file_path: string
+          id?: string
+          label?: string | null
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_charge_point_id?: string | null
+          created_at?: string
+          file_path?: string
+          id?: string
+          label?: string | null
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "firmware_file_metadata_assigned_charge_point_id_fkey"
+            columns: ["assigned_charge_point_id"]
+            isOneToOne: false
+            referencedRelation: "charge_points"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       firmware_updates: {
         Row: {
           charge_point_id: string
