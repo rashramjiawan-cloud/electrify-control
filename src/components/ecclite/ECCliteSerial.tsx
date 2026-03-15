@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Usb, UsbIcon, Send, Download, Upload, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Usb, Send, Download, Upload, AlertTriangle, CheckCircle2, RotateCcw, FileCode } from 'lucide-react';
 import type { ControllerState, ECCliteLogEntry } from '@/pages/ECCliteEmulator';
 
 interface Props {
@@ -17,6 +17,77 @@ interface Props {
 
 const BAUD_RATES = [9600, 19200, 38400, 57600, 115200, 230400, 460800];
 
+/* ── ECClite Binary Frame Protocol ──────────────────────────────
+ * From goodsession.log analysis:
+ *
+ * Commands use a binary frame with structure:
+ *   Header (12 bytes) + payload
+ *   uid[0] cmd[ID] seq[N] len[N]
+ *
+ * Command IDs:
+ *   100 = cmd_GETVERSION_REQ  (get firmware/hw version)
+ *   101 = cmd_LOGOUT_REQ      (end session)
+ *   31  = JSON_COMMAND_REQ    (OCPP-style JSON commands)
+ *
+ * JSON_COMMAND_REQ payload format:
+ *   0x13 + "ActionName" + "ActionName" + JSON payload
+ *   e.g.: 0x13 + "ChangeConfiguration" + "ChangeConfiguration" + '{"key":"com_ProtCh","value":"GSM"}'
+ *
+ * Response: JSON text on serial, e.g. {"status":"Accepted"}
+ * After all config writes: SV CFG():CHECKSUM
+ * ──────────────────────────────────────────────────────────────── */
+
+const CMD_GETVERSION_REQ = 100;
+const CMD_LOGOUT_REQ = 101;
+const CMD_JSON_COMMAND_REQ = 31;
+
+let seqCounter = 0;
+
+/** Build a binary frame for the ECClite serial protocol */
+function buildFrame(cmd: number, payload: Uint8Array): Uint8Array {
+  const uid = 0;
+  seqCounter += 1;
+  const seq = seqCounter;
+  const len = payload.length;
+  const totalBytes = 12 + len;
+
+  // Header: 4-byte uid, 2-byte cmd, 2-byte seq, 2-byte len, 2-byte totalBytes
+  const frame = new Uint8Array(totalBytes);
+  const view = new DataView(frame.buffer);
+
+  view.setUint32(0, uid, true);      // uid LE
+  view.setUint16(4, cmd, true);       // cmd LE
+  view.setUint16(6, seq, true);       // seq LE
+  view.setUint16(8, len, true);       // payload len LE
+  view.setUint16(10, totalBytes, true); // total bytes LE
+
+  frame.set(payload, 12);
+  return frame;
+}
+
+/** Build a JSON_COMMAND_REQ payload: 0x13 + action + action + json */
+function buildJsonCommandPayload(action: string, jsonPayload: string): Uint8Array {
+  const encoder = new TextEncoder();
+  const actionBytes = encoder.encode(action);
+  const jsonBytes = encoder.encode(jsonPayload);
+
+  // Format: 0x13 + action + action + json
+  const total = 1 + actionBytes.length + actionBytes.length + jsonBytes.length;
+  const buf = new Uint8Array(total);
+  let offset = 0;
+
+  buf[offset++] = 0x13;
+  buf.set(actionBytes, offset); offset += actionBytes.length;
+  buf.set(actionBytes, offset); offset += actionBytes.length;
+  buf.set(jsonBytes, offset);
+
+  return buf;
+}
+
+function toHexDump(data: Uint8Array): string {
+  return Array.from(data).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
+}
+
 const ECCliteSerial = ({ controller, setController, updateConfig, addLog }: Props) => {
   const [supported, setSupported] = useState(false);
   const [connected, setConnected] = useState(false);
@@ -24,6 +95,8 @@ const ECCliteSerial = ({ controller, setController, updateConfig, addLog }: Prop
   const [autoScroll, setAutoScroll] = useState(true);
   const [rawCommand, setRawCommand] = useState('');
   const [sending, setSending] = useState(false);
+  const [hwVersion, setHwVersion] = useState('');
+  const [configCount, setConfigCount] = useState(0);
 
   const portRef = useRef<any>(null);
   const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
@@ -52,7 +125,6 @@ const ECCliteSerial = ({ controller, setController, updateConfig, addLog }: Prop
         const text = decoder.decode(value, { stream: true });
         lineBufferRef.current += text;
 
-        // Process complete lines
         const lines = lineBufferRef.current.split('\n');
         lineBufferRef.current = lines.pop() || '';
 
@@ -60,20 +132,22 @@ const ECCliteSerial = ({ controller, setController, updateConfig, addLog }: Prop
           const trimmed = line.replace(/\r$/, '').trim();
           if (!trimmed) continue;
 
-          // Color-code based on content
+          // Color-code based on real ECClite log patterns
           let color: ECCliteLogEntry['color'] = 'blue';
-          if (trimmed.includes('ERROR') || trimmed.includes('FAIL') || trimmed.includes('error')) {
+          if (trimmed.includes('ERROR') || trimmed.includes('FAIL') || trimmed.includes('error') || trimmed.includes('FAULTED')) {
             color = 'red';
-          } else if (trimmed.includes('OK') || trimmed.includes('Accepted') || trimmed.includes('success')) {
+          } else if (trimmed.includes('OK') || trimmed.includes('Accepted') || trimmed.includes('success') || trimmed.includes('Done')) {
             color = 'green';
-          } else if (trimmed.includes('WARN') || trimmed.includes('warn') || trimmed.includes('TIMEOUT')) {
+          } else if (trimmed.includes('WARN') || trimmed.includes('TIMEOUT') || trimmed.includes('RETRY') || trimmed.includes('RCD')) {
             color = 'yellow';
+          } else if (trimmed.startsWith('HW') || trimmed.includes('BOOT') || trimmed.includes('Version')) {
+            color = 'green';
           }
 
           addLog(`[TTL] ${trimmed}`, color);
 
-          // Try to parse JSON responses for config updates
-          tryParseConfigResponse(trimmed);
+          // Parse specific responses
+          parseSerialResponse(trimmed);
         }
       }
     } catch (err) {
@@ -85,7 +159,34 @@ const ECCliteSerial = ({ controller, setController, updateConfig, addLog }: Prop
     }
   }, [addLog]);
 
-  const tryParseConfigResponse = useCallback((line: string) => {
+  const parseSerialResponse = useCallback((line: string) => {
+    // Detect hardware/firmware version: "EVCHARGER BOOTLOADER 04HW20 HWTYPE:20"
+    if (line.includes('BOOTLOADER') || line.match(/HW\d+FW\d+R\d+/)) {
+      const hwMatch = line.match(/HW(\d+)FW(\d+)R(\d+)/);
+      if (hwMatch) {
+        const ver = `V${hwMatch[2]}R${hwMatch[3]}`;
+        setHwVersion(`HW${hwMatch[1]} ${ver}`);
+        setController(prev => ({ ...prev, firmwareVersion: ver }));
+      }
+    }
+
+    // Detect OCPP ID: "OCPP ID [NL*ECO*1000]" or "APP INIT RCU40 ID: 11735675"
+    const ocppIdMatch = line.match(/OCPP ID \[([^\]]+)\]/);
+    if (ocppIdMatch) {
+      setController(prev => ({ ...prev, ocppId: ocppIdMatch[1] }));
+    }
+
+    const snMatch = line.match(/Chargepoint serial \[([^\]]+)\]/);
+    if (snMatch) {
+      setController(prev => ({ ...prev, serialNumber: snMatch[1] }));
+    }
+
+    const modelMatch = line.match(/Model Name \[([^\]]+)\]/);
+    if (modelMatch) {
+      setController(prev => ({ ...prev, model: modelMatch[1] }));
+    }
+
+    // Parse JSON responses
     try {
       const data = JSON.parse(line);
       if (data.configurationKey && Array.isArray(data.configurationKey)) {
@@ -94,15 +195,12 @@ const ECCliteSerial = ({ controller, setController, updateConfig, addLog }: Prop
             updateConfig(item.key, String(item.value));
           }
         }
-        addLog(`[TTL] Parsed ${data.configurationKey.length} config keys from response`, 'green');
-      }
-      if (data.status) {
-        addLog(`[TTL] Response status: ${data.status}`, data.status === 'Accepted' ? 'green' : 'yellow');
+        addLog(`[TTL] Parsed ${data.configurationKey.length} config keys`, 'green');
       }
     } catch {
-      // Not JSON, that's fine
+      // Not JSON
     }
-  }, [updateConfig, addLog]);
+  }, [updateConfig, addLog, setController]);
 
   const handleConnect = async () => {
     if (connected) {
@@ -111,7 +209,7 @@ const ECCliteSerial = ({ controller, setController, updateConfig, addLog }: Prop
     }
 
     if (!('serial' in navigator)) {
-      addLog('[TTL] Web Serial API not supported in this browser', 'red');
+      addLog('[TTL] Web Serial API not supported', 'red');
       return;
     }
 
@@ -123,26 +221,26 @@ const ECCliteSerial = ({ controller, setController, updateConfig, addLog }: Prop
       portRef.current = port;
       addLog(`[TTL] Port opened at ${baudRate} baud`, 'green');
 
-      // Set up reader
       if (port.readable) {
         readerRef.current = port.readable.getReader();
         readLoop();
       }
 
-      // Set up writer
       if (port.writable) {
         writerRef.current = port.writable.getWriter();
       }
 
       setConnected(true);
       setController(prev => ({ ...prev, connected: true }));
-      addLog(`[TTL] USB-TTL verbinding actief — klaar om te communiceren`, 'green');
+      addLog(`[TTL] USB-TTL verbinding actief`, 'green');
 
-      // Listen for disconnect
       port.addEventListener('disconnect', () => {
         addLog('[TTL] Device disconnected', 'red');
         cleanup();
       });
+
+      // Auto-request version on connect
+      setTimeout(() => sendGetVersion(), 500);
     } catch (err) {
       const msg = (err as Error).message;
       if (msg.includes('No port selected')) {
@@ -162,6 +260,9 @@ const ECCliteSerial = ({ controller, setController, updateConfig, addLog }: Prop
 
   const handleDisconnect = async () => {
     try {
+      // Send logout first
+      await sendLogout();
+
       if (readerRef.current) {
         await readerRef.current.cancel();
         readerRef.current.releaseLock();
@@ -183,40 +284,66 @@ const ECCliteSerial = ({ controller, setController, updateConfig, addLog }: Prop
     addLog('[TTL] Verbinding gesloten', 'yellow');
   };
 
-  const sendRaw = async (data: string) => {
+  /** Send raw bytes to the serial port */
+  const sendBytes = async (data: Uint8Array) => {
     const writer = writerRef.current;
     if (!writer) {
       addLog('[TTL] Geen writer beschikbaar', 'red');
       return;
     }
-
-    try {
-      const encoder = new TextEncoder();
-      await writer.write(encoder.encode(data + '\r\n'));
-      addLog(`[TTL] TX: ${data}`, 'blue');
-    } catch (err) {
-      addLog(`[TTL] Send error: ${(err as Error).message}`, 'red');
-    }
+    await writer.write(data);
   };
 
+  /** Send a text string (legacy / debug) */
+  const sendText = async (text: string) => {
+    const encoder = new TextEncoder();
+    await sendBytes(encoder.encode(text + '\r\n'));
+    addLog(`[TTL] TX: ${text}`, 'blue');
+  };
+
+  /** cmd_GETVERSION_REQ[100] — get hardware/firmware version */
+  const sendGetVersion = async () => {
+    const frame = buildFrame(CMD_GETVERSION_REQ, new Uint8Array(0));
+    addLog(`[TTL] Snd uid[0] cmd[cmd_GETVERSION_REQ[${CMD_GETVERSION_REQ}]]seq[${seqCounter}]len[0]`, 'blue');
+    addLog(`[TTL] TX HEX: ${toHexDump(frame)}`, 'blue');
+    await sendBytes(frame);
+  };
+
+  /** cmd_LOGOUT_REQ[101] — end communication session */
+  const sendLogout = async () => {
+    const frame = buildFrame(CMD_LOGOUT_REQ, new Uint8Array(0));
+    addLog(`[TTL] Snd uid[0] cmd[cmd_LOGOUT_REQ[${CMD_LOGOUT_REQ}]]seq[${seqCounter}]len[0]`, 'blue');
+    await sendBytes(frame);
+  };
+
+  /** JSON_COMMAND_REQ[31] — send an OCPP-style JSON command */
   const sendJsonCommand = async (action: string, payload: Record<string, unknown>) => {
-    const cmd = JSON.stringify([2, String(Date.now()), action, payload]);
-    await sendRaw(cmd);
+    const jsonStr = JSON.stringify(payload);
+    const cmdPayload = buildJsonCommandPayload(action, jsonStr);
+    const frame = buildFrame(CMD_JSON_COMMAND_REQ, cmdPayload);
+
+    addLog(`[TTL] ${action}${jsonStr}`, 'blue');
+    addLog(`[TTL] Snd uid[0] cmd[JSON_COMMAND_REQ[${CMD_JSON_COMMAND_REQ}]]seq[${seqCounter}]len[${cmdPayload.length}]tobytes[${frame.length}]`, 'blue');
+    addLog(`[TTL] Data[${toHexDump(cmdPayload)}]`, 'blue');
+
+    await sendBytes(frame);
   };
 
   const handleSendRawCommand = async () => {
     if (!rawCommand.trim()) return;
-    await sendRaw(rawCommand.trim());
+    await sendText(rawCommand.trim());
     setRawCommand('');
   };
 
+  /** Get full configuration from controller via GetConfiguration */
   const handleGetConfiguration = async () => {
     setSending(true);
-    addLog('[TTL] Requesting full configuration from controller...', 'blue');
+    addLog('[TTL] Requesting configuration (GetConfiguration)...', 'blue');
     await sendJsonCommand('GetConfiguration', {});
     setSending(false);
   };
 
+  /** Send production.json config items one by one */
   const handleSendProductionConfig = async () => {
     setSending(true);
     addLog('[TTL] Loading production.json profile...', 'blue');
@@ -226,13 +353,16 @@ const ECCliteSerial = ({ controller, setController, updateConfig, addLog }: Prop
       const data = await resp.json();
 
       if (data.configurationKey && Array.isArray(data.configurationKey)) {
+        let count = 0;
         for (const item of data.configurationKey) {
-          addLog(`[TTL] Setting ${item.key} = ${item.value}`, 'blue');
           await sendJsonCommand('ChangeConfiguration', { key: item.key, value: item.value });
           updateConfig(item.key, String(item.value));
-          await new Promise(r => setTimeout(r, 150));
+          count++;
+          setConfigCount(count);
+          // Wait for controller to process (as seen in the log: sequential sends)
+          await new Promise(r => setTimeout(r, 200));
         }
-        addLog(`[TTL] Production config: ${data.configurationKey.length} keys sent`, 'green');
+        addLog(`[TTL] Send ${count} Cfg Items OK`, 'green');
       }
     } catch (err) {
       addLog(`[TTL] Failed to load production.json: ${(err as Error).message}`, 'red');
@@ -241,9 +371,16 @@ const ECCliteSerial = ({ controller, setController, updateConfig, addLog }: Prop
     setSending(false);
   };
 
+  /** Send a soft reset command */
   const handleResetController = async () => {
     addLog('[TTL] Sending Reset command (Soft)...', 'yellow');
     await sendJsonCommand('Reset', { type: 'Soft' });
+  };
+
+  /** Save configuration on controller (triggers SV CFG():checksum) */
+  const handleSaveConfig = async () => {
+    addLog('[TTL] Requesting config save to FLASH...', 'blue');
+    await sendJsonCommand('SaveConfiguration', {});
   };
 
   if (!supported) {
@@ -258,7 +395,7 @@ const ECCliteSerial = ({ controller, setController, updateConfig, addLog }: Prop
             <div className="space-y-1">
               <p className="text-sm font-medium text-foreground">Web Serial API niet beschikbaar</p>
               <p className="text-xs text-muted-foreground">
-                Je browser ondersteunt geen Web Serial API. Gebruik <strong>Google Chrome</strong> of <strong>Microsoft Edge</strong> (versie 89+) om een fysieke TTL-kabel te verbinden.
+                Gebruik <strong>Google Chrome</strong> of <strong>Microsoft Edge</strong> (v89+) om een fysieke TTL-kabel te verbinden.
               </p>
             </div>
           </div>
@@ -280,12 +417,12 @@ const ECCliteSerial = ({ controller, setController, updateConfig, addLog }: Prop
         {/* Info banner */}
         <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-2">
           <div className="flex items-center gap-2">
-            <UsbIcon className="h-4 w-4 text-muted-foreground" />
-            <p className="text-xs font-medium text-foreground">Fysieke verbinding via USB-TTL kabel</p>
+            <Usb className="h-4 w-4 text-muted-foreground" />
+            <p className="text-xs font-medium text-foreground">ECClite Protocol via USB-TTL kabel</p>
           </div>
           <p className="text-xs text-muted-foreground">
-            Sluit een USB-TTL adapter (FTDI / CP2102 / CH340) aan op de TTL-poort van de Ecotap controller.
-            De browser communiceert direct via de Web Serial API met de controller — geen extra software nodig.
+            Communiceert via het echte ECClite binaire protocol: cmd_GETVERSION_REQ, JSON_COMMAND_REQ, cmd_LOGOUT_REQ.
+            Sluit een USB-TTL adapter (FTDI / CP2102 / CH340) aan op de controller TTL-poort.
           </p>
         </div>
 
@@ -319,15 +456,19 @@ const ECCliteSerial = ({ controller, setController, updateConfig, addLog }: Prop
           variant={connected ? 'destructive' : 'default'}
         >
           <Usb className="h-4 w-4" />
-          {connected ? 'Verbinding verbreken' : 'Verbinden met USB-TTL poort'}
+          {connected ? 'Verbinding verbreken (Logout)' : 'Verbinden met USB-TTL poort'}
         </Button>
 
         {connected && (
           <>
-            {/* Quick actions */}
+            {/* Protocol commands */}
             <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground uppercase tracking-wider">Snelcommando's</Label>
+              <Label className="text-xs text-muted-foreground uppercase tracking-wider">ECClite Commando's</Label>
               <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" size="sm" onClick={sendGetVersion} disabled={sending} className="gap-1.5 text-xs h-9">
+                  <FileCode className="h-3.5 w-3.5" />
+                  Versie ophalen
+                </Button>
                 <Button variant="outline" size="sm" onClick={handleGetConfiguration} disabled={sending} className="gap-1.5 text-xs h-9">
                   <Download className="h-3.5 w-3.5" />
                   Configuratie ophalen
@@ -336,43 +477,93 @@ const ECCliteSerial = ({ controller, setController, updateConfig, addLog }: Prop
                   <Upload className="h-3.5 w-3.5" />
                   Production config laden
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleResetController} disabled={sending} className="gap-1.5 text-xs h-9 text-yellow-600 hover:text-yellow-700">
+                <Button variant="outline" size="sm" onClick={handleSaveConfig} disabled={sending} className="gap-1.5 text-xs h-9">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Config opslaan (FLASH)
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleResetController} disabled={sending} className="gap-1.5 text-xs h-9 text-destructive hover:text-destructive">
+                  <RotateCcw className="h-3.5 w-3.5" />
                   Soft Reset
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => sendRaw('AT')} disabled={sending} className="gap-1.5 text-xs h-9">
-                  AT Ping
+                <Button variant="outline" size="sm" onClick={sendLogout} disabled={sending} className="gap-1.5 text-xs h-9">
+                  Logout
                 </Button>
               </div>
             </div>
 
-            {/* Raw command input */}
+            {/* Custom JSON command */}
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Handmatig commando</Label>
+              <Label className="text-xs text-muted-foreground">JSON Commando (handmatig)</Label>
               <div className="flex gap-2">
                 <Input
                   value={rawCommand}
                   onChange={e => setRawCommand(e.target.value)}
-                  placeholder='bijv. {"key":"com_OCPPID"} of AT+INFO'
+                  placeholder='bijv. ChangeConfiguration:{"key":"com_OCPPID","value":"NL*ECO*1000"}'
                   className="font-mono text-xs flex-1"
-                  onKeyDown={e => e.key === 'Enter' && handleSendRawCommand()}
+                  onKeyDown={async e => {
+                    if (e.key === 'Enter' && rawCommand.trim()) {
+                      const parts = rawCommand.split(':');
+                      if (parts.length >= 2) {
+                        const action = parts[0];
+                        try {
+                          const payload = JSON.parse(parts.slice(1).join(':'));
+                          await sendJsonCommand(action, payload);
+                        } catch {
+                          await sendText(rawCommand);
+                        }
+                      } else {
+                        await sendText(rawCommand);
+                      }
+                      setRawCommand('');
+                    }
+                  }}
                 />
-                <Button size="sm" onClick={handleSendRawCommand} disabled={!rawCommand.trim()} className="gap-1.5 h-9">
+                <Button size="sm" disabled={!rawCommand.trim()} className="gap-1.5 h-9" onClick={async () => {
+                  const parts = rawCommand.split(':');
+                  if (parts.length >= 2) {
+                    const action = parts[0];
+                    try {
+                      const payload = JSON.parse(parts.slice(1).join(':'));
+                      await sendJsonCommand(action, payload);
+                    } catch {
+                      await sendText(rawCommand);
+                    }
+                  } else {
+                    await sendText(rawCommand);
+                  }
+                  setRawCommand('');
+                }}>
                   <Send className="h-3.5 w-3.5" />
                   Send
                 </Button>
               </div>
+              <p className="text-[10px] text-muted-foreground">
+                Formaat: Action:JSON — bijv. <code className="font-mono">GetConfiguration:{"{}"}</code>
+              </p>
             </div>
 
-            {/* Controller info if available */}
+            {/* Status */}
             <div className="rounded-lg bg-muted/50 p-4">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Verbindingsstatus</h3>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Controller Info</h3>
               <div className="grid grid-cols-2 gap-2 text-xs font-mono">
                 <span className="text-muted-foreground">Baudrate:</span>
                 <span className="text-foreground">{baudRate.toLocaleString()}</span>
-                <span className="text-muted-foreground">Status:</span>
-                <span className="text-emerald-500">Actief</span>
+                <span className="text-muted-foreground">HW/FW:</span>
+                <span className="text-foreground">{hwVersion || '(nog niet opgehaald)'}</span>
+                <span className="text-muted-foreground">OCPP ID:</span>
+                <span className="text-foreground">{controller.ocppId}</span>
+                <span className="text-muted-foreground">Serienummer:</span>
+                <span className="text-foreground">{controller.serialNumber}</span>
+                <span className="text-muted-foreground">Model:</span>
+                <span className="text-foreground">{controller.model}</span>
+                {configCount > 0 && (
+                  <>
+                    <span className="text-muted-foreground">Config items verzonden:</span>
+                    <span className="text-foreground">{configCount}</span>
+                  </>
+                )}
                 <span className="text-muted-foreground">Protocol:</span>
-                <span className="text-foreground">JSON over Serial (ECClite)</span>
+                <span className="text-foreground">ECClite Binary (JSON_COMMAND_REQ)</span>
               </div>
             </div>
           </>
