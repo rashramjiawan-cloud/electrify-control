@@ -68,8 +68,8 @@ const ECCliteSniffer = ({ addLog }: Props) => {
   const [portAStatus, setPortAStatus] = useState<'disconnected' | 'connected'>('disconnected');
   const [portBStatus, setPortBStatus] = useState<'disconnected' | 'connected'>('disconnected');
 
-  const portARef = useRef<SerialPort | null>(null);
-  const portBRef = useRef<SerialPort | null>(null);
+  const portARef = useRef<any>(null);
+  const portBRef = useRef<any>(null);
   const readerARef = useRef<ReadableStreamDefaultReader | null>(null);
   const readerBRef = useRef<ReadableStreamDefaultReader | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
