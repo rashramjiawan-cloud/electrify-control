@@ -544,13 +544,53 @@ const FirmwareEditor = () => {
 
             {/* Config Extractor tab */}
             <TabsContent value="config" className="mt-4 space-y-4">
+              {/* Bekende OCPP configuratieparameters */}
               <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+                <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <Settings2 className="h-4 w-4 text-primary" />
+                  Bekende OCPP / EV-laadpaal configuratieparameters
+                </h4>
                 <p className="text-xs text-muted-foreground">
-                  Laat AI de bekende configuratieparameters uit de firmware extraheren zodat je ze visueel kunt bekijken en aanpassen.
+                  Standaard configuratieparameters voor OCPP 1.6 laadpalen (Ecotap EVC/ECC). Gebruik de AI-extractie hieronder om de werkelijke waarden uit de firmware te lezen.
                 </p>
-                <Button onClick={runExtractConfig} disabled={configLoading} className="gap-2">
+                <div className="overflow-x-auto rounded-lg border border-border">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="px-3 py-2 text-left text-muted-foreground font-medium">Parameter</th>
+                        <th className="px-3 py-2 text-left text-muted-foreground font-medium">Standaard</th>
+                        <th className="px-3 py-2 text-left text-muted-foreground font-medium">Categorie</th>
+                        <th className="px-3 py-2 text-left text-muted-foreground font-medium">Beschrijving</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {KNOWN_CONFIG_PARAMS.map((p, i) => (
+                        <tr key={i} className={`border-t border-border ${i % 2 === 0 ? 'bg-background' : 'bg-muted/20'}`}>
+                          <td className="px-3 py-2 font-mono font-medium text-foreground whitespace-nowrap">{p.name}</td>
+                          <td className="px-3 py-2 font-mono text-foreground">{p.defaultValue}</td>
+                          <td className="px-3 py-2">
+                            <Badge variant="secondary" className="text-[9px]">{p.category}</Badge>
+                          </td>
+                          <td className="px-3 py-2 text-muted-foreground max-w-[300px]">{p.description}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* AI Extractie */}
+              <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+                <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <Brain className="h-4 w-4 text-primary" />
+                  AI configuratie-extractie
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  Laat AI de werkelijke configuratiewaarden uit de geladen firmware binary extraheren en bewerkbaar maken.
+                </p>
+                <Button onClick={runExtractConfig} disabled={configLoading || !editedBytes} className="gap-2">
                   <Settings2 className="h-4 w-4" />
-                  {configLoading ? 'Extraheren...' : 'Extraheer configuratie'}
+                  {configLoading ? 'Extraheren...' : 'Extraheer uit firmware'}
                 </Button>
               </div>
 
