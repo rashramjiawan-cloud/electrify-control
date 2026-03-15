@@ -211,6 +211,7 @@ const AddBackendDialog = () => {
     url: '',
     auth_header: '',
     allow_commands: false,
+    charge_point_filter: [] as string[],
   });
 
   const handleSubmit = () => {
