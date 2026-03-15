@@ -216,10 +216,7 @@ const FirmwareLocalUpload = ({ chargePoints }: FirmwareLocalUploadProps) => {
               <Upload className="h-4 w-4" />
               {uploading ? 'Uploaden...' : 'Firmware uploaden'}
             </Button>
-            {!selectedCp && file && (
-              <p className="text-xs text-destructive">⚠ Selecteer eerst een laadpaal hierboven</p>
-            )}
-            {!file && selectedCp && (
+            {!file && (
               <p className="text-xs text-destructive">⚠ Selecteer eerst een firmware bestand</p>
             )}
           </div>
