@@ -738,9 +738,137 @@ sudo certbot --nginx -d ocpp.jouwdomein.nl`} />
             </p>
             <CopyBlock code={`com_OptionsUseTLS=1\n\n# Of via OCPP ChangeConfiguration:\n# key: com_Options\n# value: comMaster=1,Events=1,BlockBeforeBoot=1,Wdt=0,updSendInIdle=0,UseTLS=1,blockLgFull=0`} />
             <p className="text-xs text-muted-foreground">
-              Als de paal geen TLS ondersteunt (oudere firmware), gebruik dan een <strong className="text-foreground">lokale gateway</strong> (bijv. een Raspberry Pi of VPS) 
-              die WS naar WSS proxied.
+              Als de paal geen TLS ondersteunt (oudere firmware), gebruik dan de <strong className="text-foreground">WS→WSS gateway</strong> hieronder.
             </p>
+          </div>
+
+          {/* WS→WSS Proxy */}
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-3 mt-2">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider flex items-center gap-2">
+                🔀 WS→WSS Gateway (voor palen zonder TLS)
+              </h4>
+              <span className="text-[10px] font-mono uppercase tracking-wider bg-primary/10 text-primary rounded-md px-2 py-0.5">
+                Node.js
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Dit script draait op een lokale Raspberry Pi, router of VPS op dezelfde locatie als de laadpaal.
+              Het accepteert onversleutelde <code className="font-mono text-foreground">ws://</code> verbindingen en stuurt ze door naar VoltControl via <code className="font-mono text-foreground">wss://</code>.
+            </p>
+
+            <div className="flex items-center gap-2 flex-wrap text-xs font-mono text-muted-foreground">
+              <div className="flex items-center gap-2 rounded-lg bg-muted/50 border border-border px-3 py-2">
+                <Plug className="h-3.5 w-3.5 text-primary" />
+                <span>Ecotap (ws://)</span>
+              </div>
+              <ArrowRight className="h-3.5 w-3.5" />
+              <div className="flex items-center gap-2 rounded-lg bg-primary/10 border border-primary/20 px-3 py-2 text-primary">
+                <Server className="h-3.5 w-3.5" />
+                <span>Gateway :9100</span>
+              </div>
+              <ArrowRight className="h-3.5 w-3.5" />
+              <div className="flex items-center gap-2 rounded-lg bg-muted/50 border border-border px-3 py-2">
+                <Globe className="h-3.5 w-3.5 text-primary" />
+                <span>VoltControl (wss://)</span>
+              </div>
+            </div>
+
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">1. Installeren</h4>
+            <CopyBlock code={`mkdir ws-gateway && cd ws-gateway\nnpm init -y\nnpm install ws`} />
+
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-2">2. gateway.js</h4>
+            <CopyBlock code={`const http = require('http');
+const WebSocket = require('ws');
+
+const LOCAL_PORT = parseInt(process.env.LOCAL_PORT || '9100');
+const REMOTE_WSS = process.env.REMOTE_WSS || '${WS_ENDPOINT}';
+
+const server = http.createServer((req, res) => {
+  if (req.url === '/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: 'ok', uptime: process.uptime() }));
+    return;
+  }
+  res.writeHead(404);
+  res.end();
+});
+
+const wss = new WebSocket.Server({ server });
+
+wss.on('connection', (localWs, req) => {
+  // Extract charge point ID from URL path: /ocpp/<CP_ID>
+  const pathParts = req.url.split('/').filter(Boolean);
+  const cpId = pathParts[pathParts.length - 1] || 'unknown';
+  const remoteUrl = \`\${REMOTE_WSS}/\${cpId}\`;
+
+  console.log(\`🔌 [\${cpId}] Lokale verbinding → \${remoteUrl}\`);
+
+  const remoteWs = new WebSocket(remoteUrl, ['ocpp1.6'], {
+    headers: { 'Sec-WebSocket-Protocol': 'ocpp1.6' },
+  });
+
+  remoteWs.on('open', () => {
+    console.log(\`✅ [\${cpId}] WSS verbinding actief\`);
+  });
+
+  // Lokaal (ws) → Remote (wss)
+  localWs.on('message', (data) => {
+    if (remoteWs.readyState === WebSocket.OPEN) {
+      remoteWs.send(data);
+      console.log(\`⬆️  [\${cpId}] \${data.toString().substring(0, 80)}…\`);
+    }
+  });
+
+  // Remote (wss) → Lokaal (ws)
+  remoteWs.on('message', (data) => {
+    if (localWs.readyState === WebSocket.OPEN) {
+      localWs.send(data);
+      console.log(\`⬇️  [\${cpId}] \${data.toString().substring(0, 80)}…\`);
+    }
+  });
+
+  // Error & close handling
+  localWs.on('close', (code, reason) => {
+    console.log(\`🔌 [\${cpId}] Lokaal gesloten (\${code})\`);
+    remoteWs.close();
+  });
+
+  remoteWs.on('close', (code, reason) => {
+    console.log(\`🌐 [\${cpId}] Remote gesloten (\${code})\`);
+    localWs.close();
+  });
+
+  localWs.on('error', (err) => {
+    console.error(\`❌ [\${cpId}] Lokaal:\`, err.message);
+    remoteWs.close();
+  });
+
+  remoteWs.on('error', (err) => {
+    console.error(\`❌ [\${cpId}] Remote:\`, err.message);
+    localWs.close();
+  });
+});
+
+server.listen(LOCAL_PORT, () => {
+  console.log(\`🔀 WS→WSS Gateway draait op ws://0.0.0.0:\${LOCAL_PORT}\`);
+  console.log(\`🎯 Doorsturen naar \${REMOTE_WSS}/<CP_ID>\`);
+  console.log(\`🩺 Health-check: http://localhost:\${LOCAL_PORT}/health\`);
+});`} lang="javascript" />
+
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-2">3. Ecotap endpoint instellen</h4>
+            <p className="text-xs text-muted-foreground">
+              Wijs de laadpaal naar het lokale IP van de gateway:
+            </p>
+            <CopyBlock code={`com_Endpoint → <GATEWAY_IP>:9100/ocpp/#OSN#\n\n# Voorbeeld:\ncom_Endpoint → 192.168.1.50:9100/ocpp/#OSN#`} />
+
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-2">4. Starten (productie)</h4>
+            <CopyBlock code={`# Met pm2 (auto-restart)\nnpm install -g pm2\npm2 start gateway.js --name ws-gateway\npm2 save && pm2 startup\n\n# Of met Docker\nFROM node:20-alpine\nWORKDIR /app\nCOPY package*.json ./\nRUN npm ci --omit=dev\nCOPY gateway.js .\nEXPOSE 9100\nCMD ["node", "gateway.js"]`} />
+
+            <div className="rounded-lg bg-muted/30 border border-border p-3 text-xs text-muted-foreground mt-1">
+              <strong className="text-foreground">💡 Tip:</strong> Zet de gateway op hetzelfde lokale netwerk als de laadpaal (bijv. achter dezelfde router/switch).
+              Zo blijft het onversleutelde verkeer binnen het LAN en gaat alleen het versleutelde verkeer over het internet.
+            </div>
           </div>
 
           {/* Step C: Important parameters */}
