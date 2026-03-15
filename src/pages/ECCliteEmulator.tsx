@@ -286,6 +286,9 @@ const ECCliteEmulator = () => {
                 addLog={addLog}
               />
             </TabsContent>
+            <TabsContent value="sniffer">
+              <ECCliteSniffer addLog={addLog} />
+            </TabsContent>
             <TabsContent value="firmware">
               <ECCliteFirmware
                 controller={controller}
