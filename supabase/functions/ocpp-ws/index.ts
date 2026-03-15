@@ -180,7 +180,31 @@ async function forwardToOcppWs(backend: ProxyBackend, chargePointId: string, raw
       ? `${backend.url}${chargePointId}`
       : `${backend.url}/${chargePointId}`;
 
-    ws = new WebSocket(wsUrl, backend.ocpp_subprotocol || "ocpp1.6");
+    // Build headers for WS connection (auth support)
+    const wsHeaders: Record<string, string> = {};
+    if (backend.auth_header) {
+      wsHeaders["Authorization"] = backend.auth_header;
+    }
+
+    // Use fetch-based WebSocket upgrade to support custom headers
+    if (backend.auth_header) {
+      const upgradeResp = await fetch(wsUrl, {
+        headers: {
+          "Upgrade": "websocket",
+          "Connection": "Upgrade",
+          "Sec-WebSocket-Protocol": backend.ocpp_subprotocol || "ocpp1.6",
+          "Authorization": backend.auth_header,
+        },
+      });
+      // @ts-ignore - Deno supports webSocket on upgrade responses
+      ws = upgradeResp.webSocket;
+      if (!ws) {
+        throw new Error("Failed to establish WebSocket with auth headers");
+      }
+      ws.accept();
+    } else {
+      ws = new WebSocket(wsUrl, backend.ocpp_subprotocol || "ocpp1.6");
+    }
 
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error("WS connect timeout")), 10000);
