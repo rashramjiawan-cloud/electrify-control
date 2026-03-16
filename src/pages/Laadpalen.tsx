@@ -1036,8 +1036,12 @@ const Laadpalen = () => {
               </div>
             )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button variant="outline" onClick={() => setTriggerDialogOpen(false)}>Annuleren</Button>
+            <Button variant="secondary" onClick={handleTriggerAll} disabled={sending} className="gap-2">
+              <Zap className="h-4 w-4" />
+              {sending ? 'Bezig...' : 'Test alle triggers'}
+            </Button>
             <Button onClick={handleTriggerMessage} disabled={sending} className="gap-2">
               <Radio className="h-4 w-4" />
               {sending ? 'Bezig...' : 'Trigger'}
