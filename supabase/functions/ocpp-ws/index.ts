@@ -570,7 +570,7 @@ async function handleProxyCommand(body: Record<string, unknown>): Promise<Respon
 }
 
 // ─── Handle internal commands from UI (authenticated with service role key) ───
-async function handleInternalCommand(req: Request): Promise<Response> {
+async function handleInternalCommand(body: Record<string, unknown>): Promise<Response> {
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -578,8 +578,7 @@ async function handleInternalCommand(req: Request): Promise<Response> {
   };
 
   try {
-    const body = await req.json();
-    const { charge_point_id, action, payload } = body;
+    const { charge_point_id, action, payload } = body as { charge_point_id: string; action: string; payload: unknown };
 
     if (!charge_point_id || !action) {
       return new Response(
