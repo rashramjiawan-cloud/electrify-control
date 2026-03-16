@@ -79,6 +79,7 @@ Deno.serve(async (req) => {
 
     const result = await balanceGrid(supabase, grid, available_power_kw);
     await logResult(supabase, result);
+    await applyChargingProfiles(supabase, result);
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
