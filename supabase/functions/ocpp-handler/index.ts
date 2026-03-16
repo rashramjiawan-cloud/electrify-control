@@ -149,7 +149,7 @@ async function handleBootNotification(cpId: string, payload: Record<string, unkn
   return {
     status: "Accepted",
     currentTime: new Date().toISOString(),
-    interval: 300,
+    interval: 30,
   };
 }
 
