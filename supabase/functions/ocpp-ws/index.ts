@@ -315,7 +315,7 @@ async function fanOutResponse(chargePointId: string, responseRaw: string) {
   }
 }
 
-Deno.serve((req: Request) => {
+Deno.serve(async (req: Request) => {
   const upgrade = (req.headers.get("upgrade") || "").toLowerCase();
 
   if (upgrade !== "websocket") {
