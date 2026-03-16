@@ -366,7 +366,7 @@ const Laadpalen = () => {
     } finally {
       setEnovatesSyncing(false);
     }
-  
+  };
 
   return (
     <AppLayout title="Laadpalen" subtitle="OCPP 1.6J Charge Point Management">
