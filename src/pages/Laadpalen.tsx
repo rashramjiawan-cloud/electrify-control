@@ -360,6 +360,31 @@ const Laadpalen = () => {
       setSending(false);
     }
   };
+
+  const handleTriggerAll = async () => {
+    setSending(true);
+    const messages = ['BootNotification', 'Heartbeat', 'StatusNotification', 'MeterValues'];
+    const results: { msg: string; ok: boolean; status?: string }[] = [];
+    for (const msg of messages) {
+      try {
+        const connId = (msg === 'StatusNotification' || msg === 'MeterValues') ? 1 : 0;
+        const data = await sendOcppCommand(selectedCpId, 'TriggerMessage', {
+          requestedMessage: msg,
+          connectorId: connId,
+        });
+        const status = data[2]?.status;
+        results.push({ msg, ok: status === 'Accepted', status });
+      } catch {
+        results.push({ msg, ok: false, status: 'Error' });
+      }
+    }
+    const ok = results.filter(r => r.ok).length;
+    const fail = results.filter(r => !r.ok);
+    if (ok > 0) toast.success(`${ok}/${messages.length} triggers geaccepteerd op ${selectedCpId}`);
+    if (fail.length > 0) toast.error(`Mislukt: ${fail.map(f => `${f.msg} (${f.status})`).join(', ')}`);
+    setSending(false);
+    if (fail.length === 0) setTriggerDialogOpen(false);
+  };
   const handleExportCsv = () => {
     const exportData = chargePoints.map(cp => ({
       id: cp.id,
@@ -1011,8 +1036,12 @@ const Laadpalen = () => {
               </div>
             )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button variant="outline" onClick={() => setTriggerDialogOpen(false)}>Annuleren</Button>
+            <Button variant="secondary" onClick={handleTriggerAll} disabled={sending} className="gap-2">
+              <Zap className="h-4 w-4" />
+              {sending ? 'Bezig...' : 'Test alle triggers'}
+            </Button>
             <Button onClick={handleTriggerMessage} disabled={sending} className="gap-2">
               <Radio className="h-4 w-4" />
               {sending ? 'Bezig...' : 'Trigger'}
