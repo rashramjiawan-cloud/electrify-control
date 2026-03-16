@@ -396,10 +396,6 @@ const Laadpalen = () => {
           <Download className="h-3.5 w-3.5" />
           Export CSV
         </Button>
-        <Button variant="outline" size="sm" className="gap-2 text-xs" onClick={handleEnovatesSync} disabled={enovatesSyncing}>
-          <RefreshCw className={`h-3.5 w-3.5 ${enovatesSyncing ? 'animate-spin' : ''}`} />
-          {enovatesSyncing ? 'Synchroniseren...' : 'Sync Enovates'}
-        </Button>
       </div>
       <ChargePointDonutCharts chargePoints={chargePoints as any} />
 
