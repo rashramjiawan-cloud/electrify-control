@@ -19,6 +19,8 @@ const chargePointSockets = new Map<string, WebSocket>();
 
 // ─── Proxy: active WebSocket connections to external OCPP backends ───
 const backendWsSockets = new Map<string, WebSocket>();
+// ─── Pending command responses (CSMS → CP, waiting for CALLRESULT) ───
+const pendingResponses = new Map<string, { resolve: (value: unknown) => void; timer: ReturnType<typeof setTimeout> }>();
 
 interface ProxyBackend {
   id: string;
@@ -313,13 +315,22 @@ async function fanOutResponse(chargePointId: string, responseRaw: string) {
   }
 }
 
-Deno.serve((req: Request) => {
+Deno.serve(async (req: Request) => {
   const upgrade = (req.headers.get("upgrade") || "").toLowerCase();
 
   if (upgrade !== "websocket") {
-    // Check if this is a proxy command from an external backend
+    if (req.method === "OPTIONS") {
+      return new Response("ok", { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "GET, POST, OPTIONS" } });
+    }
     if (req.method === "POST") {
-      return handleProxyCommand(req);
+      // Clone request to peek at body
+      const bodyText = await req.text();
+      const body = JSON.parse(bodyText);
+      // Internal command format uses "action" field; proxy uses "api_key" + "message"
+      if (body.action && !body.api_key) {
+        return handleInternalCommand(body);
+      }
+      return handleProxyCommand(body);
     }
 
     return new Response(
@@ -429,8 +440,24 @@ Deno.serve((req: Request) => {
 
       } else if (messageTypeId === CALLRESULT) {
         console.log(`[OCPP-WS] ${chargePointId}: Received CALLRESULT:`, raw);
+        const uniqueId = String(message[1]);
+        const pendingKey = `${chargePointId}:${uniqueId}`;
+        const pending = pendingResponses.get(pendingKey);
+        if (pending) {
+          clearTimeout(pending.timer);
+          pendingResponses.delete(pendingKey);
+          pending.resolve(message);
+        }
       } else if (messageTypeId === CALLERROR) {
         console.log(`[OCPP-WS] ${chargePointId}: Received CALLERROR:`, raw);
+        const uniqueId = String(message[1]);
+        const pendingKey = `${chargePointId}:${uniqueId}`;
+        const pending = pendingResponses.get(pendingKey);
+        if (pending) {
+          clearTimeout(pending.timer);
+          pendingResponses.delete(pendingKey);
+          pending.resolve(message);
+        }
       } else {
         const errResp = [CALLERROR, message[1] || "0", "FormationViolation", `Unknown messageTypeId: ${messageTypeId}`, {}];
         socket.send(JSON.stringify(errResp));
@@ -473,7 +500,7 @@ Deno.serve((req: Request) => {
 });
 
 // ─── Handle proxy commands from external backends ───
-async function handleProxyCommand(req: Request): Promise<Response> {
+async function handleProxyCommand(body: Record<string, unknown>): Promise<Response> {
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -481,7 +508,6 @@ async function handleProxyCommand(req: Request): Promise<Response> {
   };
 
   try {
-    const body = await req.json();
     const { api_key, charge_point_id, message } = body;
 
     if (!api_key || !charge_point_id || !message) {
@@ -535,6 +561,67 @@ async function handleProxyCommand(req: Request): Promise<Response> {
       { status: 200, headers: corsHeaders }
     );
 
+  } catch (err) {
+    return new Response(
+      JSON.stringify({ error: (err as Error).message }),
+      { status: 500, headers: corsHeaders }
+    );
+  }
+}
+
+// ─── Handle internal commands from UI (authenticated with service role key) ───
+async function handleInternalCommand(body: Record<string, unknown>): Promise<Response> {
+  const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Content-Type": "application/json",
+  };
+
+  try {
+    const { charge_point_id, action, payload } = body as { charge_point_id: string; action: string; payload: unknown };
+
+    if (!charge_point_id || !action) {
+      return new Response(
+        JSON.stringify({ error: "Missing charge_point_id or action" }),
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    const cpSocket = chargePointSockets.get(charge_point_id);
+    if (!cpSocket || cpSocket.readyState !== WebSocket.OPEN) {
+      return new Response(
+        JSON.stringify({ error: "Charge point not connected", charge_point_id }),
+        { status: 404, headers: corsHeaders }
+      );
+    }
+
+    // Build OCPP CALL message
+    const uniqueId = crypto.randomUUID().slice(0, 8);
+    const callMessage = [CALL, uniqueId, action, payload || {}];
+    const raw = JSON.stringify(callMessage);
+
+    console.log(`[OCPP-WS] Internal command → ${charge_point_id}: ${raw}`);
+
+    // Create a promise that resolves when the charger responds
+    const responsePromise = new Promise<unknown>((resolve) => {
+      const pendingKey = `${charge_point_id}:${uniqueId}`;
+      const timer = setTimeout(() => {
+        pendingResponses.delete(pendingKey);
+        resolve({ error: "Timeout waiting for charger response (10s)" });
+      }, 10000);
+      pendingResponses.set(pendingKey, { resolve, timer });
+    });
+
+    // Send the CALL to the charger
+    cpSocket.send(raw);
+
+    // Wait for CALLRESULT
+    const result = await responsePromise;
+
+    return new Response(
+      JSON.stringify({ success: true, sent: callMessage, response: result }),
+      { status: 200, headers: corsHeaders }
+    );
   } catch (err) {
     return new Response(
       JSON.stringify({ error: (err as Error).message }),
