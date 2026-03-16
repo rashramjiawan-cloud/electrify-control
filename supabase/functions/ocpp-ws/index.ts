@@ -500,7 +500,7 @@ Deno.serve((req: Request) => {
 });
 
 // ─── Handle proxy commands from external backends ───
-async function handleProxyCommand(req: Request): Promise<Response> {
+async function handleProxyCommand(body: Record<string, unknown>): Promise<Response> {
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -508,7 +508,6 @@ async function handleProxyCommand(req: Request): Promise<Response> {
   };
 
   try {
-    const body = await req.json();
     const { api_key, charge_point_id, message } = body;
 
     if (!api_key || !charge_point_id || !message) {
