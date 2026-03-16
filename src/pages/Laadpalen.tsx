@@ -90,6 +90,7 @@ const Laadpalen = () => {
   const [mqttDialogOpen, setMqttDialogOpen] = useState(false);
   const [mqttCpId, setMqttCpId] = useState('');
   const [mqttCpName, setMqttCpName] = useState('');
+  const [enovatesSyncing, setEnovatesSyncing] = useState(false);
   const queryClient = useQueryClient();
 
   const handleDeleteChargePoint = async () => {
