@@ -351,22 +351,6 @@ const Laadpalen = () => {
     toast.success('CSV gedownload');
   };
 
-  const handleEnovatesSync = async () => {
-    setEnovatesSyncing(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('enovates-proxy', {
-        body: { action: 'sync' },
-      });
-      if (error) throw error;
-      toast.success(`${data.synced} Enovates laadpa${data.synced === 1 ? 'l' : 'len'} gesynchroniseerd`);
-      queryClient.invalidateQueries({ queryKey: ['charge-points'] });
-      queryClient.invalidateQueries({ queryKey: ['connectors'] });
-    } catch (err) {
-      toast.error(`Sync mislukt: ${(err as Error).message}`);
-    } finally {
-      setEnovatesSyncing(false);
-    }
-  };
 
   return (
     <AppLayout title="Laadpalen" subtitle="OCPP 1.6J Charge Point Management">
@@ -411,10 +395,6 @@ const Laadpalen = () => {
         <Button variant="outline" size="sm" className="gap-2 text-xs" onClick={handleExportCsv}>
           <Download className="h-3.5 w-3.5" />
           Export CSV
-        </Button>
-        <Button variant="outline" size="sm" className="gap-2 text-xs" onClick={handleEnovatesSync} disabled={enovatesSyncing}>
-          <RefreshCw className={`h-3.5 w-3.5 ${enovatesSyncing ? 'animate-spin' : ''}`} />
-          {enovatesSyncing ? 'Synchroniseren...' : 'Sync Enovates'}
         </Button>
       </div>
       <ChargePointDonutCharts chargePoints={chargePoints as any} />
