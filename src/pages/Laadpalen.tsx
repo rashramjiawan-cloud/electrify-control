@@ -12,7 +12,7 @@ import { useTransactions } from '@/hooks/useTransactions';
 import { useAuditLog } from '@/hooks/useAuditLog';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 
-import { Zap, Plug, AlertTriangle, CheckCircle, Play, Square, Settings, Lock, Unlock, Loader2, RotateCcw, Radio, Trash2, Wifi, WifiOff, RefreshCw } from 'lucide-react';
+import { Zap, Plug, AlertTriangle, CheckCircle, Play, Square, Settings, Lock, Unlock, Loader2, RotateCcw, Radio, Trash2, Wifi, WifiOff, RefreshCw, Maximize2, Minimize2, Plus, Search, Pencil, Save, X } from 'lucide-react';
 import { downloadAsCsv } from '@/lib/csvExport';
 import AuditLogTable from '@/components/AuditLogTable';
 import ChargePointDonutCharts from '@/components/ChargePointDonutCharts';
