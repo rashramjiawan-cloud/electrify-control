@@ -135,6 +135,11 @@ const Laadpalen = () => {
   const [mqttCpId, setMqttCpId] = useState('');
   const [mqttCpName, setMqttCpName] = useState('');
   const [enovatesSyncing, setEnovatesSyncing] = useState(false);
+  const [configFullscreen, setConfigFullscreen] = useState(false);
+  const [configSearch, setConfigSearch] = useState('');
+  const [addingNewKey, setAddingNewKey] = useState(false);
+  const [newKeyName, setNewKeyName] = useState('');
+  const [newKeyValue, setNewKeyValue] = useState('');
   const queryClient = useQueryClient();
 
   const handleDeleteChargePoint = async () => {
