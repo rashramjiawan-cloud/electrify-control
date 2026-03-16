@@ -568,3 +568,65 @@ async function handleProxyCommand(req: Request): Promise<Response> {
     );
   }
 }
+
+// ─── Handle internal commands from UI (authenticated with service role key) ───
+async function handleInternalCommand(req: Request): Promise<Response> {
+  const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Content-Type": "application/json",
+  };
+
+  try {
+    const body = await req.json();
+    const { charge_point_id, action, payload } = body;
+
+    if (!charge_point_id || !action) {
+      return new Response(
+        JSON.stringify({ error: "Missing charge_point_id or action" }),
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    const cpSocket = chargePointSockets.get(charge_point_id);
+    if (!cpSocket || cpSocket.readyState !== WebSocket.OPEN) {
+      return new Response(
+        JSON.stringify({ error: "Charge point not connected", charge_point_id }),
+        { status: 404, headers: corsHeaders }
+      );
+    }
+
+    // Build OCPP CALL message
+    const uniqueId = crypto.randomUUID().slice(0, 8);
+    const callMessage = [CALL, uniqueId, action, payload || {}];
+    const raw = JSON.stringify(callMessage);
+
+    console.log(`[OCPP-WS] Internal command → ${charge_point_id}: ${raw}`);
+
+    // Create a promise that resolves when the charger responds
+    const responsePromise = new Promise<unknown>((resolve) => {
+      const pendingKey = `${charge_point_id}:${uniqueId}`;
+      const timer = setTimeout(() => {
+        pendingResponses.delete(pendingKey);
+        resolve({ error: "Timeout waiting for charger response (10s)" });
+      }, 10000);
+      pendingResponses.set(pendingKey, { resolve, timer });
+    });
+
+    // Send the CALL to the charger
+    cpSocket.send(raw);
+
+    // Wait for CALLRESULT
+    const result = await responsePromise;
+
+    return new Response(
+      JSON.stringify({ success: true, sent: callMessage, response: result }),
+      { status: 200, headers: corsHeaders }
+    );
+  } catch (err) {
+    return new Response(
+      JSON.stringify({ error: (err as Error).message }),
+      { status: 500, headers: corsHeaders }
+    );
+  }
+}
