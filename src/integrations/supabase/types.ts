@@ -1262,6 +1262,39 @@ export type Database = {
           },
         ]
       }
+      pending_ocpp_commands: {
+        Row: {
+          action: string
+          charge_point_id: string
+          created_at: string
+          id: string
+          payload: Json | null
+          processed_at: string | null
+          response: Json | null
+          status: string
+        }
+        Insert: {
+          action: string
+          charge_point_id: string
+          created_at?: string
+          id?: string
+          payload?: Json | null
+          processed_at?: string | null
+          response?: Json | null
+          status?: string
+        }
+        Update: {
+          action?: string
+          charge_point_id?: string
+          created_at?: string
+          id?: string
+          payload?: Json | null
+          processed_at?: string | null
+          response?: Json | null
+          status?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
