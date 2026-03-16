@@ -287,21 +287,73 @@ const Laadpalen = () => {
     }
     setSavingConfig(true);
     try {
-      const data = await sendOcppCommand(selectedCpId, 'ChangeConfiguration', { key, value });
-      const status = data[2]?.status;
-      if (status === 'Accepted') {
-        toast.success(`${key} gewijzigd`);
+      // For RW keys, try ChangeConfiguration on charger first
+      const cfgItem = configKeys.find(c => c.key === key);
+      if (cfgItem && !cfgItem.readonly) {
+        const data = await sendOcppCommand(selectedCpId, 'ChangeConfiguration', { key, value });
+        const status = data[2]?.status;
+        if (status === 'Accepted') {
+          toast.success(`${key} gewijzigd`);
+          setConfigKeys(prev => prev.map(c => c.key === key ? { ...c, value } : c));
+          setEditingKey(null);
+        } else if (status === 'NotSupported') {
+          toast.error(`Sleutel "${key}" wordt niet ondersteund`);
+        } else {
+          toast.error(`ChangeConfiguration geweigerd: ${status}`);
+        }
+      } else {
+        // For readonly keys or DB-only edits, update directly in DB
+        const { error } = await supabase
+          .from('charge_point_config')
+          .update({ value, updated_at: new Date().toISOString() })
+          .eq('charge_point_id', selectedCpId)
+          .eq('key', key);
+        if (error) throw error;
+        toast.success(`${key} lokaal bijgewerkt`);
         setConfigKeys(prev => prev.map(c => c.key === key ? { ...c, value } : c));
         setEditingKey(null);
-      } else if (status === 'NotSupported') {
-        toast.error(`Sleutel "${key}" wordt niet ondersteund`);
-      } else {
-        toast.error(`ChangeConfiguration geweigerd: ${status}`);
       }
     } catch (err) {
       toast.error(`Fout: ${(err as Error).message}`);
     } finally {
       setSavingConfig(false);
+    }
+  };
+
+  const handleAddNewKey = async () => {
+    if (!newKeyName.trim()) { toast.error('Vul een sleutelnaam in'); return; }
+    try {
+      const { error } = await supabase
+        .from('charge_point_config')
+        .upsert({
+          charge_point_id: selectedCpId,
+          key: newKeyName.trim(),
+          value: newKeyValue,
+          readonly: false,
+        }, { onConflict: 'charge_point_id,key' });
+      if (error) throw error;
+      setConfigKeys(prev => [...prev, { key: newKeyName.trim(), value: newKeyValue, readonly: false }]);
+      setNewKeyName('');
+      setNewKeyValue('');
+      setAddingNewKey(false);
+      toast.success(`Sleutel "${newKeyName.trim()}" toegevoegd`);
+    } catch (err) {
+      toast.error(`Fout: ${(err as Error).message}`);
+    }
+  };
+
+  const handleDeleteConfigKey = async (key: string) => {
+    try {
+      const { error } = await supabase
+        .from('charge_point_config')
+        .delete()
+        .eq('charge_point_id', selectedCpId)
+        .eq('key', key);
+      if (error) throw error;
+      setConfigKeys(prev => prev.filter(c => c.key !== key));
+      toast.success(`Sleutel "${key}" verwijderd`);
+    } catch (err) {
+      toast.error(`Fout: ${(err as Error).message}`);
     }
   };
 
