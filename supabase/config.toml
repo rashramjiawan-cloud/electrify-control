@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.analyze-firmware]
 verify_jwt = false
+
+[functions.check-eflux-connection]
+verify_jwt = false
