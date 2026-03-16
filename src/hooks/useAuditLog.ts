@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
-export const useAuditLog = (limit = 50) => {
+export const useAuditLog = (limit = 1000) => {
   return useQuery({
     queryKey: ['ocpp-audit-log', limit],
     queryFn: async () => {
