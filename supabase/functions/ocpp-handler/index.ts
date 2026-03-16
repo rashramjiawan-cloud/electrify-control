@@ -1184,12 +1184,17 @@ Deno.serve(async (req) => {
 
     let response: Record<string, unknown>;
 
-    // Actions that should be audit-logged (CSMS commands)
+    // Actions that should be audit-logged (CSMS commands + CP messages)
     const auditedActions = new Set([
+      // CSMS → CP commands
       "RemoteStartTransaction", "RemoteStopTransaction",
       "ChangeConfiguration", "Reset", "TriggerMessage", "GetConfiguration",
       "UnlockConnector", "SetChargingProfile", "ClearChargingProfile", "GetCompositeSchedule",
       "UpdateFirmware", "GetDiagnostics", "ReserveNow", "CancelReservation",
+      // CP → CSMS messages
+      "BootNotification", "Heartbeat", "StatusNotification",
+      "StartTransaction", "StopTransaction", "MeterValues",
+      "Authorize", "FirmwareStatusNotification", "DiagnosticsStatusNotification",
     ]);
 
     switch (action) {
