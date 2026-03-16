@@ -286,20 +286,22 @@ const Laadpalen = () => {
       return;
     }
     setSavingConfig(true);
+    const oldValue = configKeys.find(c => c.key === key)?.value ?? null;
     try {
       // For RW keys, try ChangeConfiguration on charger first
       const cfgItem = configKeys.find(c => c.key === key);
+      let resultStatus = 'Unknown';
       if (cfgItem && !cfgItem.readonly) {
         const data = await sendOcppCommand(selectedCpId, 'ChangeConfiguration', { key, value });
-        const status = data[2]?.status;
-        if (status === 'Accepted') {
+        resultStatus = data[2]?.status || 'Unknown';
+        if (resultStatus === 'Accepted') {
           toast.success(`${key} gewijzigd`);
           setConfigKeys(prev => prev.map(c => c.key === key ? { ...c, value } : c));
           setEditingKey(null);
-        } else if (status === 'NotSupported') {
+        } else if (resultStatus === 'NotSupported') {
           toast.error(`Sleutel "${key}" wordt niet ondersteund`);
         } else {
-          toast.error(`ChangeConfiguration geweigerd: ${status}`);
+          toast.error(`ChangeConfiguration geweigerd: ${resultStatus}`);
         }
       } else {
         // For readonly keys or DB-only edits, update directly in DB
@@ -309,10 +311,20 @@ const Laadpalen = () => {
           .eq('charge_point_id', selectedCpId)
           .eq('key', key);
         if (error) throw error;
+        resultStatus = 'Accepted';
         toast.success(`${key} lokaal bijgewerkt`);
         setConfigKeys(prev => prev.map(c => c.key === key ? { ...c, value } : c));
         setEditingKey(null);
       }
+
+      // Write audit log entry
+      await supabase.from('ocpp_audit_log').insert({
+        charge_point_id: selectedCpId,
+        action: 'ChangeConfiguration',
+        payload: { key, value, oldValue, source: cfgItem?.readonly ? 'db_direct' : 'charger' },
+        result: { status: resultStatus },
+        status: resultStatus,
+      });
     } catch (err) {
       toast.error(`Fout: ${(err as Error).message}`);
     } finally {
