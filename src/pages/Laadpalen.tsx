@@ -351,6 +351,23 @@ const Laadpalen = () => {
     toast.success('CSV gedownload');
   };
 
+  const handleEnovatesSync = async () => {
+    setEnovatesSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('enovates-proxy', {
+        body: { action: 'sync' },
+      });
+      if (error) throw error;
+      toast.success(`${data.synced} Enovates laadpa${data.synced === 1 ? 'l' : 'len'} gesynchroniseerd`);
+      queryClient.invalidateQueries({ queryKey: ['charge-points'] });
+      queryClient.invalidateQueries({ queryKey: ['connectors'] });
+    } catch (err) {
+      toast.error(`Sync mislukt: ${(err as Error).message}`);
+    } finally {
+      setEnovatesSyncing(false);
+    }
+  
+
   return (
     <AppLayout title="Laadpalen" subtitle="OCPP 1.6J Charge Point Management">
       {chargePoints.length === 0 && !cpLoading && (
