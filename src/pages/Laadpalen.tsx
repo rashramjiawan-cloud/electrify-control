@@ -247,13 +247,29 @@ const Laadpalen = () => {
     setConfigLoading(true);
     setConfigKeys([]);
     setUnknownKeys([]);
+
+    // First load from database (always available)
+    const { data: dbConfig } = await supabase
+      .from('charge_point_config')
+      .select('key, value, readonly')
+      .eq('charge_point_id', cpId)
+      .order('key');
+
+    if (dbConfig && dbConfig.length > 0) {
+      setConfigKeys(dbConfig.map(c => ({ key: c.key, value: c.value, readonly: c.readonly })));
+    }
+
+    // Then try live fetch from charger (updates DB keys if successful)
     try {
       const data = await sendOcppCommand(cpId, 'GetConfiguration', {});
       const result = data[2] || {};
-      setConfigKeys(result.configurationKey || []);
+      if (result.configurationKey && result.configurationKey.length > 0) {
+        setConfigKeys(result.configurationKey);
+      }
       setUnknownKeys(result.unknownKey || []);
     } catch (err) {
-      toast.error(`Fout bij ophalen configuratie: ${(err as Error).message}`);
+      // Silently fall back to DB data already loaded
+      console.warn('Live config fetch failed, using cached data:', (err as Error).message);
     } finally {
       setConfigLoading(false);
     }
