@@ -108,6 +108,9 @@ const Instellingen = () => {
         {/* Ingest API */}
         <IngestApiSettings />
 
+        {/* Enovates API */}
+        <EnovatesApiSettings />
+
         {/* System Info */}
         <div className="rounded-xl border border-border bg-card">
           <div className="border-b border-border px-5 py-4 flex items-center gap-3">
