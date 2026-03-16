@@ -323,13 +323,14 @@ Deno.serve((req: Request) => {
       return new Response("ok", { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "GET, POST, OPTIONS" } });
     }
     if (req.method === "POST") {
-      // Check if internal command (from UI via service role key)
-      const authHeader = req.headers.get("authorization") || "";
-      const apiKey = req.headers.get("apikey") || "";
-      if (authHeader.includes(SERVICE_ROLE_KEY) || apiKey === SERVICE_ROLE_KEY) {
-        return handleInternalCommand(req);
+      // Clone request to peek at body
+      const bodyText = await req.text();
+      const body = JSON.parse(bodyText);
+      // Internal command format uses "action" field; proxy uses "api_key" + "message"
+      if (body.action && !body.api_key) {
+        return handleInternalCommand(body);
       }
-      return handleProxyCommand(req);
+      return handleProxyCommand(body);
     }
 
     return new Response(
