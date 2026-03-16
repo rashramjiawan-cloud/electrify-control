@@ -12,7 +12,7 @@ import { useTransactions } from '@/hooks/useTransactions';
 import { useAuditLog } from '@/hooks/useAuditLog';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 
-import { Zap, Plug, AlertTriangle, CheckCircle, Play, Square, Settings, Lock, Unlock, Loader2, RotateCcw, Radio, Trash2, Wifi, WifiOff } from 'lucide-react';
+import { Zap, Plug, AlertTriangle, CheckCircle, Play, Square, Settings, Lock, Unlock, Loader2, RotateCcw, Radio, Trash2, Wifi, WifiOff, RefreshCw } from 'lucide-react';
 import { downloadAsCsv } from '@/lib/csvExport';
 import AuditLogTable from '@/components/AuditLogTable';
 import ChargePointDonutCharts from '@/components/ChargePointDonutCharts';
@@ -53,7 +53,7 @@ const sendOcppCommand = async (chargePointId: string, action: string, payload: R
 };
 
 const Laadpalen = () => {
-  const { data: dbChargePoints, isLoading: cpLoading } = useChargePoints();
+  const { data: dbChargePoints, isLoading: cpLoading, refetch: refetchChargePoints } = useChargePoints();
   const { data: dbConnectors } = useConnectors();
   const { data: dbTransactions } = useTransactions(100);
   const { data: auditLogs } = useAuditLog(200);
@@ -90,6 +90,7 @@ const Laadpalen = () => {
   const [mqttDialogOpen, setMqttDialogOpen] = useState(false);
   const [mqttCpId, setMqttCpId] = useState('');
   const [mqttCpName, setMqttCpName] = useState('');
+  const [enovatesSyncing, setEnovatesSyncing] = useState(false);
   const queryClient = useQueryClient();
 
   const handleDeleteChargePoint = async () => {
@@ -350,6 +351,23 @@ const Laadpalen = () => {
     toast.success('CSV gedownload');
   };
 
+  const handleEnovatesSync = async () => {
+    setEnovatesSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('enovates-proxy', {
+        body: { action: 'sync' },
+      });
+      if (error) throw error;
+      toast.success(`${data.synced} Enovates laadpa${data.synced === 1 ? 'l' : 'len'} gesynchroniseerd`);
+      queryClient.invalidateQueries({ queryKey: ['charge-points'] });
+      queryClient.invalidateQueries({ queryKey: ['connectors'] });
+    } catch (err) {
+      toast.error(`Sync mislukt: ${(err as Error).message}`);
+    } finally {
+      setEnovatesSyncing(false);
+    }
+  };
+
   return (
     <AppLayout title="Laadpalen" subtitle="OCPP 1.6J Charge Point Management">
       {chargePoints.length === 0 && !cpLoading && (
@@ -393,6 +411,10 @@ const Laadpalen = () => {
         <Button variant="outline" size="sm" className="gap-2 text-xs" onClick={handleExportCsv}>
           <Download className="h-3.5 w-3.5" />
           Export CSV
+        </Button>
+        <Button variant="outline" size="sm" className="gap-2 text-xs" onClick={handleEnovatesSync} disabled={enovatesSyncing}>
+          <RefreshCw className={`h-3.5 w-3.5 ${enovatesSyncing ? 'animate-spin' : ''}`} />
+          {enovatesSyncing ? 'Synchroniseren...' : 'Sync Enovates'}
         </Button>
       </div>
       <ChargePointDonutCharts chargePoints={chargePoints as any} />
