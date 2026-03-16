@@ -239,3 +239,69 @@ function balanceRoundRobin(members: GridMember[], totalKw: number): BalanceResul
     };
   });
 }
+
+// Apply charging profiles to charge point members via OCPP command queue
+async function applyChargingProfiles(supabase: any, result: any) {
+  try {
+    const cpAllocations = (result.allocations || []).filter(
+      (a: any) => a.member_type === "charge_point"
+    );
+
+    if (cpAllocations.length === 0) return;
+
+    for (const alloc of cpAllocations) {
+      // Look up the charge point to get the OCPP ID
+      let ocppId = alloc.member_id;
+      const { data: cp } = await supabase
+        .from("charge_points")
+        .select("id")
+        .eq("id", alloc.member_id)
+        .maybeSingle();
+
+      if (cp) {
+        ocppId = cp.id;
+      }
+
+      const limitWatts = Math.max(1380, Math.round(alloc.allocated_kw * 1000));
+
+      // Delete any existing pending SetChargingProfile commands for this CP
+      await supabase
+        .from("pending_ocpp_commands")
+        .delete()
+        .eq("charge_point_id", ocppId)
+        .eq("action", "SetChargingProfile")
+        .eq("status", "pending");
+
+      // Insert new SetChargingProfile command
+      await supabase.from("pending_ocpp_commands").insert({
+        charge_point_id: ocppId,
+        action: "SetChargingProfile",
+        status: "pending",
+        source: "grid-load-balancer",
+        grid_id: result.grid_id,
+        allocated_kw: alloc.allocated_kw,
+        payload: {
+          connectorId: 0,
+          csChargingProfiles: {
+            chargingProfileId: 1,
+            stackLevel: 0,
+            chargingProfilePurpose: "ChargePointMaxProfile",
+            chargingProfileKind: "Relative",
+            chargingSchedule: {
+              chargingRateUnit: "W",
+              chargingSchedulePeriod: [
+                { startPeriod: 0, limit: limitWatts },
+              ],
+            },
+          },
+        },
+      });
+
+      console.log(
+        `[apply-profiles] ${ocppId}: SetChargingProfile ${limitWatts}W (${alloc.allocated_kw} kW)`
+      );
+    }
+  } catch (e) {
+    console.error("[apply-profiles] Failed:", e);
+  }
+}
