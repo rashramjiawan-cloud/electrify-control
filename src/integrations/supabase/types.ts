@@ -1265,32 +1265,41 @@ export type Database = {
       pending_ocpp_commands: {
         Row: {
           action: string
+          allocated_kw: number | null
           charge_point_id: string
           created_at: string
+          grid_id: string | null
           id: string
           payload: Json | null
           processed_at: string | null
           response: Json | null
+          source: string | null
           status: string
         }
         Insert: {
           action: string
+          allocated_kw?: number | null
           charge_point_id: string
           created_at?: string
+          grid_id?: string | null
           id?: string
           payload?: Json | null
           processed_at?: string | null
           response?: Json | null
+          source?: string | null
           status?: string
         }
         Update: {
           action?: string
+          allocated_kw?: number | null
           charge_point_id?: string
           created_at?: string
+          grid_id?: string | null
           id?: string
           payload?: Json | null
           processed_at?: string | null
           response?: Json | null
+          source?: string | null
           status?: string
         }
         Relationships: []
