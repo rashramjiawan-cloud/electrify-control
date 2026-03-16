@@ -32,14 +32,26 @@ Deno.serve(async (req) => {
   try {
     const { action, path, method, body } = await req.json();
 
+    // ─── Validate URL scheme ───
+    const baseUrl = ENOVATES_BASE_URL.replace(/\/$/, "");
+    if (!baseUrl.startsWith("http://") && !baseUrl.startsWith("https://")) {
+      return new Response(JSON.stringify({ 
+        error: `ENOVATES_BASE_URL must start with http:// or https://, got: ${baseUrl.substring(0, 20)}...` 
+      }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ─── Sync action: fetch chargers and upsert into charge_points ───
     if (action === "sync") {
-      const targetUrl = `${ENOVATES_BASE_URL.replace(/\/$/, "")}/chargers`;
+      const targetUrl = `${baseUrl}/chargers`;
+      console.log(`[enovates-proxy] Syncing from: ${targetUrl}`);
       const response = await fetch(targetUrl, {
         headers: {
           "Authorization": `Bearer ${ENOVATES_API_KEY}`,
           "Accept": "application/json",
         },
+        signal: AbortSignal.timeout(15000),
       });
 
       if (!response.ok) {
