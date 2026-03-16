@@ -891,15 +891,52 @@ const Laadpalen = () => {
       </Dialog>
 
       {/* GetConfiguration Dialog */}
-      <Dialog open={configDialogOpen} onOpenChange={setConfigDialogOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+      <Dialog open={configDialogOpen} onOpenChange={(open) => { setConfigDialogOpen(open); if (!open) { setConfigFullscreen(false); setConfigSearch(''); setAddingNewKey(false); } }}>
+        <DialogContent className={`overflow-hidden flex flex-col transition-all duration-200 ${configFullscreen ? 'sm:max-w-[95vw] sm:max-h-[95vh] h-[95vh]' : 'sm:max-w-2xl max-h-[80vh]'}`}>
           <DialogHeader>
-            <DialogTitle className="text-foreground flex items-center gap-2">
-              <Settings className="h-5 w-5" />
-              GetConfiguration
-            </DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-foreground flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                Configuratie
+              </DialogTitle>
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setConfigFullscreen(f => !f)} title={configFullscreen ? 'Verkleinen' : 'Volledig scherm'}>
+                  {configFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
             <p className="text-sm text-muted-foreground font-mono">{selectedCpId}</p>
           </DialogHeader>
+
+          {/* Toolbar */}
+          <div className="flex items-center gap-2 pb-2 border-b border-border">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Zoek sleutel..."
+                value={configSearch}
+                onChange={e => setConfigSearch(e.target.value)}
+                className="h-8 pl-8 text-xs"
+              />
+            </div>
+            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setAddingNewKey(true)}>
+              <Plus className="h-3.5 w-3.5" /> Nieuw
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => { setConfigLoading(true); openConfigDialog(selectedCpId); }}>
+              <RefreshCw className="h-3.5 w-3.5" /> Verversen
+            </Button>
+          </div>
+
+          {/* Add new key row */}
+          {addingNewKey && (
+            <div className="flex items-center gap-2 p-3 rounded-lg border border-primary/20 bg-primary/5">
+              <Input placeholder="Sleutelnaam" value={newKeyName} onChange={e => setNewKeyName(e.target.value)} className="h-7 text-xs font-mono flex-1" autoFocus />
+              <Input placeholder="Waarde" value={newKeyValue} onChange={e => setNewKeyValue(e.target.value)} className="h-7 text-xs font-mono flex-1" />
+              <Button size="sm" className="h-7 px-3 text-xs gap-1" onClick={handleAddNewKey}><Save className="h-3 w-3" /> Opslaan</Button>
+              <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setAddingNewKey(false)}><X className="h-3 w-3" /></Button>
+            </div>
+          )}
+
           <div className="flex-1 overflow-y-auto space-y-1 py-2">
             {configLoading ? (
               <div className="flex items-center justify-center py-12">
@@ -917,11 +954,13 @@ const Laadpalen = () => {
                       <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Sleutel</th>
                       <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Waarde</th>
                       <th className="text-center px-4 py-2.5 text-xs font-medium text-muted-foreground w-24">Modus</th>
-                      <th className="text-center px-4 py-2.5 text-xs font-medium text-muted-foreground w-24">Actie</th>
+                      <th className="text-center px-4 py-2.5 text-xs font-medium text-muted-foreground w-32">Actie</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {configKeys.map((cfg, i) => (
+                    {configKeys
+                      .filter(cfg => !configSearch || cfg.key.toLowerCase().includes(configSearch.toLowerCase()) || (cfg.value ?? '').toLowerCase().includes(configSearch.toLowerCase()))
+                      .map((cfg, i) => (
                       <tr key={cfg.key} className={`border-b border-border last:border-0 ${i % 2 === 0 ? '' : 'bg-muted/20'}`}>
                         <td className="px-4 py-2 font-mono text-xs text-foreground font-medium">{cfg.key}</td>
                         <td className="px-4 py-2 font-mono text-xs text-muted-foreground">
@@ -938,7 +977,7 @@ const Laadpalen = () => {
                               }}
                             />
                           ) : (
-                            cfg.value ?? '—'
+                            <span className="break-all">{cfg.value ?? '—'}</span>
                           )}
                         </td>
                         <td className="px-4 py-2 text-center">
@@ -953,37 +992,47 @@ const Laadpalen = () => {
                           )}
                         </td>
                         <td className="px-4 py-2 text-center">
-                          {!cfg.readonly && (
-                            editingKey === cfg.key ? (
-                              <div className="flex items-center justify-center gap-1">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-6 px-2 text-xs text-primary"
-                                  onClick={() => handleChangeConfig(cfg.key, editValue)}
-                                  disabled={savingConfig}
-                                >
-                                  {savingConfig ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Opslaan'}
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-6 px-2 text-xs text-muted-foreground"
-                                  onClick={() => setEditingKey(null)}
-                                >
-                                  Annuleer
-                                </Button>
-                              </div>
-                            ) : (
+                          {editingKey === cfg.key ? (
+                            <div className="flex items-center justify-center gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 px-2 text-xs text-primary"
+                                onClick={() => handleChangeConfig(cfg.key, editValue)}
+                                disabled={savingConfig}
+                              >
+                                {savingConfig ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 px-2 text-xs text-muted-foreground"
+                                onClick={() => setEditingKey(null)}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-center gap-1">
                               <Button
                                 size="sm"
                                 variant="ghost"
                                 className="h-6 px-2 text-xs text-muted-foreground hover:text-primary"
                                 onClick={() => { setEditingKey(cfg.key); setEditValue(cfg.value ?? ''); }}
+                                title="Bewerken"
                               >
-                                Wijzigen
+                                <Pencil className="h-3 w-3" />
                               </Button>
-                            )
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive"
+                                onClick={() => handleDeleteConfigKey(cfg.key)}
+                                title="Verwijderen"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -999,7 +1048,8 @@ const Laadpalen = () => {
               </div>
             )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">{configKeys.filter(cfg => !configSearch || cfg.key.toLowerCase().includes(configSearch.toLowerCase())).length} / {configKeys.length} sleutels</span>
             <Button variant="outline" onClick={() => setConfigDialogOpen(false)}>Sluiten</Button>
           </DialogFooter>
         </DialogContent>
