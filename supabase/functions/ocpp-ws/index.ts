@@ -431,8 +431,24 @@ Deno.serve((req: Request) => {
 
       } else if (messageTypeId === CALLRESULT) {
         console.log(`[OCPP-WS] ${chargePointId}: Received CALLRESULT:`, raw);
+        const uniqueId = String(message[1]);
+        const pendingKey = `${chargePointId}:${uniqueId}`;
+        const pending = pendingResponses.get(pendingKey);
+        if (pending) {
+          clearTimeout(pending.timer);
+          pendingResponses.delete(pendingKey);
+          pending.resolve(message);
+        }
       } else if (messageTypeId === CALLERROR) {
         console.log(`[OCPP-WS] ${chargePointId}: Received CALLERROR:`, raw);
+        const uniqueId = String(message[1]);
+        const pendingKey = `${chargePointId}:${uniqueId}`;
+        const pending = pendingResponses.get(pendingKey);
+        if (pending) {
+          clearTimeout(pending.timer);
+          pendingResponses.delete(pendingKey);
+          pending.resolve(message);
+        }
       } else {
         const errResp = [CALLERROR, message[1] || "0", "FormationViolation", `Unknown messageTypeId: ${messageTypeId}`, {}];
         socket.send(JSON.stringify(errResp));
