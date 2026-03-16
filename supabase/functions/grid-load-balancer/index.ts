@@ -53,6 +53,7 @@ Deno.serve(async (req) => {
         const result = await balanceGrid(supabase, grid, undefined);
         results.push(result);
         await logResult(supabase, result);
+        await applyChargingProfiles(supabase, result);
       }
 
       console.log(`[auto-balance] Processed ${results.length} grids`);
