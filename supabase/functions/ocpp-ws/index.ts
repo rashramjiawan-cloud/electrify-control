@@ -319,8 +319,16 @@ Deno.serve((req: Request) => {
   const upgrade = (req.headers.get("upgrade") || "").toLowerCase();
 
   if (upgrade !== "websocket") {
-    // Check if this is a proxy command from an external backend
+    if (req.method === "OPTIONS") {
+      return new Response("ok", { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "GET, POST, OPTIONS" } });
+    }
     if (req.method === "POST") {
+      // Check if internal command (from UI via service role key)
+      const authHeader = req.headers.get("authorization") || "";
+      const apiKey = req.headers.get("apikey") || "";
+      if (authHeader.includes(SERVICE_ROLE_KEY) || apiKey === SERVICE_ROLE_KEY) {
+        return handleInternalCommand(req);
+      }
       return handleProxyCommand(req);
     }
 
