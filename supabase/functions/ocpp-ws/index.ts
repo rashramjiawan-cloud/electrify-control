@@ -22,6 +22,9 @@ const backendWsSockets = new Map<string, WebSocket>();
 // ─── Pending command responses (CSMS → CP, waiting for CALLRESULT) ───
 const pendingResponses = new Map<string, { resolve: (value: unknown) => void; timer: ReturnType<typeof setTimeout> }>();
 
+// ─── Track pending command polling intervals per charge point ───
+const commandPollers = new Map<string, ReturnType<typeof setInterval>>();
+
 interface ProxyBackend {
   id: string;
   name: string;
@@ -77,7 +80,6 @@ function logProxyEvent(params: {
 async function fanOutMessage(chargePointId: string, rawMessage: string, parsedMessage: unknown[]) {
   const backends = await loadBackends();
 
-  // Determine OCPP action and message type for logging
   const msgTypeId = parsedMessage[0];
   const msgType = msgTypeId === CALL ? "CALL" : msgTypeId === CALLRESULT ? "CALLRESULT" : msgTypeId === CALLERROR ? "CALLERROR" : "UNKNOWN";
   const action = msgTypeId === CALL ? String(parsedMessage[2] || "") : undefined;
@@ -176,19 +178,16 @@ async function forwardToOcppWs(backend: ProxyBackend, chargePointId: string, raw
   const wsKey = `${backend.id}:${chargePointId}`;
   let ws = backendWsSockets.get(wsKey);
 
-  // Connect if not already connected
   if (!ws || ws.readyState !== WebSocket.OPEN) {
     const wsUrl = backend.url.endsWith("/")
       ? `${backend.url}${chargePointId}`
       : `${backend.url}/${chargePointId}`;
 
-    // Build headers for WS connection (auth support)
     const wsHeaders: Record<string, string> = {};
     if (backend.auth_header) {
       wsHeaders["Authorization"] = backend.auth_header;
     }
 
-    // Use fetch-based WebSocket upgrade to support custom headers
     if (backend.auth_header) {
       const upgradeResp = await fetch(wsUrl, {
         headers: {
@@ -213,7 +212,6 @@ async function forwardToOcppWs(backend: ProxyBackend, chargePointId: string, raw
       ws!.onopen = () => {
         clearTimeout(timeout);
         console.log(`[OCPP-PROXY] Connected to ${backend.name} for ${chargePointId}`);
-
         supabase
           .from("ocpp_proxy_backends")
           .update({
@@ -223,7 +221,6 @@ async function forwardToOcppWs(backend: ProxyBackend, chargePointId: string, raw
           })
           .eq("id", backend.id)
           .then(() => {});
-
         resolve();
       };
       ws!.onerror = (e) => {
@@ -232,7 +229,6 @@ async function forwardToOcppWs(backend: ProxyBackend, chargePointId: string, raw
       };
     });
 
-    // Handle messages FROM external backend (bidirectional commands)
     ws.onmessage = (event) => {
       console.log(`[OCPP-PROXY] ← ${backend.name} for ${chargePointId}:`, event.data);
 
@@ -249,7 +245,6 @@ async function forwardToOcppWs(backend: ProxyBackend, chargePointId: string, raw
         return;
       }
 
-      // Forward command to charge point
       const cpSocket = chargePointSockets.get(chargePointId);
       if (cpSocket && cpSocket.readyState === WebSocket.OPEN) {
         cpSocket.send(event.data);
@@ -282,7 +277,6 @@ async function forwardToOcppWs(backend: ProxyBackend, chargePointId: string, raw
     backendWsSockets.set(wsKey, ws);
   }
 
-  // Forward the raw OCPP message
   ws.send(rawMessage);
   console.log(`[OCPP-PROXY] → ${backend.name} (ws): forwarded`);
 }
@@ -315,6 +309,141 @@ async function fanOutResponse(chargePointId: string, responseRaw: string) {
   }
 }
 
+// ─── Send OCPP command to charger and wait for response ───
+async function sendCommandToCharger(chargePointId: string, action: string, payload: unknown): Promise<unknown> {
+  const cpSocket = chargePointSockets.get(chargePointId);
+  if (!cpSocket || cpSocket.readyState !== WebSocket.OPEN) {
+    return { error: "Charge point not connected" };
+  }
+
+  const uniqueId = crypto.randomUUID().slice(0, 8);
+  const callMessage = [CALL, uniqueId, action, payload || {}];
+  const raw = JSON.stringify(callMessage);
+
+  console.log(`[OCPP-WS] Command → ${chargePointId}: ${raw}`);
+
+  const responsePromise = new Promise<unknown>((resolve) => {
+    const pendingKey = `${chargePointId}:${uniqueId}`;
+    const timer = setTimeout(() => {
+      pendingResponses.delete(pendingKey);
+      resolve({ error: "Timeout waiting for charger response (10s)" });
+    }, 10000);
+    pendingResponses.set(pendingKey, { resolve, timer });
+  });
+
+  cpSocket.send(raw);
+  return await responsePromise;
+}
+
+// ─── Save GetConfiguration response to charge_point_config ───
+async function saveConfigToDb(chargePointId: string, configKeys: Array<{ key: string; value: string | null; readonly: boolean }>) {
+  if (!configKeys || configKeys.length === 0) return;
+
+  for (const item of configKeys) {
+    await supabase
+      .from("charge_point_config")
+      .upsert(
+        {
+          charge_point_id: chargePointId,
+          key: item.key,
+          value: item.value,
+          readonly: item.readonly,
+        },
+        { onConflict: "charge_point_id,key" }
+      );
+  }
+  console.log(`[OCPP-WS] Saved ${configKeys.length} config keys for ${chargePointId}`);
+}
+
+// ─── Poll pending commands from DB for connected charge points ───
+function startCommandPoller(chargePointId: string) {
+  // Poll every 2 seconds for pending commands
+  const interval = setInterval(async () => {
+    const cpSocket = chargePointSockets.get(chargePointId);
+    if (!cpSocket || cpSocket.readyState !== WebSocket.OPEN) {
+      clearInterval(interval);
+      commandPollers.delete(chargePointId);
+      return;
+    }
+
+    try {
+      const { data: commands, error } = await supabase
+        .from("pending_ocpp_commands")
+        .select("*")
+        .eq("charge_point_id", chargePointId)
+        .eq("status", "pending")
+        .order("created_at", { ascending: true })
+        .limit(1);
+
+      if (error || !commands || commands.length === 0) return;
+
+      const cmd = commands[0];
+
+      // Mark as processing
+      await supabase
+        .from("pending_ocpp_commands")
+        .update({ status: "processing" })
+        .eq("id", cmd.id);
+
+      console.log(`[OCPP-WS] Processing pending command: ${cmd.action} for ${chargePointId}`);
+
+      const result = await sendCommandToCharger(chargePointId, cmd.action, cmd.payload);
+
+      // If it's a GetConfiguration response, save to charge_point_config
+      if (cmd.action === "GetConfiguration" && Array.isArray(result) && result[0] === CALLRESULT) {
+        const responsePayload = result[2];
+        if (responsePayload?.configurationKey) {
+          await saveConfigToDb(chargePointId, responsePayload.configurationKey);
+        }
+      }
+
+      // Update command with response
+      await supabase
+        .from("pending_ocpp_commands")
+        .update({
+          status: "completed",
+          response: result,
+          processed_at: new Date().toISOString(),
+        })
+        .eq("id", cmd.id);
+
+    } catch (err) {
+      console.error(`[OCPP-WS] Command poller error:`, err);
+    }
+  }, 2000);
+
+  commandPollers.set(chargePointId, interval);
+  console.log(`[OCPP-WS] Started command poller for ${chargePointId}`);
+}
+
+function stopCommandPoller(chargePointId: string) {
+  const interval = commandPollers.get(chargePointId);
+  if (interval) {
+    clearInterval(interval);
+    commandPollers.delete(chargePointId);
+    console.log(`[OCPP-WS] Stopped command poller for ${chargePointId}`);
+  }
+}
+
+// ─── Auto-send GetConfiguration after BootNotification ───
+async function autoGetConfiguration(chargePointId: string) {
+  // Wait a moment for the charger to be ready
+  await new Promise(r => setTimeout(r, 1000));
+
+  console.log(`[OCPP-WS] Auto-sending GetConfiguration to ${chargePointId}`);
+  const result = await sendCommandToCharger(chargePointId, "GetConfiguration", {});
+
+  if (Array.isArray(result) && result[0] === CALLRESULT) {
+    const payload = result[2];
+    if (payload?.configurationKey) {
+      await saveConfigToDb(chargePointId, payload.configurationKey);
+    }
+    console.log(`[OCPP-WS] Auto-GetConfiguration completed for ${chargePointId}`);
+  } else {
+    console.error(`[OCPP-WS] Auto-GetConfiguration failed for ${chargePointId}:`, result);
+  }
+}
+
 Deno.serve(async (req: Request) => {
   const upgrade = (req.headers.get("upgrade") || "").toLowerCase();
 
@@ -322,15 +451,22 @@ Deno.serve(async (req: Request) => {
     if (req.method === "OPTIONS") {
       return new Response("ok", { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "GET, POST, OPTIONS" } });
     }
+
+    // For POST requests: return info about connected charge points
     if (req.method === "POST") {
-      // Clone request to peek at body
-      const bodyText = await req.text();
-      const body = JSON.parse(bodyText);
-      // Internal command format uses "action" field; proxy uses "api_key" + "message"
-      if (body.action && !body.api_key) {
-        return handleInternalCommand(body);
-      }
-      return handleProxyCommand(body);
+      return new Response(
+        JSON.stringify({
+          connected_charge_points: Array.from(chargePointSockets.keys()),
+          status: "online",
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
+        }
+      );
     }
 
     return new Response(
@@ -339,21 +475,14 @@ Deno.serve(async (req: Request) => {
         transport: "WebSocket",
         status: "online",
         proxy: "fan-out enabled",
+        commands: "Insert into pending_ocpp_commands table",
         usage: "Connect your charge point to: wss://<host>/functions/v1/ocpp-ws/<ChargePointId>",
-        commands: "POST to /functions/v1/ocpp-ws with { api_key, charge_point_id, message }",
-        supportedActions: [
-          "BootNotification", "Heartbeat", "StatusNotification",
-          "StartTransaction", "StopTransaction", "MeterValues",
-          "Authorize",
-        ],
       }),
       {
         status: 200,
         headers: {
           "Content-Type": "application/json",
           "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
         },
       }
     );
@@ -373,7 +502,6 @@ Deno.serve(async (req: Request) => {
 
   console.log(`[OCPP-WS] New connection from charge point: ${chargePointId}`);
 
-  // Upgrade to WebSocket with OCPP 1.6 subprotocol
   const protocols = req.headers.get("sec-websocket-protocol");
   const requestedProtocols = protocols ? protocols.split(",").map(p => p.trim()) : [];
   const ocppProtocol = requestedProtocols.find(p => p === "ocpp1.6") || requestedProtocols[0];
@@ -384,8 +512,9 @@ Deno.serve(async (req: Request) => {
 
   socket.onopen = () => {
     console.log(`[OCPP-WS] ${chargePointId}: WebSocket opened`);
-    // Register socket for bidirectional commands
     chargePointSockets.set(chargePointId, socket);
+    // Start polling for pending commands from the UI
+    startCommandPoller(chargePointId);
   };
 
   socket.onmessage = async (event) => {
@@ -438,6 +567,13 @@ Deno.serve(async (req: Request) => {
           console.error(`[OCPP-PROXY] Response fan-out error:`, err);
         });
 
+        // Auto-send GetConfiguration after BootNotification
+        if (action === "BootNotification") {
+          autoGetConfiguration(chargePointId).catch(err => {
+            console.error(`[OCPP-WS] Auto-GetConfiguration error:`, err);
+          });
+        }
+
       } else if (messageTypeId === CALLRESULT) {
         console.log(`[OCPP-WS] ${chargePointId}: Received CALLRESULT:`, raw);
         const uniqueId = String(message[1]);
@@ -477,6 +613,7 @@ Deno.serve(async (req: Request) => {
   socket.onclose = () => {
     console.log(`[OCPP-WS] ${chargePointId}: Connection closed`);
     chargePointSockets.delete(chargePointId);
+    stopCommandPoller(chargePointId);
 
     // Close any backend WS connections for this charge point
     for (const [key, ws] of backendWsSockets) {
@@ -498,134 +635,3 @@ Deno.serve(async (req: Request) => {
 
   return response;
 });
-
-// ─── Handle proxy commands from external backends ───
-async function handleProxyCommand(body: Record<string, unknown>): Promise<Response> {
-  const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Content-Type": "application/json",
-  };
-
-  try {
-    const { api_key, charge_point_id, message } = body;
-
-    if (!api_key || !charge_point_id || !message) {
-      return new Response(
-        JSON.stringify({ error: "Missing required fields: api_key, charge_point_id, message" }),
-        { status: 400, headers: corsHeaders }
-      );
-    }
-
-    // Validate API key against backends
-    const { data: backend, error } = await supabase
-      .from("ocpp_proxy_backends")
-      .select("*")
-      .eq("command_api_key", api_key)
-      .eq("allow_commands", true)
-      .eq("enabled", true)
-      .single();
-
-    if (error || !backend) {
-      return new Response(
-        JSON.stringify({ error: "Invalid API key or commands not allowed" }),
-        { status: 403, headers: corsHeaders }
-      );
-    }
-
-    // Check charge point filter
-    if (backend.charge_point_filter?.length > 0 && !backend.charge_point_filter.includes(charge_point_id)) {
-      return new Response(
-        JSON.stringify({ error: "Charge point not in allowed filter for this backend" }),
-        { status: 403, headers: corsHeaders }
-      );
-    }
-
-    // Find connected charge point
-    const cpSocket = chargePointSockets.get(charge_point_id);
-    if (!cpSocket || cpSocket.readyState !== WebSocket.OPEN) {
-      return new Response(
-        JSON.stringify({ error: "Charge point not connected", charge_point_id }),
-        { status: 404, headers: corsHeaders }
-      );
-    }
-
-    // Send OCPP message to charge point
-    const rawMessage = typeof message === "string" ? message : JSON.stringify(message);
-    cpSocket.send(rawMessage);
-
-    console.log(`[OCPP-PROXY] Command from ${backend.name} → ${charge_point_id}:`, rawMessage);
-
-    return new Response(
-      JSON.stringify({ status: "sent", charge_point_id, backend: backend.name }),
-      { status: 200, headers: corsHeaders }
-    );
-
-  } catch (err) {
-    return new Response(
-      JSON.stringify({ error: (err as Error).message }),
-      { status: 500, headers: corsHeaders }
-    );
-  }
-}
-
-// ─── Handle internal commands from UI (authenticated with service role key) ───
-async function handleInternalCommand(body: Record<string, unknown>): Promise<Response> {
-  const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Content-Type": "application/json",
-  };
-
-  try {
-    const { charge_point_id, action, payload } = body as { charge_point_id: string; action: string; payload: unknown };
-
-    if (!charge_point_id || !action) {
-      return new Response(
-        JSON.stringify({ error: "Missing charge_point_id or action" }),
-        { status: 400, headers: corsHeaders }
-      );
-    }
-
-    const cpSocket = chargePointSockets.get(charge_point_id);
-    if (!cpSocket || cpSocket.readyState !== WebSocket.OPEN) {
-      return new Response(
-        JSON.stringify({ error: "Charge point not connected", charge_point_id }),
-        { status: 404, headers: corsHeaders }
-      );
-    }
-
-    // Build OCPP CALL message
-    const uniqueId = crypto.randomUUID().slice(0, 8);
-    const callMessage = [CALL, uniqueId, action, payload || {}];
-    const raw = JSON.stringify(callMessage);
-
-    console.log(`[OCPP-WS] Internal command → ${charge_point_id}: ${raw}`);
-
-    // Create a promise that resolves when the charger responds
-    const responsePromise = new Promise<unknown>((resolve) => {
-      const pendingKey = `${charge_point_id}:${uniqueId}`;
-      const timer = setTimeout(() => {
-        pendingResponses.delete(pendingKey);
-        resolve({ error: "Timeout waiting for charger response (10s)" });
-      }, 10000);
-      pendingResponses.set(pendingKey, { resolve, timer });
-    });
-
-    // Send the CALL to the charger
-    cpSocket.send(raw);
-
-    // Wait for CALLRESULT
-    const result = await responsePromise;
-
-    return new Response(
-      JSON.stringify({ success: true, sent: callMessage, response: result }),
-      { status: 200, headers: corsHeaders }
-    );
-  } catch (err) {
-    return new Response(
-      JSON.stringify({ error: (err as Error).message }),
-      { status: 500, headers: corsHeaders }
-    );
-  }
-}

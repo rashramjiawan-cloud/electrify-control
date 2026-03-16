@@ -31,37 +31,49 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Building2 } from 'lucide-react';
 
 const OCPP_ENDPOINT = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ocpp-handler`;
-const OCPP_WS_ENDPOINT = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ocpp-ws`;
 const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-// Commands that should be sent TO the physical charger via WebSocket
+// Commands that should be sent TO the physical charger via pending_ocpp_commands table
 const CHARGER_COMMANDS = new Set(['GetConfiguration', 'ChangeConfiguration', 'Reset', 'TriggerMessage', 'UnlockConnector', 'RemoteStartTransaction', 'RemoteStopTransaction']);
 
 const sendOcppCommand = async (chargePointId: string, action: string, payload: Record<string, unknown>) => {
-  // For commands targeting the physical charger, use the WebSocket endpoint
+  // For commands targeting the physical charger, insert into pending_ocpp_commands
   if (CHARGER_COMMANDS.has(action)) {
-    const res = await fetch(OCPP_WS_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: ANON_KEY,
-        Authorization: `Bearer ${ANON_KEY}`,
-      },
-      body: JSON.stringify({
+    const { data: cmd, error: insertError } = await supabase
+      .from('pending_ocpp_commands' as any)
+      .insert({
         charge_point_id: chargePointId,
         action,
         payload,
-      }),
-    });
-    const data = await res.json();
-    // Normalize response format: internal command returns { response: [3, id, payload] }
-    if (data.response && Array.isArray(data.response)) {
-      return data.response;
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      return [4, '0', 'InternalError', insertError.message, {}];
     }
-    if (data.error) {
-      return [4, '0', 'InternalError', data.error, {}];
+
+    // Poll for command completion (max 15 seconds)
+    const commandId = (cmd as any).id;
+    const startTime = Date.now();
+    while (Date.now() - startTime < 15000) {
+      await new Promise(r => setTimeout(r, 1000));
+      const { data: updated } = await supabase
+        .from('pending_ocpp_commands' as any)
+        .select('*')
+        .eq('id', commandId)
+        .single();
+
+      if (updated && (updated as any).status === 'completed') {
+        const response = (updated as any).response;
+        if (Array.isArray(response)) return response;
+        return [3, '0', response || {}];
+      }
+      if (updated && (updated as any).status === 'error') {
+        return [4, '0', 'InternalError', 'Command failed', {}];
+      }
     }
-    return data;
+    return [4, '0', 'InternalError', 'Timeout waiting for charger response', {}];
   }
 
   // For charger-initiated messages (BootNotification, etc.), use ocpp-handler
