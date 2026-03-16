@@ -53,7 +53,7 @@ const sendOcppCommand = async (chargePointId: string, action: string, payload: R
 };
 
 const Laadpalen = () => {
-  const { data: dbChargePoints, isLoading: cpLoading } = useChargePoints();
+  const { data: dbChargePoints, isLoading: cpLoading, refetch: refetchChargePoints } = useChargePoints();
   const { data: dbConnectors } = useConnectors();
   const { data: dbTransactions } = useTransactions(100);
   const { data: auditLogs } = useAuditLog(200);
