@@ -118,6 +118,7 @@ Deno.serve(async (req) => {
     }
 
     // ─── Generic proxy: forward request to Enovates API ───
+    const targetUrl = `${baseUrl}/${(path || "").replace(/^\//, "")}`;
     const targetUrl = `${ENOVATES_BASE_URL.replace(/\/$/, "")}/${(path || "").replace(/^\//, "")}`;
     const fetchOptions: RequestInit = {
       method: method || "GET",
