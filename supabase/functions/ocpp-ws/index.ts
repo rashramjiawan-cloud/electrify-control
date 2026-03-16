@@ -19,6 +19,8 @@ const chargePointSockets = new Map<string, WebSocket>();
 
 // ─── Proxy: active WebSocket connections to external OCPP backends ───
 const backendWsSockets = new Map<string, WebSocket>();
+// ─── Pending command responses (CSMS → CP, waiting for CALLRESULT) ───
+const pendingResponses = new Map<string, { resolve: (value: unknown) => void; timer: ReturnType<typeof setTimeout> }>();
 
 interface ProxyBackend {
   id: string;
