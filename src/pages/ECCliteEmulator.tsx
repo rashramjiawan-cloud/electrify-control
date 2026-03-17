@@ -11,7 +11,7 @@ import ECCliteDashboard from '@/components/ecclite/ECCliteDashboard';
 import ECCliteOcppMessages from '@/components/ecclite/ECCliteOcppMessages';
 import ECCliteChargingProfiles from '@/components/ecclite/ECCliteChargingProfiles';
 import ECCliteRemoteActions from '@/components/ecclite/ECCliteRemoteActions';
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
 export interface ECCliteLogEntry {
   id: number;
