@@ -32,6 +32,7 @@ import Gebruikers from "./pages/Gebruikers";
 import Klanten from "./pages/Klanten";
 import DeviceHealth from "./pages/DeviceHealth";
 import Projecten from "./pages/Projecten";
+import ECCManager from "./pages/ECCManager";
 
 import NotFound from "./pages/NotFound";
 
