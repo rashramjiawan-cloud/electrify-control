@@ -1,6 +1,6 @@
 import { useState, useRef, DragEvent } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Zap, LayoutDashboard, BatteryCharging, Cpu, Play, LogOut, Tag, Euro, Receipt, Settings, Gauge, HardDrive, CalendarClock, AlertTriangle, Sun, X, Network, BookOpen, ChevronRight, GripVertical, Plus, Trash2, Pencil, RotateCcw, Check, Car, FileText, Users, HeartPulse, Building2, FolderKanban } from 'lucide-react';
+import { Zap, LayoutDashboard, BatteryCharging, Cpu, Activity, Play, LogOut, Tag, Euro, Receipt, Settings, Gauge, HardDrive, CalendarClock, AlertTriangle, Sun, X, Network, BookOpen, ChevronRight, GripVertical, Plus, Trash2, Pencil, RotateCcw, Check, Car, FileText, Users, HeartPulse, Building2, FolderKanban } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyModulePermissions } from '@/hooks/useMyModulePermissions';
 import VoltControlLogo from '@/components/VoltControlLogo';
@@ -34,7 +34,7 @@ const iconMap: Record<string, LucideIcon> = {
   '/device-health': HeartPulse,
   '/klanten': Building2,
   '/projecten': FolderKanban,
-  
+  '/ecclite': Activity,
 };
 
 const labelMap: Record<string, string> = {
@@ -60,7 +60,7 @@ const labelMap: Record<string, string> = {
   '/device-health': 'Device Health',
   '/klanten': 'Klanten',
   '/projecten': 'Projecten',
-  
+  '/ecclite': 'ECC Manager',
 };
 
 const adminOnlyRoutes = new Set(['/simulator', '/ecclite', '/gebruikers', '/klanten', '/projecten']);

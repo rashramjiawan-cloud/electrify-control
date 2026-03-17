@@ -32,6 +32,7 @@ import Gebruikers from "./pages/Gebruikers";
 import Klanten from "./pages/Klanten";
 import DeviceHealth from "./pages/DeviceHealth";
 import Projecten from "./pages/Projecten";
+import ECCManager from "./pages/ECCManager";
 
 import NotFound from "./pages/NotFound";
 
@@ -88,6 +89,7 @@ const AppRoutes = () => (
     <Route path="/klanten" element={<ProtectedRoute adminOnly><Klanten /></ProtectedRoute>} />
     <Route path="/device-health" element={<ProtectedRoute><DeviceHealth /></ProtectedRoute>} />
     <Route path="/projecten" element={<ProtectedRoute><Projecten /></ProtectedRoute>} />
+    <Route path="/ecclite" element={<ProtectedRoute adminOnly><ECCManager /></ProtectedRoute>} />
     
     <Route path="/reset-password" element={<ResetPassword />} />
     <Route path="*" element={<NotFound />} />
