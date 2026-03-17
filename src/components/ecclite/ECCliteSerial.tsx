@@ -617,10 +617,14 @@ const ECCliteSerial = ({ controller, setController, updateConfig, addLog }: Prop
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-end">
+            <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Switch checked={autoScroll} onCheckedChange={setAutoScroll} />
                 <Label className="text-xs text-muted-foreground cursor-pointer">Auto-scroll log</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch checked={autoReconnect} onCheckedChange={setAutoReconnect} />
+                <Label className="text-xs text-muted-foreground cursor-pointer">Auto-reconnect</Label>
               </div>
             </div>
           </div>
