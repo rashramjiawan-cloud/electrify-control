@@ -469,6 +469,7 @@ const ECCliteSerial = ({ controller, setController, updateConfig, addLog }: Prop
   }, []);
 
   const handleDisconnect = async () => {
+    cancelReconnect();
     try {
       await sendLogout();
       if (readerRef.current) { await readerRef.current.cancel(); readerRef.current.releaseLock(); readerRef.current = null; }
