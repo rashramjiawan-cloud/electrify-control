@@ -644,11 +644,23 @@ const ECCliteSerial = ({ controller, setController, updateConfig, addLog }: Prop
         )}
 
         {/* Connect button */}
+        {reconnecting && (
+          <div className="flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-3">
+            <RotateCcw className="h-4 w-4 text-yellow-500 animate-spin" />
+            <div className="flex-1">
+              <p className="text-xs font-medium text-foreground">Auto-reconnect actief...</p>
+              <p className="text-[10px] text-muted-foreground">Wacht op herstelde USB-verbinding</p>
+            </div>
+            <Button variant="ghost" size="sm" className="text-xs h-7" onClick={cancelReconnect}>
+              Annuleer
+            </Button>
+          </div>
+        )}
         <Button
           onClick={handleConnect}
           className="w-full gap-2 h-11"
           variant={connected ? 'destructive' : 'default'}
-          disabled={!simulationMode && !supported}
+          disabled={(!simulationMode && !supported) || reconnecting}
         >
           {simulationMode ? <Monitor className="h-4 w-4" /> : <Usb className="h-4 w-4" />}
           {connected
