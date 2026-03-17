@@ -151,12 +151,16 @@ const ECCliteSerial = ({ controller, setController, updateConfig, addLog }: Prop
   const [hwVersion, setHwVersion] = useState('');
   const [configCount, setConfigCount] = useState(0);
   const [simulationMode, setSimulationMode] = useState(false);
+  const [autoReconnect, setAutoReconnect] = useState(true);
+  const [reconnecting, setReconnecting] = useState(false);
 
   const portRef = useRef<any>(null);
   const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
   const writerRef = useRef<WritableStreamDefaultWriter<Uint8Array> | null>(null);
   const lineBufferRef = useRef('');
   const readLoopRunningRef = useRef(false);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastPortRef = useRef<any>(null); // remember port for reconnect
 
   useEffect(() => {
     setSupported('serial' in navigator);
