@@ -151,12 +151,16 @@ const ECCliteSerial = ({ controller, setController, updateConfig, addLog }: Prop
   const [hwVersion, setHwVersion] = useState('');
   const [configCount, setConfigCount] = useState(0);
   const [simulationMode, setSimulationMode] = useState(false);
+  const [autoReconnect, setAutoReconnect] = useState(true);
+  const [reconnecting, setReconnecting] = useState(false);
 
   const portRef = useRef<any>(null);
   const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
   const writerRef = useRef<WritableStreamDefaultWriter<Uint8Array> | null>(null);
   const lineBufferRef = useRef('');
   const readLoopRunningRef = useRef(false);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastPortRef = useRef<any>(null); // remember port for reconnect
 
   useEffect(() => {
     setSupported('serial' in navigator);
@@ -374,7 +378,14 @@ const ECCliteSerial = ({ controller, setController, updateConfig, addLog }: Prop
       setConnected(true);
       setController(prev => ({ ...prev, connected: true }));
       addLog(`[TTL] USB-TTL verbinding actief`, 'green');
-      port.addEventListener('disconnect', () => { addLog('[TTL] Device disconnected', 'red'); cleanup(); });
+      lastPortRef.current = port;
+      port.addEventListener('disconnect', () => {
+        addLog('[TTL] Device disconnected', 'red');
+        cleanup();
+        if (autoReconnect && !simulationMode) {
+          attemptReconnect();
+        }
+      });
       setTimeout(() => sendGetVersion(), 500);
     } catch (err) {
       const msg = (err as Error).message;
@@ -385,12 +396,80 @@ const ECCliteSerial = ({ controller, setController, updateConfig, addLog }: Prop
 
   const cleanup = useCallback(() => {
     setConnected(false);
-    portRef.current = null;
+    readLoopRunningRef.current = false;
     readerRef.current = null;
     writerRef.current = null;
+    portRef.current = null;
+  }, []);
+
+  const cancelReconnect = useCallback(() => {
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+    setReconnecting(false);
+  }, []);
+
+  const attemptReconnect = useCallback(async (attempt = 1) => {
+    const MAX_ATTEMPTS = 5;
+    const DELAYS = [2000, 3000, 5000, 8000, 12000];
+
+    if (attempt > MAX_ATTEMPTS) {
+      addLog(`[TTL] Auto-reconnect gestopt na ${MAX_ATTEMPTS} pogingen`, 'red');
+      setReconnecting(false);
+      return;
+    }
+
+    const delayMs = DELAYS[attempt - 1] || 12000;
+    setReconnecting(true);
+    addLog(`[TTL] Auto-reconnect poging ${attempt}/${MAX_ATTEMPTS} over ${delayMs / 1000}s...`, 'yellow');
+
+    reconnectTimerRef.current = setTimeout(async () => {
+      const port = lastPortRef.current;
+      if (!port) {
+        addLog(`[TTL] Geen bekende poort voor reconnect`, 'red');
+        setReconnecting(false);
+        return;
+      }
+
+      try {
+        // Close leftovers
+        if (port.readable || port.writable) {
+          try {
+            if (port.readable) { const r = port.readable.getReader(); await r.cancel(); r.releaseLock(); }
+            if (port.writable) { const w = port.writable.getWriter(); await w.close(); }
+            await port.close();
+          } catch { /* ignore */ }
+          await new Promise(r => setTimeout(r, 200));
+        }
+
+        await port.open({ baudRate });
+        portRef.current = port;
+        addLog(`[TTL] Reconnect geslaagd! Port heropend at ${baudRate} baud`, 'green');
+
+        if (port.readable) { readerRef.current = port.readable.getReader(); readLoop(); }
+        if (port.writable) { writerRef.current = port.writable.getWriter(); }
+        setConnected(true);
+        setReconnecting(false);
+        setController(prev => ({ ...prev, connected: true }));
+        addLog(`[TTL] USB-TTL verbinding hersteld`, 'green');
+        setTimeout(() => sendGetVersion(), 500);
+      } catch (err) {
+        addLog(`[TTL] Reconnect poging ${attempt} mislukt: ${(err as Error).message}`, 'red');
+        attemptReconnect(attempt + 1);
+      }
+    }, delayMs);
+  }, [addLog, baudRate, readLoop, setController]);
+
+  // Cleanup reconnect timer on unmount
+  useEffect(() => {
+    return () => {
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+    };
   }, []);
 
   const handleDisconnect = async () => {
+    cancelReconnect();
     try {
       await sendLogout();
       if (readerRef.current) { await readerRef.current.cancel(); readerRef.current.releaseLock(); readerRef.current = null; }
@@ -539,10 +618,14 @@ const ECCliteSerial = ({ controller, setController, updateConfig, addLog }: Prop
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-end">
+            <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Switch checked={autoScroll} onCheckedChange={setAutoScroll} />
                 <Label className="text-xs text-muted-foreground cursor-pointer">Auto-scroll log</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch checked={autoReconnect} onCheckedChange={setAutoReconnect} />
+                <Label className="text-xs text-muted-foreground cursor-pointer">Auto-reconnect</Label>
               </div>
             </div>
           </div>
@@ -562,11 +645,23 @@ const ECCliteSerial = ({ controller, setController, updateConfig, addLog }: Prop
         )}
 
         {/* Connect button */}
+        {reconnecting && (
+          <div className="flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-3">
+            <RotateCcw className="h-4 w-4 text-yellow-500 animate-spin" />
+            <div className="flex-1">
+              <p className="text-xs font-medium text-foreground">Auto-reconnect actief...</p>
+              <p className="text-[10px] text-muted-foreground">Wacht op herstelde USB-verbinding</p>
+            </div>
+            <Button variant="ghost" size="sm" className="text-xs h-7" onClick={cancelReconnect}>
+              Annuleer
+            </Button>
+          </div>
+        )}
         <Button
           onClick={handleConnect}
           className="w-full gap-2 h-11"
           variant={connected ? 'destructive' : 'default'}
-          disabled={!simulationMode && !supported}
+          disabled={(!simulationMode && !supported) || reconnecting}
         >
           {simulationMode ? <Monitor className="h-4 w-4" /> : <Usb className="h-4 w-4" />}
           {connected
