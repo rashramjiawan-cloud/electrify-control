@@ -1,12 +1,16 @@
 import AppLayout from '@/components/AppLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings, Cpu, Terminal, Wifi, Usb, Activity } from 'lucide-react';
+import { Settings, Cpu, Terminal, Wifi, Usb, Activity, LayoutDashboard, MessageSquare, Zap, Radio } from 'lucide-react';
 import ECCliteConnection from '@/components/ecclite/ECCliteConnection';
 import ECCliteFirmware from '@/components/ecclite/ECCliteFirmware';
 import ECCliteConfig from '@/components/ecclite/ECCliteConfig';
 import ECCliteDebugLog from '@/components/ecclite/ECCliteDebugLog';
 import ECCliteSerial from '@/components/ecclite/ECCliteSerial';
 import ECCliteSniffer from '@/components/ecclite/ECCliteSniffer';
+import ECCliteDashboard from '@/components/ecclite/ECCliteDashboard';
+import ECCliteOcppMessages from '@/components/ecclite/ECCliteOcppMessages';
+import ECCliteChargingProfiles from '@/components/ecclite/ECCliteChargingProfiles';
+import ECCliteRemoteActions from '@/components/ecclite/ECCliteRemoteActions';
 import { useState, useCallback, useRef } from 'react';
 
 export interface ECCliteLogEntry {
@@ -93,7 +97,6 @@ const ECCliteEmulator = () => {
     }));
   }, []);
 
-  // Send an OCPP CALL [2, uniqueId, action, payload] and await the response
   const sendOcpp: OcppSendFn = useCallback(async (action, payload) => {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) {
@@ -131,7 +134,6 @@ const ECCliteEmulator = () => {
     });
   }, [addLog]);
 
-  // Handle incoming WS messages
   const handleWsMessage = useCallback((event: MessageEvent) => {
     const raw = typeof event.data === 'string' ? event.data : '';
     addLog(`OCPP INPUT:[${raw.length}]---------`, 'blue');
@@ -146,7 +148,6 @@ const ECCliteEmulator = () => {
       const uniqueId = String(msg[1]);
 
       if (typeId === 3) {
-        // CALLRESULT
         addLog(`OCPP RESP [${uniqueId}] OK`, 'green');
         const pending = pendingRef.current.get(uniqueId);
         if (pending) {
@@ -154,7 +155,6 @@ const ECCliteEmulator = () => {
           pending.resolve(msg[2]);
         }
       } else if (typeId === 4) {
-        // CALLERROR
         addLog(`OCPP RESP [${uniqueId}] ERROR: ${msg[2]} - ${msg[3]}`, 'red');
         const pending = pendingRef.current.get(uniqueId);
         if (pending) {
@@ -162,7 +162,6 @@ const ECCliteEmulator = () => {
           pending.reject(new Error(`${msg[2]}: ${msg[3]}`));
         }
       } else if (typeId === 2) {
-        // Incoming CALL from CSMS (e.g. GetConfiguration, RemoteStartTransaction)
         const action = msg[2];
         const payload = msg[3] || {};
         addLog(`OCPP INBOUND REQ [${action}] from CSMS`, 'yellow');
@@ -173,7 +172,6 @@ const ECCliteEmulator = () => {
     }
   }, [addLog]);
 
-  // Handle incoming CALL from CSMS
   const handleIncomingCall = useCallback((uniqueId: string, action: string, payload: Record<string, unknown>) => {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
@@ -219,6 +217,31 @@ const ECCliteEmulator = () => {
         addLog(`RemoteStop accepted for txId ${payload.transactionId}`, 'yellow');
         break;
       }
+      case 'SetChargingProfile': {
+        response = { status: 'Accepted' };
+        addLog(`SetChargingProfile accepted`, 'green');
+        break;
+      }
+      case 'ClearChargingProfile': {
+        response = { status: 'Accepted' };
+        addLog(`ClearChargingProfile accepted`, 'green');
+        break;
+      }
+      case 'UnlockConnector': {
+        response = { status: 'Unlocked' };
+        addLog(`UnlockConnector accepted`, 'green');
+        break;
+      }
+      case 'ChangeAvailability': {
+        response = { status: 'Accepted' };
+        addLog(`ChangeAvailability accepted`, 'green');
+        break;
+      }
+      case 'UpdateFirmware': {
+        response = {};
+        addLog(`UpdateFirmware accepted`, 'green');
+        break;
+      }
       case 'TriggerMessage': {
         response = { status: 'Accepted' };
         addLog(`TriggerMessage: ${payload.requestedMessage}`, 'blue');
@@ -237,34 +260,50 @@ const ECCliteEmulator = () => {
   }, [controller.config, addLog, updateConfig]);
 
   return (
-    <AppLayout title="ECClite Emulator" subtitle="Ecotap Controller Configuration Lite – EVC4.x / EVC5.x / ECC.x (V32Rx)">
+    <AppLayout title="ECC Manager" subtitle="Ecotap Controller Configuration – EVC4.x / EVC5.x / ECC.x (V32Rx)">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <Tabs defaultValue="connection">
-            <TabsList className="grid w-full grid-cols-6 max-w-3xl">
-              <TabsTrigger value="connection" className="gap-1.5 text-xs">
-                <Wifi className="h-3.5 w-3.5" />
-                Verbinding
+            <TabsList className="grid w-full grid-cols-5 lg:grid-cols-10 max-w-5xl">
+              <TabsTrigger value="connection" className="gap-1 text-[10px]">
+                <Wifi className="h-3 w-3" />
+                <span className="hidden sm:inline">Verbinding</span>
               </TabsTrigger>
-              <TabsTrigger value="serial" className="gap-1.5 text-xs">
-                <Usb className="h-3.5 w-3.5" />
-                USB-TTL
+              <TabsTrigger value="dashboard" className="gap-1 text-[10px]">
+                <LayoutDashboard className="h-3 w-3" />
+                <span className="hidden sm:inline">Dashboard</span>
               </TabsTrigger>
-              <TabsTrigger value="sniffer" className="gap-1.5 text-xs">
-                <Activity className="h-3.5 w-3.5" />
-                Sniffer
+              <TabsTrigger value="serial" className="gap-1 text-[10px]">
+                <Usb className="h-3 w-3" />
+                <span className="hidden sm:inline">USB-TTL</span>
               </TabsTrigger>
-              <TabsTrigger value="firmware" className="gap-1.5 text-xs">
-                <Cpu className="h-3.5 w-3.5" />
-                Firmware
+              <TabsTrigger value="sniffer" className="gap-1 text-[10px]">
+                <Activity className="h-3 w-3" />
+                <span className="hidden sm:inline">Sniffer</span>
               </TabsTrigger>
-              <TabsTrigger value="config" className="gap-1.5 text-xs">
-                <Settings className="h-3.5 w-3.5" />
-                Instellingen
+              <TabsTrigger value="ocpp" className="gap-1 text-[10px]">
+                <MessageSquare className="h-3 w-3" />
+                <span className="hidden sm:inline">OCPP</span>
               </TabsTrigger>
-              <TabsTrigger value="debug" className="gap-1.5 text-xs">
-                <Terminal className="h-3.5 w-3.5" />
-                Debug
+              <TabsTrigger value="config" className="gap-1 text-[10px]">
+                <Settings className="h-3 w-3" />
+                <span className="hidden sm:inline">Parameters</span>
+              </TabsTrigger>
+              <TabsTrigger value="charging" className="gap-1 text-[10px]">
+                <Zap className="h-3 w-3" />
+                <span className="hidden sm:inline">Profielen</span>
+              </TabsTrigger>
+              <TabsTrigger value="remote" className="gap-1 text-[10px]">
+                <Radio className="h-3 w-3" />
+                <span className="hidden sm:inline">Remote</span>
+              </TabsTrigger>
+              <TabsTrigger value="firmware" className="gap-1 text-[10px]">
+                <Cpu className="h-3 w-3" />
+                <span className="hidden sm:inline">Firmware</span>
+              </TabsTrigger>
+              <TabsTrigger value="debug" className="gap-1 text-[10px]">
+                <Terminal className="h-3 w-3" />
+                <span className="hidden sm:inline">Debug</span>
               </TabsTrigger>
             </TabsList>
 
@@ -278,6 +317,9 @@ const ECCliteEmulator = () => {
                 sendOcpp={sendOcpp}
               />
             </TabsContent>
+            <TabsContent value="dashboard">
+              <ECCliteDashboard controller={controller} addLog={addLog} />
+            </TabsContent>
             <TabsContent value="serial">
               <ECCliteSerial
                 controller={controller}
@@ -289,17 +331,34 @@ const ECCliteEmulator = () => {
             <TabsContent value="sniffer">
               <ECCliteSniffer addLog={addLog} />
             </TabsContent>
-            <TabsContent value="firmware">
-              <ECCliteFirmware
-                controller={controller}
-                setController={setController}
-                addLog={addLog}
-              />
+            <TabsContent value="ocpp">
+              <ECCliteOcppMessages addLog={addLog} />
             </TabsContent>
             <TabsContent value="config">
               <ECCliteConfig
                 controller={controller}
                 updateConfig={updateConfig}
+                addLog={addLog}
+              />
+            </TabsContent>
+            <TabsContent value="charging">
+              <ECCliteChargingProfiles
+                controller={controller}
+                addLog={addLog}
+                sendOcpp={sendOcpp}
+              />
+            </TabsContent>
+            <TabsContent value="remote">
+              <ECCliteRemoteActions
+                controller={controller}
+                addLog={addLog}
+                sendOcpp={sendOcpp}
+              />
+            </TabsContent>
+            <TabsContent value="firmware">
+              <ECCliteFirmware
+                controller={controller}
+                setController={setController}
                 addLog={addLog}
               />
             </TabsContent>
