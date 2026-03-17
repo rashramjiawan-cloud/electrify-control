@@ -396,9 +396,76 @@ const ECCliteSerial = ({ controller, setController, updateConfig, addLog }: Prop
 
   const cleanup = useCallback(() => {
     setConnected(false);
-    portRef.current = null;
+    readLoopRunningRef.current = false;
     readerRef.current = null;
     writerRef.current = null;
+    portRef.current = null;
+  }, []);
+
+  const cancelReconnect = useCallback(() => {
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+    setReconnecting(false);
+  }, []);
+
+  const attemptReconnect = useCallback(async (attempt = 1) => {
+    const MAX_ATTEMPTS = 5;
+    const DELAYS = [2000, 3000, 5000, 8000, 12000];
+
+    if (attempt > MAX_ATTEMPTS) {
+      addLog(`[TTL] Auto-reconnect gestopt na ${MAX_ATTEMPTS} pogingen`, 'red');
+      setReconnecting(false);
+      return;
+    }
+
+    const delayMs = DELAYS[attempt - 1] || 12000;
+    setReconnecting(true);
+    addLog(`[TTL] Auto-reconnect poging ${attempt}/${MAX_ATTEMPTS} over ${delayMs / 1000}s...`, 'yellow');
+
+    reconnectTimerRef.current = setTimeout(async () => {
+      const port = lastPortRef.current;
+      if (!port) {
+        addLog(`[TTL] Geen bekende poort voor reconnect`, 'red');
+        setReconnecting(false);
+        return;
+      }
+
+      try {
+        // Close leftovers
+        if (port.readable || port.writable) {
+          try {
+            if (port.readable) { const r = port.readable.getReader(); await r.cancel(); r.releaseLock(); }
+            if (port.writable) { const w = port.writable.getWriter(); await w.close(); }
+            await port.close();
+          } catch { /* ignore */ }
+          await new Promise(r => setTimeout(r, 200));
+        }
+
+        await port.open({ baudRate });
+        portRef.current = port;
+        addLog(`[TTL] Reconnect geslaagd! Port heropend at ${baudRate} baud`, 'green');
+
+        if (port.readable) { readerRef.current = port.readable.getReader(); readLoop(); }
+        if (port.writable) { writerRef.current = port.writable.getWriter(); }
+        setConnected(true);
+        setReconnecting(false);
+        setController(prev => ({ ...prev, connected: true }));
+        addLog(`[TTL] USB-TTL verbinding hersteld`, 'green');
+        setTimeout(() => sendGetVersion(), 500);
+      } catch (err) {
+        addLog(`[TTL] Reconnect poging ${attempt} mislukt: ${(err as Error).message}`, 'red');
+        attemptReconnect(attempt + 1);
+      }
+    }, delayMs);
+  }, [addLog, baudRate, readLoop, setController]);
+
+  // Cleanup reconnect timer on unmount
+  useEffect(() => {
+    return () => {
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+    };
   }, []);
 
   const handleDisconnect = async () => {
