@@ -91,6 +91,13 @@ const ECCliteEmulator = () => {
 
   const clearLogs = useCallback(() => setLogs([]), []);
 
+  // Auto-scroll log to bottom when new entries arrive
+  useEffect(() => {
+    if (logEndRef.current) {
+      logEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [logs]);
+
   const updateConfig = useCallback((key: string, value: string) => {
     setController(prev => ({
       ...prev,
