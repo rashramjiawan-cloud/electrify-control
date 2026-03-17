@@ -356,8 +356,18 @@ const ECCliteSerial = ({ controller, setController, updateConfig, addLog }: Prop
     try {
       addLog(`[TTL] Requesting serial port...`, 'blue');
       const port = await (navigator as any).serial.requestPort();
-      await port.open({ baudRate });
       portRef.current = port;
+      // Close if already open (e.g. leftover from previous session)
+      if (port.readable || port.writable) {
+        addLog(`[TTL] Poort was al open, eerst sluiten...`, 'yellow');
+        try {
+          if (port.readable) { const r = port.readable.getReader(); await r.cancel(); r.releaseLock(); }
+          if (port.writable) { const w = port.writable.getWriter(); await w.close(); }
+          await port.close();
+        } catch { /* ignore close errors */ }
+        await new Promise(r => setTimeout(r, 200));
+      }
+      await port.open({ baudRate });
       addLog(`[TTL] Port opened at ${baudRate} baud`, 'green');
       if (port.readable) { readerRef.current = port.readable.getReader(); readLoop(); }
       if (port.writable) { writerRef.current = port.writable.getWriter(); }
