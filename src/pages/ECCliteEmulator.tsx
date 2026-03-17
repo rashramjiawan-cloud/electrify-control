@@ -66,6 +66,7 @@ const ECCliteEmulator = () => {
   const wsRef = useRef<WebSocket | null>(null);
   const pendingRef = useRef<Map<string, { resolve: (v: unknown) => void; reject: (e: Error) => void }>>(new Map());
   const seqRef = useRef(3200);
+  const logEndRef = useRef<HTMLDivElement>(null);
 
   const [logs, setLogs] = useState<ECCliteLogEntry[]>([]);
   const [controller, setController] = useState<ControllerState>({
