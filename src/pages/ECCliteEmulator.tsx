@@ -11,7 +11,7 @@ import ECCliteDashboard from '@/components/ecclite/ECCliteDashboard';
 import ECCliteOcppMessages from '@/components/ecclite/ECCliteOcppMessages';
 import ECCliteChargingProfiles from '@/components/ecclite/ECCliteChargingProfiles';
 import ECCliteRemoteActions from '@/components/ecclite/ECCliteRemoteActions';
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
 export interface ECCliteLogEntry {
   id: number;
@@ -66,6 +66,7 @@ const ECCliteEmulator = () => {
   const wsRef = useRef<WebSocket | null>(null);
   const pendingRef = useRef<Map<string, { resolve: (v: unknown) => void; reject: (e: Error) => void }>>(new Map());
   const seqRef = useRef(3200);
+  const logEndRef = useRef<HTMLDivElement>(null);
 
   const [logs, setLogs] = useState<ECCliteLogEntry[]>([]);
   const [controller, setController] = useState<ControllerState>({
@@ -89,6 +90,13 @@ const ECCliteEmulator = () => {
   }, []);
 
   const clearLogs = useCallback(() => setLogs([]), []);
+
+  // Auto-scroll log to bottom when new entries arrive
+  useEffect(() => {
+    if (logEndRef.current) {
+      logEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [logs]);
 
   const updateConfig = useCallback((key: string, value: string) => {
     setController(prev => ({
@@ -396,6 +404,7 @@ const ECCliteEmulator = () => {
                 </div>
               ))
             )}
+            <div ref={logEndRef} />
           </div>
         </div>
       </div>
