@@ -378,7 +378,14 @@ const ECCliteSerial = ({ controller, setController, updateConfig, addLog }: Prop
       setConnected(true);
       setController(prev => ({ ...prev, connected: true }));
       addLog(`[TTL] USB-TTL verbinding actief`, 'green');
-      port.addEventListener('disconnect', () => { addLog('[TTL] Device disconnected', 'red'); cleanup(); });
+      lastPortRef.current = port;
+      port.addEventListener('disconnect', () => {
+        addLog('[TTL] Device disconnected', 'red');
+        cleanup();
+        if (autoReconnect && !simulationMode) {
+          attemptReconnect();
+        }
+      });
       setTimeout(() => sendGetVersion(), 500);
     } catch (err) {
       const msg = (err as Error).message;
