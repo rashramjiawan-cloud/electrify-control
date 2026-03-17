@@ -404,6 +404,7 @@ const ECCliteEmulator = () => {
                 </div>
               ))
             )}
+            <div ref={logEndRef} />
           </div>
         </div>
       </div>
