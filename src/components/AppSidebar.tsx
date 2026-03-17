@@ -60,7 +60,7 @@ const labelMap: Record<string, string> = {
   '/device-health': 'Device Health',
   '/klanten': 'Klanten',
   '/projecten': 'Projecten',
-  
+  '/ecclite': 'ECC Manager',
 };
 
 const adminOnlyRoutes = new Set(['/simulator', '/ecclite', '/gebruikers', '/klanten', '/projecten']);
