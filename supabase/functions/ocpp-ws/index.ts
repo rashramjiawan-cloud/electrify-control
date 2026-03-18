@@ -530,10 +530,7 @@ Deno.serve(async (req: Request) => {
         return;
       }
 
-      // ─── Fan-out: broadcast to all proxy backends ───
-      fanOutMessage(chargePointId, raw, message).catch(err => {
-        console.error(`[OCPP-PROXY] Fan-out error:`, err);
-      });
+      // Proxy fan-out disabled: charge points stay on VoltControl only
 
       const messageTypeId = message[0];
 
@@ -562,10 +559,7 @@ Deno.serve(async (req: Request) => {
         console.log(`[OCPP-WS] ${chargePointId} ←`, wsResponse);
         socket.send(wsResponse);
 
-        // Fan-out our response to webhook backends
-        fanOutResponse(chargePointId, wsResponse).catch(err => {
-          console.error(`[OCPP-PROXY] Response fan-out error:`, err);
-        });
+        // Proxy fan-out disabled: responses stay on VoltControl only
 
         // Auto-send GetConfiguration after BootNotification
         if (action === "BootNotification") {
@@ -615,13 +609,7 @@ Deno.serve(async (req: Request) => {
     chargePointSockets.delete(chargePointId);
     stopCommandPoller(chargePointId);
 
-    // Close any backend WS connections for this charge point
-    for (const [key, ws] of backendWsSockets) {
-      if (key.endsWith(`:${chargePointId}`)) {
-        ws.close();
-        backendWsSockets.delete(key);
-      }
-    }
+    // Proxy connections disabled — no backend WS to clean up
 
     // Mark charge point as unavailable
     supabase
