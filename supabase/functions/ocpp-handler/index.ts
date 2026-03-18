@@ -947,6 +947,28 @@ async function handleGetDiagnostics(cpId: string, payload: Record<string, unknow
     return {};
   }
 
+  // Queue OCPP command to send GetDiagnostics to the charge point
+  await supabase
+    .from("pending_ocpp_commands")
+    .delete()
+    .eq("charge_point_id", cpId)
+    .eq("action", "GetDiagnostics")
+    .eq("status", "pending");
+
+  await supabase.from("pending_ocpp_commands").insert({
+    charge_point_id: cpId,
+    action: "GetDiagnostics",
+    payload: {
+      location,
+      startTime,
+      stopTime,
+      retries,
+      retryInterval,
+    },
+    source: "firmware_manager",
+    status: "pending",
+  });
+
   // Return a generated filename
   const fileName = `diag_${cpId}_${new Date().toISOString().replace(/[:.]/g, "-")}.txt`;
   return { fileName };
