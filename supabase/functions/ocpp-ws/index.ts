@@ -530,10 +530,7 @@ Deno.serve(async (req: Request) => {
         return;
       }
 
-      // ─── Fan-out: broadcast to all proxy backends ───
-      fanOutMessage(chargePointId, raw, message).catch(err => {
-        console.error(`[OCPP-PROXY] Fan-out error:`, err);
-      });
+      // Proxy fan-out disabled: charge points stay on VoltControl only
 
       const messageTypeId = message[0];
 
