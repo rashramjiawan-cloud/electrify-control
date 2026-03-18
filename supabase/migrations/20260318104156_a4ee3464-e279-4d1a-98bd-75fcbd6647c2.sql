@@ -1,0 +1,7 @@
+ALTER TABLE public.charge_points REPLICA IDENTITY FULL;
+ALTER TABLE public.connectors REPLICA IDENTITY FULL;
+ALTER TABLE public.status_notifications REPLICA IDENTITY FULL;
+ALTER TABLE public.heartbeats REPLICA IDENTITY FULL;
+ALTER TABLE public.meter_values REPLICA IDENTITY FULL;
+ALTER TABLE public.transactions REPLICA IDENTITY FULL;
+ALTER TABLE public.ocpp_audit_log REPLICA IDENTITY FULL;
