@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, Fragment } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -43,6 +43,7 @@ const AuditLogTable = ({ logs, chargePointIds }: AuditLogTableProps) => {
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [page, setPage] = useState(0);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const filtered = useMemo(() => {
     let result = logs;
@@ -209,36 +210,63 @@ const AuditLogTable = ({ logs, chargePointIds }: AuditLogTableProps) => {
             ) : (
               paged.map((log) => {
                 const payload = typeof log.payload === 'object' && log.payload ? log.payload : {};
+                const resultData = typeof log.result === 'object' && log.result ? log.result : {};
                 const details = Object.entries(payload)
                   .filter(([k]) => k !== 'type')
-                  .map(([k, v]) => `${k}: ${v}`)
+                  .map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
                   .join(', ');
+                const isExpanded = expandedId === log.id;
                 return (
-                  <tr key={log.id} className="border-b border-border last:border-0 hover:bg-muted/30">
-                    <td className="px-4 py-2 font-mono text-xs text-muted-foreground">
-                      {new Date(log.created_at).toLocaleString('nl-NL', {
-                        day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
-                      })}
-                    </td>
-                    <td className="px-4 py-2 font-mono text-xs text-foreground">{log.charge_point_id}</td>
-                    <td className="px-4 py-2">
-                      <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 font-mono text-xs font-medium text-primary">
-                        {log.action}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 font-mono text-xs text-muted-foreground max-w-[300px] truncate">
-                      {details || '—'}
-                    </td>
-                    <td className="px-4 py-2 text-center">
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                        log.status === 'Accepted' || log.status === 'Unlocked' ? 'bg-primary/10 text-primary' :
-                        log.status === 'Rejected' ? 'bg-destructive/10 text-destructive' :
-                        'bg-muted text-muted-foreground'
-                      }`}>
-                        {log.status}
-                      </span>
-                    </td>
-                  </tr>
+                  <Fragment key={log.id}>
+                    <tr
+                      className="border-b border-border last:border-0 hover:bg-muted/30 cursor-pointer"
+                      onClick={() => setExpandedId(isExpanded ? null : log.id)}
+                    >
+                      <td className="px-4 py-2 font-mono text-xs text-muted-foreground">
+                        {new Date(log.created_at).toLocaleString('nl-NL', {
+                          day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
+                        })}
+                      </td>
+                      <td className="px-4 py-2 font-mono text-xs text-foreground">{log.charge_point_id}</td>
+                      <td className="px-4 py-2">
+                        <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 font-mono text-xs font-medium text-primary">
+                          {log.action}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 font-mono text-xs text-muted-foreground max-w-[300px] truncate">
+                        {details || '—'}
+                      </td>
+                      <td className="px-4 py-2 text-center">
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                          log.status === 'Accepted' || log.status === 'Unlocked' ? 'bg-primary/10 text-primary' :
+                          log.status === 'Rejected' ? 'bg-destructive/10 text-destructive' :
+                          'bg-muted text-muted-foreground'
+                        }`}>
+                          {log.status}
+                        </span>
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr className="bg-muted/20">
+                        <td colSpan={5} className="px-4 py-3">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Payload</p>
+                              <pre className="text-xs font-mono text-foreground bg-muted/50 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all max-h-64 overflow-y-auto">
+                                {Object.keys(payload).length > 0 ? JSON.stringify(payload, null, 2) : '—'}
+                              </pre>
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Result</p>
+                              <pre className="text-xs font-mono text-foreground bg-muted/50 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all max-h-64 overflow-y-auto">
+                                {Object.keys(resultData).length > 0 ? JSON.stringify(resultData, null, 2) : '—'}
+                              </pre>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 );
               })
             )}
