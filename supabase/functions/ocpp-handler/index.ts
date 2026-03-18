@@ -865,6 +865,28 @@ async function handleUpdateFirmware(cpId: string, payload: Record<string, unknow
     return { status: "Rejected" };
   }
 
+  // Queue OCPP command to send UpdateFirmware to the charge point
+  // First remove any existing pending UpdateFirmware for this CP
+  await supabase
+    .from("pending_ocpp_commands")
+    .delete()
+    .eq("charge_point_id", cpId)
+    .eq("action", "UpdateFirmware")
+    .eq("status", "pending");
+
+  await supabase.from("pending_ocpp_commands").insert({
+    charge_point_id: cpId,
+    action: "UpdateFirmware",
+    payload: {
+      location,
+      retrieveDate: retrieveDate || new Date().toISOString(),
+      retries,
+      retryInterval,
+    },
+    source: "firmware_manager",
+    status: "pending",
+  });
+
   return {};
 }
 
@@ -924,6 +946,28 @@ async function handleGetDiagnostics(cpId: string, payload: Record<string, unknow
     console.error("GetDiagnostics insert error:", error);
     return {};
   }
+
+  // Queue OCPP command to send GetDiagnostics to the charge point
+  await supabase
+    .from("pending_ocpp_commands")
+    .delete()
+    .eq("charge_point_id", cpId)
+    .eq("action", "GetDiagnostics")
+    .eq("status", "pending");
+
+  await supabase.from("pending_ocpp_commands").insert({
+    charge_point_id: cpId,
+    action: "GetDiagnostics",
+    payload: {
+      location,
+      startTime,
+      stopTime,
+      retries,
+      retryInterval,
+    },
+    source: "firmware_manager",
+    status: "pending",
+  });
 
   // Return a generated filename
   const fileName = `diag_${cpId}_${new Date().toISOString().replace(/[:.]/g, "-")}.txt`;
