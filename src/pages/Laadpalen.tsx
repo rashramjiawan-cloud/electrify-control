@@ -795,10 +795,22 @@ const Laadpalen = () => {
 
                   {/* Connectors */}
                   <div className="mt-4 space-y-2">
-                    {cp.connectors.map((conn: any) => (
-                      <div key={conn.connector_id} className="flex items-center justify-between rounded-lg bg-muted/50 px-4 py-2.5">
+                    {cp.connectors.map((conn: any) => {
+                      const connStatus = conn.status as string;
+                      const connBg = connStatus === 'Charging' ? 'bg-primary/10 border border-primary/30'
+                        : connStatus === 'Available' ? 'bg-success/10 border border-success/30'
+                        : connStatus === 'Preparing' || connStatus === 'SuspendedEV' || connStatus === 'Finishing' ? 'bg-warning/10 border border-warning/30'
+                        : connStatus === 'Faulted' ? 'bg-destructive/10 border border-destructive/30'
+                        : 'bg-muted/50 border border-border';
+                      const connIconColor = connStatus === 'Charging' ? 'text-primary'
+                        : connStatus === 'Available' ? 'text-success'
+                        : connStatus === 'Preparing' || connStatus === 'SuspendedEV' || connStatus === 'Finishing' ? 'text-warning'
+                        : connStatus === 'Faulted' ? 'text-destructive'
+                        : 'text-muted-foreground';
+                      return (
+                      <div key={conn.connector_id} className={`flex items-center justify-between rounded-lg px-4 py-2.5 ${connBg}`}>
                         <div className="flex items-center gap-3">
-                          <Plug className="h-3.5 w-3.5 text-muted-foreground" />
+                          <Plug className={`h-3.5 w-3.5 ${connIconColor}`} />
                           <span className="font-mono text-xs text-muted-foreground">Connector {conn.connector_id}</span>
                           <StatusBadge status={conn.status as ChargePointStatus} />
                         </div>
