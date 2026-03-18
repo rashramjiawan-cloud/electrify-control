@@ -559,10 +559,7 @@ Deno.serve(async (req: Request) => {
         console.log(`[OCPP-WS] ${chargePointId} ←`, wsResponse);
         socket.send(wsResponse);
 
-        // Fan-out our response to webhook backends
-        fanOutResponse(chargePointId, wsResponse).catch(err => {
-          console.error(`[OCPP-PROXY] Response fan-out error:`, err);
-        });
+        // Proxy fan-out disabled: responses stay on VoltControl only
 
         // Auto-send GetConfiguration after BootNotification
         if (action === "BootNotification") {
