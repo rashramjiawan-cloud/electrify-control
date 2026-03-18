@@ -609,13 +609,7 @@ Deno.serve(async (req: Request) => {
     chargePointSockets.delete(chargePointId);
     stopCommandPoller(chargePointId);
 
-    // Close any backend WS connections for this charge point
-    for (const [key, ws] of backendWsSockets) {
-      if (key.endsWith(`:${chargePointId}`)) {
-        ws.close();
-        backendWsSockets.delete(key);
-      }
-    }
+    // Proxy connections disabled — no backend WS to clean up
 
     // Mark charge point as unavailable
     supabase
