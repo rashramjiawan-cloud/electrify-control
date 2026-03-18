@@ -865,6 +865,28 @@ async function handleUpdateFirmware(cpId: string, payload: Record<string, unknow
     return { status: "Rejected" };
   }
 
+  // Queue OCPP command to send UpdateFirmware to the charge point
+  // First remove any existing pending UpdateFirmware for this CP
+  await supabase
+    .from("pending_ocpp_commands")
+    .delete()
+    .eq("charge_point_id", cpId)
+    .eq("action", "UpdateFirmware")
+    .eq("status", "pending");
+
+  await supabase.from("pending_ocpp_commands").insert({
+    charge_point_id: cpId,
+    action: "UpdateFirmware",
+    payload: {
+      location,
+      retrieveDate: retrieveDate || new Date().toISOString(),
+      retries,
+      retryInterval,
+    },
+    source: "firmware_manager",
+    status: "pending",
+  });
+
   return {};
 }
 
