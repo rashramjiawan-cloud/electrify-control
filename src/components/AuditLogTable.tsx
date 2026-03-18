@@ -43,6 +43,7 @@ const AuditLogTable = ({ logs, chargePointIds }: AuditLogTableProps) => {
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [page, setPage] = useState(0);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const filtered = useMemo(() => {
     let result = logs;
