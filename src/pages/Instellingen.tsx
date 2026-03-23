@@ -17,6 +17,7 @@ import OcppProxySettings from '@/components/OcppProxySettings';
 import OcppProxyLogWidget from '@/components/OcppProxyLogWidget';
 import EnovatesApiSettings from '@/components/EnovatesApiSettings';
 import ExternalSyncSettings from '@/components/ExternalSyncSettings';
+import BackupApiSettings from '@/components/BackupApiSettings';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const WS_URL = SUPABASE_URL?.replace('https://', 'wss://') + '/functions/v1/ocpp-ws';
