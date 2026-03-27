@@ -153,7 +153,7 @@ def resolve_alerts(cp_id, alert_type=None):
                 )
             else:
                 cur.execute(
-                    'UPDATE alerts SET resolved=TRUE, resolved_at=NOW() WHERE cp_id=%s AND resolved=FALSE',
+                    "UPDATE alerts SET resolved=TRUE, resolved_at=NOW() WHERE cp_id=%s AND resolved=FALSE AND alert_type != 'monteur_actie'",
                     (cp_id,)
                 )
     except Exception as e:

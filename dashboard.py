@@ -508,6 +508,24 @@ def api_charger_config(cp_id: str):
     return []
 
 
+@app.post('/api/charger/{cp_id}/alias')
+def api_set_alias(cp_id: str, req: dict):
+    alias = req.get('alias', '')
+    location = req.get('location', '')
+    client = req.get('client', '')
+    try:
+        with db.get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute('UPDATE chargers SET alias=%s, location=%s, client=%s, updated_at=NOW() WHERE cp_id=%s',
+                        (alias, location, client, cp_id))
+        # Update runtime state
+        if cp_id in get_state().get('chargers', {}):
+            send_command('_quarantine', 'set', {'cp_id': cp_id, 'active': False, 'reason': ''})  # trigger state refresh
+        return {'ok': True}
+    except Exception as e:
+        return {'error': str(e)}
+
+
 @app.get('/api/knowledge')
 def api_knowledge():
     try:
@@ -979,6 +997,181 @@ def api_analysis_date(date: str):
     if p.exists():
         return json.loads(p.read_text())
     return {'error': 'Niet gevonden'}
+
+
+@app.post('/api/analysis/save')
+def api_analysis_save():
+    from analyze import analyze, save_daily_log
+    analysis = analyze('24 hours ago')
+    path = save_daily_log(analysis)
+    return {'ok': True, 'path': path, 'date': datetime.now(timezone.utc).strftime('%Y-%m-%d')}
+
+
+@app.get('/api/eflux/chargers')
+def api_eflux_chargers(session=Depends(verify_session)):
+    import urllib.request as urlreq
+    try:
+        # Login
+        login_data = json.dumps({
+            'email': 'rash@mijninstallatiepartner.nl',
+            'password': 'Welkom1234!'
+        }).encode()
+        login_req = urlreq.Request(
+            'https://api.e-flux.nl/1/auth/login',
+            data=login_data,
+            headers={
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+                'Provider': 'e-flux',
+            }
+        )
+        login_resp = urlreq.urlopen(login_req, timeout=10)
+        token = json.loads(login_resp.read()).get('data', {}).get('token', '')
+        if not token:
+            return {'error': 'E-Flux login mislukt'}
+
+        # Fetch chargers via maintenance endpoint
+        search_data = json.dumps({'limit': 300}).encode()
+        search_req = urlreq.Request(
+            'https://api.e-flux.nl/1/evse-controllers/maintenance/search',
+            data=search_data,
+            headers={
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': f'Bearer {token}',
+                'Provider': 'e-flux',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+            }
+        )
+        search_resp = urlreq.urlopen(search_req, timeout=30)
+        result = json.loads(search_resp.read())
+        return result
+    except Exception as e:
+        return {'error': str(e)}
+
+
+class EfluxCommandRequest(BaseModel):
+    cp_id: str
+    method: str
+    params: dict = {}
+
+
+@app.post('/api/eflux/command')
+def api_eflux_command(req: EfluxCommandRequest, session=Depends(verify_session)):
+    import urllib.request as urlreq
+    try:
+        # Login
+        login_data = json.dumps({
+            'email': 'rash@mijninstallatiepartner.nl',
+            'password': 'Welkom1234!'
+        }).encode()
+        login_req = urlreq.Request(
+            'https://api.e-flux.nl/1/auth/login',
+            data=login_data,
+            headers={
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+                'Provider': 'e-flux',
+            }
+        )
+        login_resp = urlreq.urlopen(login_req, timeout=10)
+        token = json.loads(login_resp.read()).get('data', {}).get('token', '')
+        if not token:
+            return {'error': 'E-Flux login mislukt'}
+
+        # Send command
+        cmd_data = json.dumps({
+            'method': req.method,
+            'params': req.params,
+        }).encode()
+        cmd_req = urlreq.Request(
+            f'https://api.e-flux.nl/1/evse-controllers/{req.cp_id}/commands',
+            data=cmd_data,
+            headers={
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': f'Bearer {token}',
+                'Provider': 'e-flux',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+            }
+        )
+        cmd_resp = urlreq.urlopen(cmd_req, timeout=30)
+        result = json.loads(cmd_resp.read())
+        return result
+    except Exception as e:
+        return {'error': str(e)}
+
+
+@app.get('/api/evinty/chargers')
+def api_evinty_chargers(session=Depends(verify_session)):
+    try:
+        from pycognito import Cognito
+        import urllib.request as urlreq
+        u = Cognito(
+            'eu-central-1_m6Aj49PLq',
+            '7g92843rt2mtv50hkf67hb2l2o',
+            username='rash@mijninstallatiepartner.nl'
+        )
+        u.authenticate(password='Welkom1234!')
+        req = urlreq.Request(
+            'https://cpms.portal.evinity.io/cpms/rest/operator-api/charging-stations?size=500',
+            headers={
+                'Authorization': f'Bearer {u.access_token}',
+                'Accept': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+            }
+        )
+        resp = urlreq.urlopen(req, timeout=30)
+        result = json.loads(resp.read())
+        return result
+    except Exception as e:
+        return {'error': str(e)}
+
+
+class EvintyCommandRequest(BaseModel):
+    cp_id: str
+    command: str
+    params: dict = {}
+
+
+@app.post('/api/evinty/command')
+def api_evinty_command(req: EvintyCommandRequest, session=Depends(verify_session)):
+    try:
+        from pycognito import Cognito
+        import urllib.request as urlreq
+        u = Cognito(
+            'eu-central-1_m6Aj49PLq',
+            '7g92843rt2mtv50hkf67hb2l2o',
+            username='rash@mijninstallatiepartner.nl'
+        )
+        u.authenticate(password='Welkom1234!')
+        base = f'https://cpms.portal.evinity.io/cpms/rest/operator-api/charging-stations/{req.cp_id}'
+        cmd_map = {
+            'Reset': '/reset',
+            'TriggerMessage': '/trigger-message',
+            'UnlockConnector': '/unlock-connector',
+        }
+        path = cmd_map.get(req.command, '/' + req.command.lower())
+        url = base + path
+        data = json.dumps(req.params).encode()
+        api_req = urlreq.Request(url, data=data, headers={
+            'Authorization': f'Bearer {u.access_token}',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+        })
+        resp = urlreq.urlopen(api_req, timeout=30)
+        return json.loads(resp.read())
+    except Exception as e:
+        error_msg = str(e)
+        if hasattr(e, 'read'):
+            try:
+                error_msg = e.read().decode()
+            except:
+                pass
+        return {'error': error_msg}
 
 
 class QuarantineRequest(BaseModel):
@@ -1765,6 +1958,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .session-tag.blue { background: #1e3a5f20; color: #38bdf8; }
 .session-tag.yellow { background: #713f1220; color: #fbbf24; }
 .cmd-result { background: #0f172a; border: 1px solid #334155; border-radius: 6px; padding: 12px; font-family: monospace; font-size: 12px; white-space: pre-wrap; margin-top: 10px; min-height: 60px; }
+/* E-Flux command modal */
+.eflux-modal-overlay { position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:200;display:flex;align-items:center;justify-content:center; }
+.eflux-modal { background:#1e293b;border:1px solid #334155;border-radius:12px;width:560px;max-width:95vw;max-height:85vh;overflow-y:auto;padding:24px;box-shadow:0 16px 64px rgba(0,0,0,0.5); }
+.eflux-modal h3 { color:#f1f5f9;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center; }
+.eflux-modal .close-btn { cursor:pointer;color:#94a3b8;font-size:24px;background:none;border:none;padding:0; }
+.eflux-modal .close-btn:hover { color:#f1f5f9; }
+.eflux-modal select,.eflux-modal input,.eflux-modal textarea { width:100%;background:#0f172a;color:#e2e8f0;border:1px solid #334155;padding:8px 12px;border-radius:6px;font-size:13px;margin-bottom:10px; }
+.eflux-modal button.send-cmd { background:#2563eb;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;width:100%; }
+.eflux-modal button.send-cmd:hover { background:#1d4ed8; }
+.eflux-modal .cmd-output { background:#0f172a;border:1px solid #334155;border-radius:6px;padding:12px;font-family:monospace;font-size:12px;white-space:pre-wrap;min-height:60px;margin-top:10px;color:#e2e8f0; }
 /* Logs */
 #log-container { background: #0f172a; border: 1px solid #334155; border-radius: 6px; padding: 12px; font-family: monospace; font-size: 11px; height: calc(100vh - 200px); overflow-y: auto; line-height: 1.6; }
 #log-container .log-line { padding: 1px 0; }
@@ -1816,6 +2019,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <div class="tab" onclick="showTab('analyse')">Analyse</div>
     <div class="tab" onclick="showTab('knowledge')">Knowledge Base</div>
     <div class="tab" onclick="showTab('software')">Software</div>
+    <div class="tab" onclick="showTab('eflux')">E-Flux Commando's</div>
     <div class="tab" onclick="showTab('chat')">AI Chat</div>
 </div>
 
@@ -1930,7 +2134,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <div style="max-width:900px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
             <h3 style="color:#f1f5f9;">Stabiliteitsanalyse</h3>
-            <select id="analysis-date" onchange="loadAnalysis(this.value)" style="background:#1e293b;color:#e2e8f0;border:1px solid #334155;padding:6px 12px;border-radius:6px;font-size:13px;"></select>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <select id="analysis-date" onchange="loadAnalysis(this.value)" style="background:#1e293b;color:#e2e8f0;border:1px solid #334155;padding:6px 12px;border-radius:6px;font-size:13px;"></select>
+                <button onclick="saveAnalysis()" id="btn-save-analysis" style="padding:6px 14px;font-size:13px;">Opslaan</button>
+                <button onclick="downloadAnalysis()" style="padding:6px 14px;font-size:13px;">Download PDF</button>
+            </div>
         </div>
         <div id="analysis-content"><div style="color:#64748b;padding:20px;">Laden...</div></div>
     </div>
@@ -2004,6 +2212,31 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <div id="log-container"></div>
 </div>
 
+<div class="content" id="tab-eflux">
+    <div style="max-width:1200px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h3 style="color:#a78bfa;">E-Flux Maintenance — Commando Paneel</h3>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <button onclick="refreshEfluxTab()" style="padding:6px 14px;font-size:13px;background:#2563eb;color:white;border:none;border-radius:6px;cursor:pointer;">Vernieuwen</button>
+            </div>
+        </div>
+        <div id="eflux-stats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;"></div>
+        <div style="display:grid;grid-template-columns:300px 1fr;gap:16px;">
+            <div>
+                <div style="margin-bottom:8px;">
+                    <input type="text" id="eflux-search" placeholder="Zoek laadpaal..." oninput="filterEfluxTab()" style="background:#1e293b;color:#e2e8f0;border:1px solid #334155;padding:6px 12px;border-radius:6px;font-size:13px;width:100%;">
+                </div>
+                <div id="eflux-charger-list" style="max-height:calc(100vh - 280px);overflow-y:auto;"></div>
+            </div>
+            <div>
+                <div id="eflux-cmd-panel" style="background:#1e293b;border-radius:8px;padding:16px;border:1px solid #334155;">
+                    <div style="color:#64748b;padding:20px;text-align:center;">Selecteer een laadpaal om commando's te versturen</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="content" id="tab-chat">
     <div class="chat-container">
         <div id="chat-messages"></div>
@@ -2035,6 +2268,7 @@ function showTab(name) {
     if (name === 'knowledge') loadKnowledge();
     if (name === 'software') initSoftwareTab();
     if (name === 'analyse') { loadAnalysisHistory(); loadAnalysis('live'); }
+    if (name === 'eflux') { renderEfluxStats(); filterEfluxTab(); if (efluxData.length === 0) loadEfluxChargers(); }
     if (name === 'medewerkers') loadRfidTags();
 }
 
@@ -2269,17 +2503,21 @@ function _renderChargersInner(state, grid) {
         return;
     }
 
-    // Groepeer per klant
-    const clients = {
-        'Jumbo Veghel': {icon: '&#127981;', color: '#fbbf24', link: null, ids: []},
-        'Van Dorp / De Koning': {icon: '&#9889;', color: '#38bdf8', link: '/client/dekoning', ids: []},
-        'Overig': {icon: '&#128268;', color: '#94a3b8', link: null, ids: []},
+    // Groepeer per klant — dynamisch op basis van client field uit DB
+    const clientMeta = {
+        'Jumbo Veghel': {icon: 'JV', color: '#fbbf24', link: null},
+        'Van Dorp / De Koning': {icon: 'DK', color: '#38bdf8', link: '/client/dekoning'},
     };
+    const clients = {};
     for (const id of Object.keys(chargers)) {
         if (id.startsWith('_')) continue;
-        if (id.startsWith('EVB')) clients['Van Dorp / De Koning'].ids.push(id);
-        else if (id.startsWith('117') || id.startsWith('189')) clients['Jumbo Veghel'].ids.push(id);
-        else clients['Overig'].ids.push(id);
+        const c = chargers[id];
+        const clientName = c.client || 'Overig';
+        if (!clients[clientName]) {
+            const meta = clientMeta[clientName] || {icon: '?', color: '#94a3b8', link: null};
+            clients[clientName] = {icon: meta.icon, color: meta.color, link: meta.link, ids: []};
+        }
+        clients[clientName].ids.push(id);
     }
 
     let html = '';
@@ -2370,9 +2608,12 @@ function _renderChargersInner(state, grid) {
                           _connKeys.length > 0 ? c.connectors[_connKeys[0]].status : null;
         const isQuarantine = c.quarantine && c.quarantine.active;
         html += '<div class="card clickable-card" data-cpid="' + id + '" style="' + (isQuarantine ? 'border-color:#f87171;border-width:2px;' : '') + '">';
-        html += '<h3><span class="id">' + id + '</span>' + statusBadge(mainStatus, c.connected);
+        html += '<h3><span class="id">' + id + '</span>';
+        if (c.alias) html += ' <span style="color:#38bdf8;font-size:12px;font-weight:400;">' + c.alias + '</span>';
+        html += statusBadge(mainStatus, c.connected);
         if (isQuarantine) html += ' <span class="badge" style="background:#7f1d1d;color:#fca5a5;">QUARANTAINE</span>';
         html += ' <span style="float:right;font-size:11px;color:#64748b;">details &#8599;</span></h3>';
+        if (c.location) html += '<div class="info" style="color:#64748b;font-size:11px;">' + c.location + '</div>';
         if (isQuarantine) html += '<div style="background:#7f1d1d22;border:1px solid #7f1d1d;border-radius:4px;padding:6px 10px;margin:6px 0;font-size:11px;color:#fca5a5;">' + escapeHtml(c.quarantine.reason) + '</div>';
         if (c.vendor) html += '<div class="info">Type: <span>' + c.vendor + ' ' + (c.model||'') + '</span></div>';
         if (c.firmware) html += '<div class="info">Firmware: <span>' + c.firmware + '</span></div>';
@@ -2479,7 +2720,12 @@ function _renderChargersInner(state, grid) {
                         html += '</span></span>';
                     }
                     if (voltage) html += '<span class="mv-item mv-voltage"><span class="mv-val">' + parseFloat(voltage.value).toFixed(0) + '</span><span class="mv-unit">V</span></span>';
-                    if (power) html += '<span class="mv-item mv-power"><span class="mv-val">' + (parseFloat(power.value)/1000).toFixed(1) + '</span><span class="mv-unit">kW</span></span>';
+                    let powerKw = power ? parseFloat(power.value) / 1000 : 0;
+                    // Als vermogen 0 maar stroom en spanning beschikbaar: bereken
+                    if (powerKw < 0.01 && currentTotal > 0.5 && voltage) {
+                        powerKw = currentTotal * parseFloat(voltage.value) / 1000;
+                    }
+                    if (powerKw > 0.01) html += '<span class="mv-item mv-power"><span class="mv-val">' + powerKw.toFixed(1) + '</span><span class="mv-unit">kW</span></span>';
                     if (energy) html += '<span class="mv-item mv-energy"><span class="mv-val">' + (parseFloat(energy.value)/1000).toFixed(0) + '</span><span class="mv-unit">kWh</span></span>';
                     html += '</div>';
                     const ts = mv[0].timestamp;
@@ -2504,6 +2750,168 @@ function _renderChargersInner(state, grid) {
     } // end charger loop
     } // end expanded check
     } // end client loop
+
+    // === E-Flux Maintenance chargers ===
+    if (efluxData.length > 0) {
+        // Filter E-Flux chargers
+        const efluxFiltered = efluxData.filter(cp => {
+            const isOnline = cp.connectivityState === 'connected';
+            // Search filter
+            if (searchQuery) {
+                const haystack = [
+                    cp.ocppIdentity, cp.evseId,
+                    (cp.location||{}).name, (cp.location||{}).address, (cp.location||{}).city,
+                    isOnline ? 'online' : 'offline', 'e-flux', 'eflux', 'maintenance'
+                ].filter(Boolean).join(' ').toLowerCase();
+                if (!haystack.includes(searchQuery)) return false;
+            }
+            // Status filter
+            if (activeFilter === 'online') return isOnline;
+            if (activeFilter === 'offline') return !isOnline;
+            if (activeFilter === 'charging') {
+                const cs = cp.connectorStatus || {};
+                return Object.values(cs).some(c => c.status === 'Charging' || c.status === 'Occupied');
+            }
+            if (activeFilter === 'faulted') {
+                const cs = cp.connectorStatus || {};
+                return Object.values(cs).some(c => c.status === 'Faulted' || c.status === 'UNKNOWN');
+            }
+            if (activeFilter === 'quarantine') return false;
+            return true;
+        });
+
+        const efluxOnline = efluxData.filter(c => c.connectivityState === 'connected').length;
+        const efluxOffline = efluxData.length - efluxOnline;
+        const efluxCharging = efluxData.filter(c => {
+            const cs = c.connectorStatus || {};
+            return Object.values(cs).some(cn => cn.status === 'Charging' || cn.status === 'Occupied');
+        }).length;
+        const hasFilter = searchQuery || activeFilter !== 'all';
+        const clientKey = 'E_Flux_Maintenance';
+        const isExpanded = hasFilter || (clientExpanded[clientKey] === true);
+
+        // E-Flux group header
+        html += '<div style="grid-column:1/-1;margin:12px 0 4px;">';
+        html += '<div onclick="toggleClient(' + "'" + clientKey + "'" + ')" style="cursor:pointer;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:16px 20px;transition:all 0.2s;' + (isExpanded ? 'border-color:#a78bfa44;' : '') + '">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+        html += '<div style="display:flex;align-items:center;gap:12px;">';
+        html += '<span style="font-size:24px;background:linear-gradient(135deg,#a78bfa,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-weight:800;">EF</span>';
+        html += '<div>';
+        html += '<div style="font-size:17px;font-weight:700;color:#a78bfa;">E-Flux Maintenance</div>';
+        html += '<div style="font-size:12px;color:#64748b;margin-top:2px;">' + efluxData.length + ' laadpalen (extern)';
+        if (hasFilter) html += ' | ' + efluxFiltered.length + ' gevonden';
+        html += '</div></div></div>';
+        html += '<div style="display:flex;gap:8px;align-items:center;">';
+        if (efluxCharging > 0) html += '<span class="badge" style="background:#065f4620;color:#34d399;">' + efluxCharging + ' laden</span>';
+        html += '<span class="badge online">' + efluxOnline + ' online</span>';
+        if (efluxOffline > 0) html += '<span class="badge offline">' + efluxOffline + ' offline</span>';
+        html += '<span style="color:#64748b;font-size:18px;transition:transform 0.2s;display:inline-block;transform:rotate(' + (isExpanded ? '90' : '0') + 'deg);">&#9654;</span>';
+        html += '</div></div>';
+        html += '</div></div>';
+
+        if (isExpanded) {
+            for (const cp of efluxFiltered) {
+                const ocpp = cp.ocppIdentity || '?';
+                const evseId = cp.evseId || '';
+                const loc = cp.location || {};
+                const isOnline = cp.connectivityState === 'connected';
+                const statusBadgeHtml = isOnline ? '<span class="badge online">ONLINE</span>' : '<span class="badge offline">OFFLINE</span>';
+                const hb = cp.heartbeatReceivedAt ? new Date(cp.heartbeatReceivedAt).toLocaleString('nl-NL') : '-';
+                const cpId = cp.id || cp._id || '';
+
+                html += '<div class="card clickable-card" data-eflux-id="' + cpId + '" data-eflux-ocpp="' + escapeHtml(ocpp) + '" onclick="openEfluxCommand(this)" style="border-left:3px solid ' + (isOnline ? '#a78bfa' : '#64748b') + ';">';
+                html += '<h3><span class="id" style="font-family:monospace;">' + escapeHtml(ocpp) + '</span> ' + statusBadgeHtml;
+                html += ' <span style="float:right;font-size:11px;color:#a78bfa;cursor:pointer;">commando &#9881;</span></h3>';
+                if (evseId) html += '<div class="info">EVSE: <span>' + escapeHtml(evseId) + '</span></div>';
+                if (loc.name) html += '<div class="info" style="color:#e2e8f0;font-size:13px;">' + escapeHtml(loc.name) + '</div>';
+                if (loc.address || loc.city) html += '<div class="info" style="color:#64748b;font-size:11px;">' + escapeHtml([loc.address, loc.city].filter(Boolean).join(', ')) + '</div>';
+                html += '<div class="info">Heartbeat: <span>' + hb + '</span></div>';
+
+                // Connectors
+                const cs = cp.connectorStatus || {};
+                const connKeys = Object.keys(cs);
+                if (connKeys.length > 0) {
+                    html += '<div class="connectors" style="margin-top:6px;">';
+                    for (const key of connKeys) {
+                        const c = cs[key];
+                        const cStatus = c.status || '?';
+                        const cColor = cStatus === 'Available' ? 'online' : cStatus === 'Charging' || cStatus === 'Occupied' ? 'charging' : cStatus === 'Faulted' || cStatus === 'UNKNOWN' ? 'faulted' : 'offline';
+                        const cLabel = key.length > 4 ? 'C' + key.slice(-4) : 'C' + key;
+                        html += '<div class="connector"><span>' + cLabel + '</span>';
+                        html += '<span class="badge ' + cColor + '">' + cStatus + '</span></div>';
+                    }
+                    html += '</div>';
+                }
+                html += '</div>';
+            }
+        }
+    }
+
+    // === Evinty CPO chargers ===
+    if (evintyData.length > 0) {
+        const evFiltered = evintyData.filter(cp => {
+            const isOnline = cp.status === 'AVAILABLE' || cp.status === 'CHARGING' || cp.status === 'OCCUPIED';
+            if (searchQuery) {
+                const haystack = [
+                    cp.chargingStationId, cp.locationName, cp.vendor, cp.model,
+                    isOnline ? 'online' : 'offline', 'evinty'
+                ].filter(Boolean).join(' ').toLowerCase();
+                if (!haystack.includes(searchQuery)) return false;
+            }
+            if (activeFilter === 'online') return isOnline;
+            if (activeFilter === 'offline') return !isOnline;
+            if (activeFilter === 'charging') return cp.status === 'CHARGING';
+            if (activeFilter === 'faulted') return cp.status === 'FAULTED';
+            if (activeFilter === 'quarantine') return false;
+            return true;
+        });
+
+        const evOnline = evintyData.filter(c => c.status === 'AVAILABLE' || c.status === 'CHARGING' || c.status === 'OCCUPIED').length;
+        const evOffline = evintyData.filter(c => c.status === 'OFFLINE' || c.status === 'UNAVAILABLE').length;
+        const evCharging = evintyData.filter(c => c.status === 'CHARGING').length;
+        const hasFilter = searchQuery || activeFilter !== 'all';
+        const evKey = 'Evinty_CPO';
+        const evExpanded = hasFilter || (clientExpanded[evKey] === true);
+
+        html += '<div style="grid-column:1/-1;margin:12px 0 4px;">';
+        html += '<div onclick="toggleClient(' + "'" + evKey + "'" + ')" style="cursor:pointer;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:16px 20px;transition:all 0.2s;' + (evExpanded ? 'border-color:#f5920044;' : '') + '">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+        html += '<div style="display:flex;align-items:center;gap:12px;">';
+        html += '<span style="font-size:24px;background:linear-gradient(135deg,#f59e0b,#d97706);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-weight:800;">EV</span>';
+        html += '<div>';
+        html += '<div style="font-size:17px;font-weight:700;color:#f59e0b;">Evinty CPO</div>';
+        html += '<div style="font-size:12px;color:#64748b;margin-top:2px;">' + evintyData.length + ' laadpalen (extern)';
+        if (hasFilter) html += ' | ' + evFiltered.length + ' gevonden';
+        html += '</div></div></div>';
+        html += '<div style="display:flex;gap:8px;align-items:center;">';
+        if (evCharging > 0) html += '<span class="badge" style="background:#065f4620;color:#34d399;">' + evCharging + ' laden</span>';
+        html += '<span class="badge online">' + evOnline + ' online</span>';
+        if (evOffline > 0) html += '<span class="badge offline">' + evOffline + ' offline</span>';
+        html += '<span style="color:#64748b;font-size:18px;transition:transform 0.2s;display:inline-block;transform:rotate(' + (evExpanded ? '90' : '0') + 'deg);">&#9654;</span>';
+        html += '</div></div>';
+        html += '</div></div>';
+
+        if (evExpanded) {
+            for (const cp of evFiltered) {
+                const csId = cp.chargingStationId || '?';
+                const status = cp.status || '?';
+                const loc = cp.locationName || '';
+                const vendor = cp.vendor || '';
+                const model = cp.model || '';
+                const isOnline = status === 'AVAILABLE' || status === 'CHARGING' || status === 'OCCUPIED';
+                const statusCls = status === 'AVAILABLE' ? 'available' : status === 'CHARGING' ? 'charging' : status === 'FAULTED' ? 'faulted' : 'offline';
+
+                html += '<div class="card" onclick="openEvintyCommand(' + "'" + escapeHtml(csId) + "'" + ')" style="border-left:3px solid ' + (isOnline ? '#f59e0b' : '#64748b') + ';cursor:pointer;">';
+                html += '<h3><span class="id" style="font-family:monospace;">' + escapeHtml(csId) + '</span> ';
+                html += '<span class="badge ' + statusCls + '">' + status + '</span>';
+                html += ' <span style="float:right;font-size:11px;color:#f59e0b;cursor:pointer;">commando &#9881;</span></h3>';
+                if (loc) html += '<div class="info" style="color:#e2e8f0;font-size:13px;">' + escapeHtml(loc) + '</div>';
+                if (vendor || model) html += '<div class="info">Type: <span>' + escapeHtml(vendor) + ' ' + escapeHtml(model) + '</span></div>';
+                html += '</div>';
+            }
+        }
+    }
+
     grid.innerHTML = html;
     // Scroll log containers to bottom
     for (const id of Object.keys(chargerLogOpen)) {
@@ -2657,16 +3065,164 @@ function escapeHtml(text) {
     return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(new RegExp(String.fromCharCode(10),'g'),'<br>');
 }
 
+// === E-Flux Command Modal ===
+function openEvintyCommand(csId) {
+    const overlay = document.createElement('div');
+    overlay.className = 'eflux-modal-overlay';
+    overlay.innerHTML = '<div class="eflux-modal">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
+        '<h3 style="color:#f59e0b;margin:0;">Evinty: ' + escapeHtml(csId) + '</h3>' +
+        '<span style="cursor:pointer;color:#94a3b8;font-size:24px;" onclick="this.closest(&quot;.eflux-modal-overlay&quot;).remove()">&times;</span></div>' +
+        '<select id="evinty-cmd-method" onchange="updateEvintyParams()" style="width:100%;background:#0f172a;color:#e2e8f0;border:1px solid #334155;padding:8px;border-radius:6px;margin-bottom:8px;">' +
+        '<option value="Reset">Reset</option>' +
+        '<option value="TriggerMessage">TriggerMessage</option>' +
+        '<option value="UnlockConnector">UnlockConnector</option>' +
+        '</select>' +
+        '<textarea id="evinty-cmd-params" rows="4" style="width:100%;background:#0f172a;color:#e2e8f0;border:1px solid #334155;padding:8px;border-radius:6px;font-family:monospace;font-size:12px;margin-bottom:8px;resize:vertical;">{"type": "Soft"}</textarea>' +
+        '<button onclick="sendEvintyCmd(' + "'" + escapeHtml(csId) + "'" + ')" style="background:#f59e0b;color:#000;border:none;padding:8px 20px;border-radius:6px;cursor:pointer;font-weight:600;">Verstuur</button>' +
+        '<div id="evinty-cmd-result" style="margin-top:10px;font-size:12px;color:#94a3b8;"></div>' +
+        '</div>';
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+}
+
+function updateEvintyParams() {
+    const method = document.getElementById('evinty-cmd-method').value;
+    const params = document.getElementById('evinty-cmd-params');
+    if (method === 'Reset') params.value = '{"type": "Soft"}';
+    else if (method === 'TriggerMessage') params.value = '{"messageTrigger": "STATUS_NOTIFICATION"}';
+    else if (method === 'UnlockConnector') params.value = '{"evseId": "", "connectorId": ""}';
+}
+
+async function sendEvintyCmd(csId) {
+    const method = document.getElementById('evinty-cmd-method').value;
+    const paramsText = document.getElementById('evinty-cmd-params').value;
+    const resultEl = document.getElementById('evinty-cmd-result');
+    resultEl.textContent = 'Versturen...';
+    resultEl.style.color = '#94a3b8';
+    try {
+        const params = JSON.parse(paramsText);
+        const resp = await fetch('/api/evinty/command', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({cp_id: csId, command: method, params: params})
+        });
+        const result = await resp.json();
+        if (result.error) {
+            resultEl.textContent = 'Fout: ' + result.error;
+            resultEl.style.color = '#f87171';
+        } else {
+            resultEl.textContent = 'OK: ' + JSON.stringify(result);
+            resultEl.style.color = '#34d399';
+        }
+    } catch(e) {
+        resultEl.textContent = 'Fout: ' + e;
+        resultEl.style.color = '#f87171';
+    }
+}
+
+function openEfluxCommand(cardEl) {
+    event.stopPropagation();
+    const cpId = cardEl.dataset.efluxId;
+    const ocpp = cardEl.dataset.efluxOcpp;
+    if (!cpId) { alert('Geen E-Flux ID gevonden'); return; }
+
+    // Create modal
+    const overlay = document.createElement('div');
+    overlay.className = 'eflux-modal-overlay';
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+    overlay.innerHTML = '<div class="eflux-modal">' +
+        '<h3><span style="color:#a78bfa;">OCPP Commando — ' + escapeHtml(ocpp) + '</span><button class="close-btn" onclick="this.closest(&quot;.eflux-modal-overlay&quot;).remove()">&times;</button></h3>' +
+        '<div style="font-size:12px;color:#64748b;margin-bottom:12px;">E-Flux ID: ' + escapeHtml(cpId) + '</div>' +
+        '<label style="font-size:12px;color:#94a3b8;margin-bottom:4px;display:block;">Methode</label>' +
+        '<select id="eflux-cmd-method" onchange="efluxUpdateParams()">' +
+            '<option value="Reset">Reset</option>' +
+            '<option value="ChangeConfiguration">ChangeConfiguration</option>' +
+            '<option value="GetConfiguration">GetConfiguration</option>' +
+            '<option value="RemoteStartTransaction">RemoteStartTransaction</option>' +
+            '<option value="TriggerMessage">TriggerMessage</option>' +
+            '<option value="UnlockConnector">UnlockConnector</option>' +
+        '</select>' +
+        '<label style="font-size:12px;color:#94a3b8;margin-bottom:4px;display:block;">Parameters (JSON)</label>' +
+        '<textarea id="eflux-cmd-params" rows="3" style="font-family:monospace;resize:vertical;">{"type": "Soft"}</textarea>' +
+        '<button class="send-cmd" onclick="efluxSendCommand(' + "'" + cpId + "'" + ')">Verstuur commando</button>' +
+        '<div class="cmd-output" id="eflux-cmd-output">Wacht op commando...</div>' +
+    '</div>';
+
+    document.body.appendChild(overlay);
+}
+
+function efluxUpdateParams() {
+    const method = document.getElementById('eflux-cmd-method').value;
+    const defaults = {
+        'Reset': '{"type": "Soft"}',
+        'ChangeConfiguration': '{"key": "HeartbeatInterval", "value": "300"}',
+        'GetConfiguration': '{}',
+        'RemoteStartTransaction': '{"connectorId": 1, "idTag": "REMOTE"}',
+        'TriggerMessage': '{"requestedMessage": "StatusNotification"}',
+        'UnlockConnector': '{"connectorId": 1}',
+    };
+    document.getElementById('eflux-cmd-params').value = defaults[method] || '{}';
+}
+
+async function efluxSendCommand(cpId) {
+    const method = document.getElementById('eflux-cmd-method').value;
+    const output = document.getElementById('eflux-cmd-output');
+    let params;
+    try { params = JSON.parse(document.getElementById('eflux-cmd-params').value); }
+    catch(e) { output.textContent = 'Ongeldige JSON: ' + e; output.style.color = '#f87171'; return; }
+
+    output.textContent = 'Versturen...';
+    output.style.color = '#94a3b8';
+    try {
+        const resp = await fetch('/api/eflux/command', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({cp_id: cpId, method: method, params: params}),
+        });
+        const data = await resp.json();
+        if (data.error) {
+            output.textContent = 'Error: ' + data.error;
+            output.style.color = '#f87171';
+        } else {
+            output.textContent = JSON.stringify(data, null, 2);
+            output.style.color = '#34d399';
+        }
+    } catch(e) {
+        output.textContent = 'Error: ' + e;
+        output.style.color = '#f87171';
+    }
+}
+
 async function pollState() {
     try {
-        const resp = await fetch('/api/state');
-        currentState = await resp.json();
+        const [stateResp, efluxResp, evintyResp] = await Promise.all([
+            fetch('/api/state'),
+            efluxData.length === 0 ? fetch('/api/eflux/chargers') : Promise.resolve(null),
+            evintyData.length === 0 ? fetch('/api/evinty/chargers') : Promise.resolve(null)
+        ]);
+        currentState = await stateResp.json();
+        if (efluxResp) {
+            try {
+                const efluxResult = await efluxResp.json();
+                if (!efluxResult.error) efluxData = efluxResult.data || [];
+            } catch(e2) {}
+        }
+        if (evintyResp) {
+            try {
+                const evintyResult = await evintyResp.json();
+                if (!evintyResult.error) evintyData = evintyResult.content || evintyResult.data || [];
+            } catch(e2) {}
+        }
         renderChargers(currentState);
         renderLoadBalancer(currentState);
         const chargers = Object.entries(currentState.chargers || {}).filter(([k,v]) => k !== '_load_balancer');
         const n = chargers.filter(([k,v]) => v.connected).length;
         const total = chargers.length;
-        document.getElementById('header-status').textContent = n + '/' + total + ' online | ' + new Date().toLocaleTimeString('nl');
+        const efluxOnline = efluxData.filter(c => c.connectivityState === 'connected').length;
+        const evintyOnline = evintyData.filter(c => c.status === 'AVAILABLE' || c.status === 'CHARGING' || c.status === 'OCCUPIED').length;
+        document.getElementById('header-status').textContent = n + '/' + total + ' proxy + ' + efluxOnline + '/' + efluxData.length + ' e-flux + ' + evintyOnline + '/' + evintyData.length + ' evinty | ' + new Date().toLocaleTimeString('nl');
 
         // Update command charger dropdown
         const sel = document.getElementById('cmd-charger');
@@ -2677,6 +3233,16 @@ async function pollState() {
         }
     } catch(e) {}
 }
+
+// Refresh E-Flux + Evinty data periodically (every 60s)
+setInterval(async function() {
+    try {
+        const [ef, ev] = await Promise.all([fetch('/api/eflux/chargers'), fetch('/api/evinty/chargers')]);
+        const efr = await ef.json(); if (!efr.error) efluxData = efr.data || [];
+        const evr = await ev.json(); if (!evr.error) evintyData = evr.content || evr.data || [];
+        renderChargers(currentState);
+    } catch(e) {}
+}, 60000);
 
 async function loadWatchdog() {
     const el = document.getElementById('watchdog-content');
@@ -2950,6 +3516,8 @@ async function updateGroupParent(gid, parent) {
     await fetch('/api/lb/group', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id: gid, parent: parent||null}) });
 }
 
+let lastAnalysisData = null;
+
 async function loadAnalysis(date) {
     const el = document.getElementById('analysis-content');
     el.innerHTML = '<div style="color:#64748b;padding:20px;">Laden...</div>';
@@ -2958,8 +3526,90 @@ async function loadAnalysis(date) {
         const resp = await fetch(url);
         const data = await resp.json();
         if (data.error) { el.innerHTML = '<div style="color:#f87171;">' + data.error + '</div>'; return; }
+        lastAnalysisData = data;
         renderAnalysis(data);
     } catch(e) { el.innerHTML = '<div style="color:#f87171;">Fout: ' + e + '</div>'; }
+}
+
+async function saveAnalysis() {
+    const btn = document.getElementById('btn-save-analysis');
+    btn.textContent = 'Opslaan...';
+    btn.disabled = true;
+    try {
+        const resp = await fetch('/api/analysis/save', {method: 'POST'});
+        const result = await resp.json();
+        if (result.ok) {
+            btn.textContent = 'Opgeslagen!';
+            setTimeout(() => { btn.textContent = 'Opslaan'; btn.disabled = false; }, 2000);
+            loadAnalysisHistory();
+        } else {
+            btn.textContent = 'Fout!';
+            setTimeout(() => { btn.textContent = 'Opslaan'; btn.disabled = false; }, 2000);
+        }
+    } catch(e) {
+        btn.textContent = 'Fout!';
+        setTimeout(() => { btn.textContent = 'Opslaan'; btn.disabled = false; }, 2000);
+    }
+}
+
+function downloadAnalysis() {
+    if (!lastAnalysisData) return;
+    const d = lastAnalysisData;
+    const s = d.summary || {};
+    const date = s.period || new Date().toISOString().split('T')[0];
+
+    let text = 'STABILITEITSANALYSE LAADPALEN\\n';
+    text += '='.repeat(50) + '\\n';
+    text += 'Datum: ' + date + '\\n';
+    text += 'Palen: ' + s.total_chargers + ' | Online: ' + s.online + '\\n';
+    text += 'Gem. score: ' + s.avg_score + '/100 | Uptime: ' + (s.avg_uptime_pct||0) + '%\\n';
+    text += 'Connects: ' + s.total_connects + ' | Disconnects: ' + s.total_disconnects + '\\n';
+    text += 'Totaal offline: ' + Math.floor((s.total_offline_min||0)/60) + ' uur\\n\\n';
+
+    // Per charger
+    text += 'PER LAADPAAL\\n';
+    text += '-'.repeat(50) + '\\n';
+    for (const cp of (d.chargers || [])) {
+        const sc = scoreColor(cp.score);
+        text += cp.cp_id + ' (' + (cp.vendor||'') + ' ' + (cp.model||'') + ')\\n';
+        text += '  Score: ' + cp.score + '/100 | Uptime: ' + (cp.uptime_pct||0) + '%\\n';
+        text += '  Connects: ' + cp.connects + ' | Disconnects: ' + cp.disconnects + '\\n';
+        text += '  Heartbeats: ' + cp.heartbeats + ' | Status: ' + (cp.current_status||'?') + '\\n';
+        if (cp.offline_minutes > 0) text += '  Offline: ' + cp.offline_minutes + ' min\\n';
+        text += '\\n';
+    }
+
+    // Recommendations
+    const recs = d.recommendations || [];
+    if (recs.length > 0) {
+        text += 'AANBEVELINGEN\\n';
+        text += '-'.repeat(50) + '\\n';
+        for (const r of recs) {
+            text += '[' + r.severity.toUpperCase() + '] ' + r.title + '\\n';
+            text += '  ' + r.detail + '\\n';
+            if (r.affected) text += '  Betreft: ' + r.affected.join(', ') + '\\n';
+            text += '\\n';
+        }
+    }
+
+    // Backend stability
+    const bs = d.backend_summary || {};
+    if (Object.keys(bs).length > 0) {
+        text += 'BACKEND STABILITEIT\\n';
+        text += '-'.repeat(50) + '\\n';
+        for (const [name, b] of Object.entries(bs)) {
+            text += name + ': connects=' + b.total_connects + ' disconnects=' + b.total_disconnects + ' reconnects=' + b.total_reconnects + '\\n';
+        }
+        text += '\\n';
+    }
+
+    const blob = new Blob([text], {type: 'text/plain'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'stabiliteitsanalyse_' + date + '.txt';
+    a.click();
+    URL.revokeObjectURL(url);
 }
 
 async function loadAnalysisHistory() {
@@ -2971,6 +3621,165 @@ async function loadAnalysisHistory() {
         for (const h of history) { sel.innerHTML += '<option value="' + h.date + '">' + h.date + '</option>'; }
     } catch(e) {}
 }
+
+// E-Flux Maintenance
+let efluxData = [];
+let evintyData = [];
+let efluxSelectedCp = null;
+
+async function loadEfluxChargers() {
+    try {
+        const resp = await fetch('/api/eflux/chargers');
+        const result = await resp.json();
+        if (!result.error) efluxData = result.data || [];
+        renderEfluxStats();
+        filterEfluxTab();
+        renderChargers(currentState);
+    } catch(e) {}
+}
+
+async function refreshEfluxTab() {
+    const el = document.getElementById('eflux-charger-list');
+    if (el) el.innerHTML = '<div style="color:#64748b;padding:10px;">Laden...</div>';
+    await loadEfluxChargers();
+}
+
+function renderEfluxStats() {
+    const el = document.getElementById('eflux-stats');
+    if (!el) return;
+    const total = efluxData.length;
+    let online = 0, offline = 0, charging = 0;
+    for (const cp of efluxData) {
+        const isOnline = cp.connectivityState === 'connected';
+        if (isOnline) online++; else offline++;
+        const cs = cp.connectorStatus || {};
+        if (Object.values(cs).some(c => c.status === 'Charging' || c.status === 'Occupied')) charging++;
+    }
+    el.innerHTML = '<div class="stat"><div class="label">Totaal</div><div class="value blue">' + total + '</div></div>' +
+        '<div class="stat"><div class="label">Online</div><div class="value green">' + online + '</div></div>' +
+        '<div class="stat"><div class="label">Offline</div><div class="value red">' + offline + '</div></div>' +
+        '<div class="stat"><div class="label">Laden</div><div class="value blue">' + charging + '</div></div>';
+}
+
+function filterEfluxTab() {
+    const searchEl = document.getElementById('eflux-search');
+    const search = searchEl ? searchEl.value.toLowerCase() : '';
+    let filtered = efluxData;
+    if (search) {
+        filtered = filtered.filter(cp => {
+            const ocpp = (cp.ocppIdentity || '').toLowerCase();
+            const evseId = (cp.evseId || '').toLowerCase();
+            const loc = ((cp.location || {}).name || '').toLowerCase();
+            const addr = ((cp.location || {}).address || '').toLowerCase();
+            return ocpp.includes(search) || evseId.includes(search) || loc.includes(search) || addr.includes(search);
+        });
+    }
+    renderEfluxTabList(filtered);
+}
+
+function renderEfluxTabList(chargers) {
+    const el = document.getElementById('eflux-charger-list');
+    if (!el) return;
+    if (!chargers || chargers.length === 0) { el.innerHTML = '<div style="color:#64748b;padding:10px;">Geen laadpalen gevonden</div>'; return; }
+    let html = '';
+    for (const cp of chargers) {
+        const ocpp = cp.ocppIdentity || '?';
+        const cpId = cp.id || cp._id || '';
+        const isOnline = cp.connectivityState === 'connected';
+        const isSelected = efluxSelectedCp === cpId;
+        const bg = isSelected ? '#334155' : '#1e293b';
+        const border = isSelected ? '#a78bfa' : '#334155';
+        html += '<div onclick="selectEfluxCp(' + "'" + cpId + "'" + ')" style="cursor:pointer;background:' + bg + ';border:1px solid ' + border + ';border-left:3px solid ' + (isOnline ? '#a78bfa' : '#64748b') + ';border-radius:6px;padding:10px;margin-bottom:6px;transition:all 0.15s;">';
+        html += '<div style="font-size:13px;font-weight:600;color:#f1f5f9;font-family:monospace;">' + escapeHtml(ocpp) + '</div>';
+        html += '<div style="font-size:11px;color:' + (isOnline ? '#34d399' : '#64748b') + ';">' + (isOnline ? 'Online' : 'Offline') + '</div>';
+        if ((cp.location||{}).name) html += '<div style="font-size:11px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(cp.location.name) + '</div>';
+        html += '</div>';
+    }
+    html += '<div style="color:#64748b;font-size:11px;margin-top:8px;">' + chargers.length + ' van ' + efluxData.length + '</div>';
+    el.innerHTML = html;
+}
+
+function selectEfluxCp(cpId) {
+    efluxSelectedCp = cpId;
+    filterEfluxTab();
+    const cp = efluxData.find(c => (c.id || c._id) === cpId);
+    if (!cp) return;
+    const panel = document.getElementById('eflux-cmd-panel');
+    const ocpp = cp.ocppIdentity || '?';
+    const loc = cp.location || {};
+    const hb = cp.heartbeatReceivedAt ? new Date(cp.heartbeatReceivedAt).toLocaleString('nl-NL') : '-';
+    const isOnline = cp.connectivityState === 'connected';
+
+    let html = '<div style="margin-bottom:16px;">';
+    html += '<div style="font-size:16px;font-weight:700;color:#f1f5f9;font-family:monospace;margin-bottom:4px;">' + escapeHtml(ocpp) + ' ';
+    html += isOnline ? '<span class="badge online">ONLINE</span>' : '<span class="badge offline">OFFLINE</span>';
+    html += '</div>';
+    if (cp.evseId) html += '<div style="font-size:12px;color:#94a3b8;">EVSE: ' + escapeHtml(cp.evseId) + '</div>';
+    if (loc.name) html += '<div style="font-size:13px;color:#e2e8f0;margin-top:4px;">' + escapeHtml(loc.name) + '</div>';
+    if (loc.address || loc.city) html += '<div style="font-size:12px;color:#64748b;">' + escapeHtml([loc.address, loc.city].filter(Boolean).join(', ')) + '</div>';
+    html += '<div style="font-size:11px;color:#64748b;margin-top:4px;">Heartbeat: ' + hb + '</div>';
+
+    // Connectors
+    const cs = cp.connectorStatus || {};
+    if (Object.keys(cs).length > 0) {
+        html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">';
+        for (const [key, c] of Object.entries(cs)) {
+            const cStatus = c.status || '?';
+            const cColor = cStatus === 'Available' ? '#34d399' : cStatus === 'Charging' || cStatus === 'Occupied' ? '#38bdf8' : cStatus === 'Faulted' ? '#f87171' : '#64748b';
+            html += '<span style="font-size:11px;padding:3px 8px;border-radius:4px;background:' + cColor + '15;border:1px solid ' + cColor + '33;color:' + cColor + ';">C' + (key.length > 4 ? key.slice(-4) : key) + ': ' + cStatus + '</span>';
+        }
+        html += '</div>';
+    }
+    html += '</div>';
+
+    // Command form
+    html += '<div style="border-top:1px solid #334155;padding-top:16px;">';
+    html += '<h4 style="color:#a78bfa;margin-bottom:12px;">OCPP Commando</h4>';
+    html += '<select id="eflux-tab-method" onchange="efluxTabUpdateParams()" style="width:100%;background:#0f172a;color:#e2e8f0;border:1px solid #334155;padding:8px 12px;border-radius:6px;font-size:13px;margin-bottom:10px;">';
+    html += '<option value="Reset">Reset</option><option value="ChangeConfiguration">ChangeConfiguration</option><option value="GetConfiguration">GetConfiguration</option>';
+    html += '<option value="RemoteStartTransaction">RemoteStartTransaction</option><option value="TriggerMessage">TriggerMessage</option><option value="UnlockConnector">UnlockConnector</option></select>';
+    html += '<textarea id="eflux-tab-params" rows="3" style="width:100%;background:#0f172a;color:#e2e8f0;border:1px solid #334155;padding:8px 12px;border-radius:6px;font-size:13px;margin-bottom:10px;font-family:monospace;resize:vertical;">{"type": "Soft"}</textarea>';
+    html += '<button onclick="efluxTabSendCommand(' + "'" + cpId + "'" + ')" style="width:100%;background:#2563eb;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">Verstuur</button>';
+    html += '<div id="eflux-tab-output" style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:12px;font-family:monospace;font-size:12px;white-space:pre-wrap;min-height:60px;margin-top:10px;color:#94a3b8;">Wacht op commando...</div>';
+    html += '</div>';
+
+    panel.innerHTML = html;
+}
+
+function efluxTabUpdateParams() {
+    const method = document.getElementById('eflux-tab-method').value;
+    const defaults = {
+        'Reset': '{"type": "Soft"}',
+        'ChangeConfiguration': '{"key": "HeartbeatInterval", "value": "300"}',
+        'GetConfiguration': '{}',
+        'RemoteStartTransaction': '{"connectorId": 1, "idTag": "REMOTE"}',
+        'TriggerMessage': '{"requestedMessage": "StatusNotification"}',
+        'UnlockConnector': '{"connectorId": 1}',
+    };
+    document.getElementById('eflux-tab-params').value = defaults[method] || '{}';
+}
+
+async function efluxTabSendCommand(cpId) {
+    const method = document.getElementById('eflux-tab-method').value;
+    const output = document.getElementById('eflux-tab-output');
+    let params;
+    try { params = JSON.parse(document.getElementById('eflux-tab-params').value); }
+    catch(e) { output.textContent = 'Ongeldige JSON: ' + e; output.style.color = '#f87171'; return; }
+    output.textContent = 'Versturen...';
+    output.style.color = '#94a3b8';
+    try {
+        const resp = await fetch('/api/eflux/command', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({cp_id: cpId, method: method, params: params}),
+        });
+        const data = await resp.json();
+        if (data.error) { output.textContent = 'Error: ' + data.error; output.style.color = '#f87171'; }
+        else { output.textContent = JSON.stringify(data, null, 2); output.style.color = '#34d399'; }
+    } catch(e) { output.textContent = 'Error: ' + e; output.style.color = '#f87171'; }
+}
+
+// Legacy filterEflux removed — E-Flux chargers now shown in Laadpalen tab
 
 function scoreColor(score) {
     if (score >= 70) return '#34d399';
@@ -3741,7 +4550,9 @@ setInterval(pollState, 3000);
 document.addEventListener('click', function(e) {
     const card = e.target.closest('.clickable-card');
     if (card && !e.target.closest('.charger-log-toggle') && !e.target.closest('.charger-logs')) {
-        window.open('/charger/' + card.dataset.cpid, '_blank');
+        // E-Flux cards have their own onclick handler
+        if (card.dataset.efluxId) return;
+        if (card.dataset.cpid) window.open('/charger/' + card.dataset.cpid, '_blank');
     }
 });
 connectChargerLogs();

@@ -2,6 +2,7 @@ import asyncio
 import logging
 import json
 import os
+import re
 import ssl
 from datetime import datetime, timezone
 from pathlib import Path
@@ -44,6 +45,11 @@ ALL_BACKENDS = {
         'subprotocols': ['ocpp1.6'],
         'ssl': False,
     },
+    'road': {
+        'url': 'ws://ocpp.road.io/e-flux/{cp_id}',
+        'subprotocols': ['ocpp1.6'],
+        'ssl': False,
+    },
 }
 
 CHARGER_BACKENDS = {
@@ -52,6 +58,8 @@ CHARGER_BACKENDS = {
     '11772560': ['evinty'],
     '11727711': ['evinty'],
     'EVB-P2447137-VC': ['eflux'],
+    'EVB-P2447137-A': ['eflux'],
+    'EVB-P1917571': ['eflux'],
     'EVB-P2447139': ['maxem'],
     '1898380': ['evinty'],
     '1895745': ['evinty'],
@@ -107,6 +115,7 @@ try:
             # Metadata from DB (read-only in state, source of truth is DB)
             'vendor': ch.get('vendor'), 'model': ch.get('model'),
             'firmware': ch.get('firmware'),
+            'alias': ch.get('alias', ''), 'location': ch.get('location', ''), 'client': ch.get('client', ''),
             'quarantine': {'active': ch.get('quarantine', False), 'reason': ch.get('quarantine_reason', '')},
         }
     logger.info(f'[STATE] Loaded {len(charger_state)} chargers from database')
@@ -161,7 +170,9 @@ def update_charger_state(cp_id, **kwargs):
 # EV-BOX serienummer mapping — E-flux verwacht het korte serienummer
 EVBOX_SERIAL_MAP = {
     'EVB-P2447137-VC': 'EVB-P2447137-VC',
+    'EVB-P2447137-A': 'EVB-P2447137-A',
     'EVB-P2447139': '2447139',
+    'EVB-P2447129': 'EVB-P2447129',
 }
 
 
@@ -212,7 +223,7 @@ async def forward_to_backends(cp_id, raw_message):
         # Filter: stuur responses op onze eigen commando's NIET naar backends
         if isinstance(parsed, list) and len(parsed) >= 2 and parsed[0] in (3, 4):
             msg_id = str(parsed[1])
-            if msg_id.startswith('CMD') or msg_id.startswith('TRIG') or msg_id.startswith('HBI') or msg_id.startswith('PING'):
+            if msg_id.startswith('CMD') or msg_id.startswith('TRIG') or msg_id.startswith('HBI') or msg_id.startswith('PING') or msg_id.startswith('SN'):
                 logger.info(f'[PROXY] Not forwarding our response {msg_id} to backends')
                 return
     except:
@@ -246,7 +257,7 @@ async def listen_backend(name, ws, cp_id, charger_ws=None):
                             else:
                                 await charger_ws.send(msg)
                                 logger.info(f'[PROXY] Forwarded {action} from {name} to {cp_id}')
-                        elif (msg_type == 3 or msg_type == 4) and msg_id.startswith('CMD'):
+                        elif (msg_type == 3 or msg_type == 4) and (msg_id.startswith('CMD') or msg_id.startswith('SN')):
                             # Response op ons eigen commando — negeren van backend
                             logger.info(f'[PROXY] Ignored {name} response on our {msg_id}')
                         else:
@@ -457,6 +468,25 @@ class ChargePoint(cp):
                 'timestamp': kwargs.get('timestamp', datetime.now(timezone.utc).isoformat()),
             }
             write_state()
+
+        # Auto-reset bij specifieke foutmeldingen
+        AUTO_RESET_ERRORS = ['EVCommunicationError', 'OtherError']
+        if status == 'Faulted' and error_code in AUTO_RESET_ERRORS:
+            async def auto_reset(cp_id, err):
+                await asyncio.sleep(30)  # wacht 30s voordat we resetten
+                ws = charger_websockets.get(cp_id)
+                if ws:
+                    # Check of de fout nog steeds actief is
+                    cp = charger_state.get(cp_id, {})
+                    conns = cp.get('connectors', {})
+                    still_faulted = any(c.get('status') == 'Faulted' for c in conns.values())
+                    if still_faulted:
+                        msg = json.dumps([2, next_cmd_id(), 'Reset', {'type': 'Soft'}])
+                        await ws.send(msg)
+                        logger.warning(f'[AUTO-RESET] {cp_id}: soft reset na {err}')
+                        db.save_event(cp_id, 'auto_reset', f'Auto-reset na {err}')
+            asyncio.create_task(auto_reset(self.id, error_code))
+
         return call_result.StatusNotification()
 
     @on(Action.meter_values)
@@ -863,12 +893,40 @@ async def on_connect(websocket):
                 write_state()
                 logger.info(f'[PROBE] Pre-populated {len(conn_ids)} connectors for {cpid}')
 
-            for cid in conn_ids:
-                msg = json.dumps([2, next_cmd_id(), 'TriggerMessage', {
-                    'requestedMessage': 'StatusNotification', 'connectorId': cid
-                }])
-                await ws.send(msg)
-            logger.info(f'[PROBE] Triggered StatusNotification for {cpid}: {len(conn_ids)} connectors')
+            if cpid.startswith('EVB'):
+                # EV-BOX rejects TriggerMessage — spoof Boot + StatusNotification naar backends
+                await asyncio.sleep(3)  # wacht tot backends connected zijn
+                # Spoof BootNotification als er geen echte was in deze sessie
+                if cpid not in last_boot_messages:
+                    cs = charger_state.get(cpid, {})
+                    # Strip EVB-P prefix en suffix (-A, -VC etc) voor serienummer
+                    serial = re.sub(r'^EVB-P', '', cpid)
+                    serial = re.sub(r'-[A-Z]+$', '', serial)
+                    boot_msg = json.dumps([2, 'SN0000', 'BootNotification', {
+                        'chargePointVendor': cs.get('vendor', 'EV-BOX'),
+                        'chargePointModel': cs.get('model', 'G3-M7500E'),
+                        'firmwareVersion': cs.get('firmware', ''),
+                        'chargePointSerialNumber': serial,
+                    }])
+                    await forward_to_backends(cpid, boot_msg)
+                    logger.info(f'[PROBE] Spoofed BootNotification to backends for {cpid}')
+                    await asyncio.sleep(1)  # geef backend tijd om Boot te verwerken
+                for cid in conn_ids:
+                    status_msg = json.dumps([2, f'SN{cid:04d}', 'StatusNotification', {
+                        'connectorId': cid,
+                        'errorCode': 'NoError',
+                        'status': 'Available',
+                        'timestamp': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+                    }])
+                    await forward_to_backends(cpid, status_msg)
+                logger.info(f'[PROBE] Spoofed StatusNotification to backends for {cpid}: {len(conn_ids)} connectors')
+            else:
+                for cid in conn_ids:
+                    msg = json.dumps([2, next_cmd_id(), 'TriggerMessage', {
+                        'requestedMessage': 'StatusNotification', 'connectorId': cid
+                    }])
+                    await ws.send(msg)
+                logger.info(f'[PROBE] Triggered StatusNotification for {cpid}: {len(conn_ids)} connectors')
         except Exception as e:
             logger.error(f'[PROBE] Failed for {cpid}: {e}')
     asyncio.create_task(probe_and_configure(websocket, cp_id))
@@ -1321,6 +1379,36 @@ async def tectronic_poll_loop():
         await asyncio.sleep(10)
 
 
+async def backend_health_check():
+    """Elke 60s: check of connected chargers hun backends hebben, zo niet → reconnect."""
+    await asyncio.sleep(30)  # wacht tot alles opgestart is
+    while True:
+        try:
+            for cp_id, ws in list(charger_websockets.items()):
+                if ws is None or ws.closed:
+                    continue
+                # Charger heeft een open websocket — check backends
+                backends_ok = False
+                if cp_id in backend_connections:
+                    for name, bws in backend_connections[cp_id].items():
+                        if bws is not None and not bws.closed:
+                            backends_ok = True
+                            break
+                if not backends_ok:
+                    expected = CHARGER_BACKENDS.get(cp_id, DEFAULT_BACKENDS)
+                    if expected:
+                        logger.warning(f'[HEALTH] {cp_id} connected maar geen backends — reconnecting {expected}')
+                        asyncio.create_task(setup_backends(cp_id, ws))
+                # Fix state mismatch: websocket open maar connected=False
+                if cp_id in charger_state and not charger_state[cp_id].get('connected'):
+                    logger.warning(f'[HEALTH] {cp_id} state mismatch — fixing connected=True')
+                    charger_state[cp_id]['connected'] = True
+                    write_state()
+        except Exception as e:
+            logger.error(f'[HEALTH] Error: {e}')
+        await asyncio.sleep(60)
+
+
 async def main():
     ws_port = int(os.environ.get('OCPP_WS_PORT', 8081))
     async with serve(
@@ -1350,6 +1438,7 @@ async def main():
             tectronic_poll_loop(),
             evbox_grid_manager(),
             _supabase_sync(),
+            backend_health_check(),
         )
 
 
