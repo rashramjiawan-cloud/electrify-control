@@ -125,6 +125,16 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Server-side authorization check for single-grid mode
+    if (callerIsAuthenticatedUser && !callerIsPrivileged) {
+      if (!callerCustomerId || grid.customer_id !== callerCustomerId) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     const result = await balanceGrid(supabase, grid, available_power_kw);
     await logResult(supabase, result);
     await applyChargingProfiles(supabase, result);
