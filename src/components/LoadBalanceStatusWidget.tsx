@@ -204,7 +204,7 @@ const LoadBalanceStatusWidget = () => {
         })}
 
         {!loading && results.length === 0 && !error && (
-          <p className="text-xs text-muted-foreground text-center py-4">Geen actieve grids gevonden</p>
+          <p className="text-xs text-muted-foreground text-center py-4">Geen load-balance data</p>
         )}
 
         <p className="text-[9px] text-muted-foreground text-center">
