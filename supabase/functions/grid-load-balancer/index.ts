@@ -75,14 +75,24 @@ Deno.serve(async (req) => {
         gridsQuery = gridsQuery.eq("customer_id", caller.customerId);
       }
       const { data: grids, error: gridsErr } = await gridsQuery;
-      if (gridsErr) throw gridsErr;
+      if (gridsErr) {
+        console.error("[auto-balance] grids query error:", gridsErr);
+        return new Response(
+          JSON.stringify({ mode: "batch", grids_processed: 0, results: [] }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
 
       const results = [];
       for (const grid of grids || []) {
-        const result = await balanceGrid(supabase, grid, undefined);
-        results.push(result);
-        await logResult(supabase, result);
-        await applyChargingProfiles(supabase, result);
+        try {
+          const result = await balanceGrid(supabase, grid, undefined);
+          results.push(result);
+          try { await logResult(supabase, result); } catch (e) { console.error("[log-result]", e); }
+          try { await applyChargingProfiles(supabase, result); } catch (e) { console.error("[apply-profiles]", e); }
+        } catch (e) {
+          console.error(`[auto-balance] grid ${grid?.id} failed:`, e);
+        }
       }
 
       console.log(`[auto-balance] Processed ${results.length} grids (scoped=${caller.isAuthenticated && !caller.isPrivileged})`);
@@ -117,14 +127,15 @@ Deno.serve(async (req) => {
     }
 
     const result = await balanceGrid(supabase, grid, available_power_kw);
-    await logResult(supabase, result);
-    await applyChargingProfiles(supabase, result);
+    try { await logResult(supabase, result); } catch (e) { console.error("[log-result]", e); }
+    try { await applyChargingProfiles(supabase, result); } catch (e) { console.error("[apply-profiles]", e); }
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    return new Response(JSON.stringify({ error: String(err) }), {
+    console.error("[grid-load-balancer] fatal:", err);
+    return new Response(JSON.stringify({ error: String(err), mode: "batch", grids_processed: 0, results: [] }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

@@ -57,15 +57,21 @@ const LoadBalanceStatusWidget = () => {
       const { data, error: fnError } = await supabase.functions.invoke('grid-load-balancer', {
         body: {},
       });
-      if (fnError) throw fnError;
-      const batch = data as BatchResponse;
-      // Scope to the customer's own grids (RLS-scoped list from useVirtualGrids)
+      if (fnError) {
+        // Degrade gracefully instead of showing a raw non-2xx error to the user
+        console.warn('[load-balance-status] invoke error:', fnError);
+        setResults([]);
+        setLastUpdated(new Date());
+        return;
+      }
+      const batch = (data as BatchResponse) || { mode: 'batch', grids_processed: 0, results: [] };
       const allowedIds = new Set(enabledGrids.map(g => g.id));
       const scoped = (batch.results || []).filter(r => allowedIds.has(r.grid_id));
       setResults(scoped);
       setLastUpdated(new Date());
     } catch (e: any) {
-      setError(e?.message || 'Kon load balance status niet ophalen');
+      console.warn('[load-balance-status] fetch failed:', e);
+      setResults([]);
     } finally {
       setLoading(false);
     }

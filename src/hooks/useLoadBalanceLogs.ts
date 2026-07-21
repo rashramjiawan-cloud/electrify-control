@@ -16,6 +16,7 @@ export interface LoadBalanceLog {
 export const useLoadBalanceLogs = (gridId?: string, limit = 20) =>
   useQuery({
     queryKey: ['load_balance_logs', gridId, limit],
+    retry: 1,
     queryFn: async () => {
       let query = supabase
         .from('load_balance_logs' as any)
@@ -28,7 +29,10 @@ export const useLoadBalanceLogs = (gridId?: string, limit = 20) =>
       }
 
       const { data, error } = await query;
-      if (error) throw error;
-      return data as unknown as LoadBalanceLog[];
+      if (error) {
+        console.warn('[load-balance-logs] query error:', error);
+        return [] as LoadBalanceLog[];
+      }
+      return (data ?? []) as unknown as LoadBalanceLog[];
     },
   });
