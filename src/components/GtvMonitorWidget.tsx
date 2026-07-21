@@ -74,7 +74,11 @@ const GtvMonitorWidget = () => {
         <div className="flex items-center gap-2">
           {status === 'critical' && <AlertTriangle className="h-3.5 w-3.5 text-destructive animate-pulse" />}
           {status === 'warning' && <AlertTriangle className="h-3.5 w-3.5 text-warning" />}
-          <span className="text-[10px] text-muted-foreground">{gridOperator}</span>
+          {gridOperator && <span className="text-[10px] text-muted-foreground">{gridOperator}</span>}
+          {primaryGrid && <span className="text-[10px] text-muted-foreground">· {primaryGrid.name}</span>}
+          {contractGtv > 0 && (
+            <span className="text-[10px] text-muted-foreground">· Contract {contractGtv} kW</span>
+          )}
         </div>
       </div>
 
