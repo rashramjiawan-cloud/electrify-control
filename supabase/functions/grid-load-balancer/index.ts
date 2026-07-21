@@ -36,19 +36,67 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // ---- Server-side authorization scoping ----
+    // Determine caller identity via the incoming JWT (if any).
+    // - Admin/manager: sees all grids (unchanged behavior)
+    // - Authenticated user: only their own customer's grids
+    // - No JWT (cron / service_role internal): process all grids, no response scoping
+    const authHeader = req.headers.get("Authorization") || "";
+    let callerCustomerId: string | null = null;
+    let callerIsPrivileged = false;
+    let callerIsAuthenticatedUser = false;
+
+    if (authHeader.startsWith("Bearer ")) {
+      const token = authHeader.replace("Bearer ", "");
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      // If the caller passed the service role key itself, treat as internal/privileged.
+      if (token === serviceKey) {
+        callerIsPrivileged = true;
+      } else {
+        const userClient = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_ANON_KEY")!,
+          { global: { headers: { Authorization: authHeader } } }
+        );
+        const { data: userData } = await userClient.auth.getUser();
+        const uid = userData?.user?.id;
+        if (uid) {
+          callerIsAuthenticatedUser = true;
+          // Check role via security-definer helper
+          const { data: isPriv } = await supabase.rpc("is_admin_or_manager", { _uid: uid });
+          callerIsPrivileged = !!isPriv;
+          if (!callerIsPrivileged) {
+            const { data: prof } = await supabase
+              .from("profiles")
+              .select("customer_id")
+              .eq("user_id", uid)
+              .maybeSingle();
+            callerCustomerId = prof?.customer_id ?? null;
+          }
+        }
+      }
+    }
+
     const body = await req.json().catch(() => ({}));
     const { grid_id, available_power_kw } = body;
 
     // If no grid_id provided, process ALL enabled grids (batch/cron mode)
     if (!grid_id) {
-      const { data: grids, error: gridsErr } = await supabase
-        .from("virtual_grids")
-        .select("*")
-        .eq("enabled", true);
-
+      let gridsQuery = supabase.from("virtual_grids").select("*").eq("enabled", true);
+      // Scope for regular authenticated users
+      if (callerIsAuthenticatedUser && !callerIsPrivileged) {
+        if (!callerCustomerId) {
+          return new Response(
+            JSON.stringify({ mode: "batch", grids_processed: 0, results: [] }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        gridsQuery = gridsQuery.eq("customer_id", callerCustomerId);
+      }
+      const { data: grids, error: gridsErr } = await gridsQuery;
       if (gridsErr) throw gridsErr;
 
-    const results = [];
+      const results = [];
       for (const grid of grids || []) {
         const result = await balanceGrid(supabase, grid, undefined);
         results.push(result);
@@ -56,7 +104,7 @@ Deno.serve(async (req) => {
         await applyChargingProfiles(supabase, result);
       }
 
-      console.log(`[auto-balance] Processed ${results.length} grids`);
+      console.log(`[auto-balance] Processed ${results.length} grids (scoped=${callerIsAuthenticatedUser && !callerIsPrivileged})`);
 
       return new Response(JSON.stringify({ mode: "batch", grids_processed: results.length, results }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -75,6 +123,16 @@ Deno.serve(async (req) => {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Server-side authorization check for single-grid mode
+    if (callerIsAuthenticatedUser && !callerIsPrivileged) {
+      if (!callerCustomerId || grid.customer_id !== callerCustomerId) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     const result = await balanceGrid(supabase, grid, available_power_kw);
