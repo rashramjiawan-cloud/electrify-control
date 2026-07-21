@@ -18,21 +18,19 @@ export const useLoadBalanceLogs = (gridId?: string, limit = 20) =>
     queryKey: ['load_balance_logs', gridId, limit],
     retry: 1,
     queryFn: async () => {
-      let query = supabase
-        .from('load_balance_logs' as any)
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(limit);
+      const { data, error } = await supabase.functions.invoke('grid-load-balancer', {
+        body: {
+          mode: 'logs',
+          grid_id: gridId,
+          limit,
+        },
+      });
 
-      if (gridId) {
-        query = query.eq('grid_id', gridId);
-      }
-
-      const { data, error } = await query;
       if (error) {
-        console.warn('[load-balance-logs] query error:', error);
+        console.warn('[load-balance-logs] invoke error:', error);
         return [] as LoadBalanceLog[];
       }
-      return (data ?? []) as unknown as LoadBalanceLog[];
+
+      return ((data as { logs?: LoadBalanceLog[] } | null)?.logs ?? []) as LoadBalanceLog[];
     },
   });
