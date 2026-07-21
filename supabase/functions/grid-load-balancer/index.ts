@@ -162,9 +162,7 @@ async function getCallerScope(
     return { isInternal: false, isAuthenticated: true, isPrivileged: true, customerId: null };
   }
 
-  const { data: customerId } = await supabase.rpc("get_my_customer_id", undefined, {
-    headers: { Authorization: authHeader },
-  });
+  const { data: customerId } = await userClient.rpc("get_my_customer_id");
 
   return {
     isInternal: false,
