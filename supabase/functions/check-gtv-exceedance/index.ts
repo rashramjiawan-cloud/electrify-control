@@ -6,6 +6,13 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+interface CallerScope {
+  isInternal: boolean;
+  isAuthenticated: boolean;
+  isPrivileged: boolean;
+  customerId: string | null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -13,14 +20,29 @@ Deno.serve(async (req) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
   const supabase = createClient(supabaseUrl, serviceKey);
 
   try {
+    const caller = await getCallerScope(req, supabase, supabaseUrl, anonKey, serviceKey);
+    if (!caller.isAuthenticated && !caller.isInternal) {
+      return jsonRes({ error: "Unauthorized" }, 401);
+    }
+
     // 1. Fetch all enabled virtual grids
-    const { data: grids, error: gridErr } = await supabase
+    let gridsQuery = supabase
       .from("virtual_grids")
       .select("id, name, gtv_limit_kw")
       .eq("enabled", true);
+
+    if (caller.isAuthenticated && !caller.isPrivileged) {
+      if (!caller.customerId) {
+        return jsonRes({ checked: 0, results: [] });
+      }
+      gridsQuery = gridsQuery.eq("customer_id", caller.customerId);
+    }
+
+    const { data: grids, error: gridErr } = await gridsQuery;
 
     if (gridErr) throw gridErr;
     if (!grids?.length) {
@@ -161,4 +183,44 @@ function jsonRes(body: any, status = 200) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+async function getCallerScope(
+  req: Request,
+  supabase: any,
+  supabaseUrl: string,
+  anonKey: string,
+  serviceKey: string,
+): Promise<CallerScope> {
+  const authHeader = req.headers.get("Authorization") || "";
+  if (!authHeader.startsWith("Bearer ")) {
+    return { isInternal: false, isAuthenticated: false, isPrivileged: false, customerId: null };
+  }
+
+  const token = authHeader.replace("Bearer ", "").trim();
+  if (token === serviceKey) {
+    return { isInternal: true, isAuthenticated: false, isPrivileged: true, customerId: null };
+  }
+
+  const userClient = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data: userData, error: userError } = await userClient.auth.getUser();
+  const uid = userData?.user?.id;
+  if (userError || !uid) {
+    return { isInternal: false, isAuthenticated: false, isPrivileged: false, customerId: null };
+  }
+
+  const { data: isPriv } = await supabase.rpc("is_admin_or_manager", { _uid: uid });
+  if (isPriv) {
+    return { isInternal: false, isAuthenticated: true, isPrivileged: true, customerId: null };
+  }
+
+  const { data: customerId } = await userClient.rpc("get_my_customer_id");
+  return {
+    isInternal: false,
+    isAuthenticated: true,
+    isPrivileged: false,
+    customerId: customerId ?? null,
+  };
 }
