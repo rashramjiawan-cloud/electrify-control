@@ -127,14 +127,15 @@ Deno.serve(async (req) => {
     }
 
     const result = await balanceGrid(supabase, grid, available_power_kw);
-    await logResult(supabase, result);
-    await applyChargingProfiles(supabase, result);
+    try { await logResult(supabase, result); } catch (e) { console.error("[log-result]", e); }
+    try { await applyChargingProfiles(supabase, result); } catch (e) { console.error("[apply-profiles]", e); }
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    return new Response(JSON.stringify({ error: String(err) }), {
+    console.error("[grid-load-balancer] fatal:", err);
+    return new Response(JSON.stringify({ error: String(err), mode: "batch", grids_processed: 0, results: [] }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
