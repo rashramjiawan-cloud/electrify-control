@@ -1826,6 +1826,7 @@ export type Database = {
           balancing_strategy: string
           config: Json
           created_at: string
+          customer_id: string | null
           description: string | null
           enabled: boolean
           gtv_limit_kw: number
@@ -1838,6 +1839,7 @@ export type Database = {
           balancing_strategy?: string
           config?: Json
           created_at?: string
+          customer_id?: string | null
           description?: string | null
           enabled?: boolean
           gtv_limit_kw?: number
@@ -1850,6 +1852,7 @@ export type Database = {
           balancing_strategy?: string
           config?: Json
           created_at?: string
+          customer_id?: string | null
           description?: string | null
           enabled?: boolean
           gtv_limit_kw?: number
@@ -1858,7 +1861,15 @@ export type Database = {
           name?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "virtual_grids_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -1873,6 +1884,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_admin_or_manager: { Args: { _uid: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "user" | "manager" | "operator" | "viewer"
