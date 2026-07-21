@@ -52,7 +52,7 @@ const LoadBalanceHistoryWidget = () => {
 
         {!isLoading && logs.length === 0 && (
           <p className="text-xs text-muted-foreground text-center py-4">
-            Nog geen historische data. Resultaten verschijnen na de volgende load balance run.
+            Geen load-balance data. Resultaten verschijnen na de volgende run.
           </p>
         )}
 

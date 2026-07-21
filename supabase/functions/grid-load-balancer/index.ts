@@ -32,6 +32,19 @@ interface CallerScope {
   customerId: string | null;
 }
 
+function json(payload: unknown, status = 200) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+function normalizeLimit(value: unknown) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 30;
+  return Math.min(Math.max(Math.floor(parsed), 1), 100);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -47,17 +60,31 @@ Deno.serve(async (req) => {
     const caller = await getCallerScope(req, supabase, supabaseUrl, anonKey, serviceKey, functionSecret);
 
     // Fail closed for public/browser calls. Only a validated user JWT or the
-    // service-role token may execute this function. This prevents accidental
-    // unscoped responses when a client sends only the anon key or no JWT.
+    // service-role token may return scoped data. Batch/history widgets get an
+    // empty 2xx response on missing/expired auth, never cross-tenant data.
     if (!caller.isAuthenticated && !caller.isInternal) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      const unauthBody = await req.json().catch(() => ({}));
+      if (unauthBody?.mode === "logs" || unauthBody?.mode === "history") {
+        return json({ mode: "logs", logs: [] });
+      }
+      if (!unauthBody?.grid_id) {
+        return json({ mode: "batch", grids_processed: 0, results: [] });
+      }
+      return json({ error: "Unauthorized" }, 401);
     }
 
     const body = await req.json().catch(() => ({}));
     const { grid_id, available_power_kw } = body;
+
+    if (body?.mode === "logs" || body?.mode === "history") {
+      const logs = await getScopedLoadBalanceLogs(
+        supabase,
+        caller,
+        typeof grid_id === "string" ? grid_id : undefined,
+        normalizeLimit(body?.limit),
+      );
+      return json({ mode: "logs", logs });
+    }
 
     // If no grid_id provided, process ALL enabled grids (batch/cron mode)
     if (!grid_id) {
@@ -67,20 +94,14 @@ Deno.serve(async (req) => {
       // any grid is balanced or returned.
       if (caller.isAuthenticated && !caller.isPrivileged) {
         if (!caller.customerId) {
-          return new Response(
-            JSON.stringify({ mode: "batch", grids_processed: 0, results: [] }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
+          return json({ mode: "batch", grids_processed: 0, results: [] });
         }
         gridsQuery = gridsQuery.eq("customer_id", caller.customerId);
       }
       const { data: grids, error: gridsErr } = await gridsQuery;
       if (gridsErr) {
         console.error("[auto-balance] grids query error:", gridsErr);
-        return new Response(
-          JSON.stringify({ mode: "batch", grids_processed: 0, results: [] }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return json({ mode: "batch", grids_processed: 0, results: [] });
       }
 
       const results = [];
@@ -97,9 +118,7 @@ Deno.serve(async (req) => {
 
       console.log(`[auto-balance] Processed ${results.length} grids (scoped=${caller.isAuthenticated && !caller.isPrivileged})`);
 
-      return new Response(JSON.stringify({ mode: "batch", grids_processed: results.length, results }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ mode: "batch", grids_processed: results.length, results });
     }
 
     // Single grid mode (manual trigger)
@@ -110,35 +129,30 @@ Deno.serve(async (req) => {
       .single();
 
     if (gridErr || !grid) {
-      return new Response(JSON.stringify({ error: "Grid not found" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "Grid not found" }, 404);
     }
 
     // Server-side authorization check for single-grid mode
     if (caller.isAuthenticated && !caller.isPrivileged) {
       if (!caller.customerId || grid.customer_id !== caller.customerId) {
-        return new Response(JSON.stringify({ error: "Forbidden" }), {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return json({ error: "Forbidden" }, 403);
       }
     }
 
-    const result = await balanceGrid(supabase, grid, available_power_kw);
+    let result;
+    try {
+      result = await balanceGrid(supabase, grid, available_power_kw);
+    } catch (e) {
+      console.error(`[grid-load-balancer] balance failed for own grid ${grid.id}:`, e);
+      result = emptyGridResult(grid, available_power_kw);
+    }
     try { await logResult(supabase, result); } catch (e) { console.error("[log-result]", e); }
     try { await applyChargingProfiles(supabase, result); } catch (e) { console.error("[apply-profiles]", e); }
 
-    return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json(result);
   } catch (err) {
     console.error("[grid-load-balancer] fatal:", err);
-    return new Response(JSON.stringify({ error: String(err), mode: "batch", grids_processed: 0, results: [] }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ error: String(err), mode: "batch", grids_processed: 0, results: [] }, 500);
   }
 });
 
@@ -165,6 +179,12 @@ async function getCallerScope(
     return { isInternal: true, isAuthenticated: false, isPrivileged: true, customerId: null };
   }
 
+  // Browser invokes without a user session can send the anon key as bearer.
+  // That is not a user JWT and causes auth `/user` "missing sub claim" 403s.
+  if (!token || token === anonKey) {
+    return { isInternal: false, isAuthenticated: false, isPrivileged: false, customerId: null };
+  }
+
   const userClient = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: authHeader } },
   });
@@ -187,6 +207,66 @@ async function getCallerScope(
     isAuthenticated: true,
     isPrivileged: false,
     customerId: customerId ?? null,
+  };
+}
+
+async function getScopedLoadBalanceLogs(
+  supabase: any,
+  caller: CallerScope,
+  gridId?: string,
+  limit = 30,
+) {
+  let allowedGridIds: string[] | null = null;
+
+  if (caller.isAuthenticated && !caller.isPrivileged) {
+    if (!caller.customerId) return [];
+
+    let gridsQuery = supabase
+      .from("virtual_grids")
+      .select("id")
+      .eq("customer_id", caller.customerId);
+
+    if (gridId) gridsQuery = gridsQuery.eq("id", gridId);
+
+    const { data: grids, error: gridsErr } = await gridsQuery;
+    if (gridsErr) {
+      console.error("[load-balance-logs] scoped grid query failed:", gridsErr);
+      return [];
+    }
+
+    allowedGridIds = (grids || []).map((g: { id: string }) => g.id);
+    if (allowedGridIds.length === 0) return [];
+  }
+
+  let logsQuery = supabase
+    .from("load_balance_logs")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (allowedGridIds) {
+    logsQuery = logsQuery.in("grid_id", allowedGridIds);
+  } else if (gridId) {
+    logsQuery = logsQuery.eq("grid_id", gridId);
+  }
+
+  const { data, error } = await logsQuery;
+  if (error) {
+    console.error("[load-balance-logs] query failed:", error);
+    return [];
+  }
+
+  return data || [];
+}
+
+function emptyGridResult(grid: any, overridePower?: number) {
+  return {
+    grid_id: grid.id,
+    grid_name: grid.name,
+    strategy: grid.balancing_strategy,
+    total_available_kw: +(overridePower ?? grid.gtv_limit_kw ?? 0).toFixed(2),
+    gtv_limit_kw: grid.gtv_limit_kw,
+    allocations: [],
   };
 }
 
