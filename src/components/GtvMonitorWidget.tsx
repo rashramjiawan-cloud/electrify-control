@@ -1,19 +1,31 @@
 import { useMemo } from 'react';
 import { useSystemSettings } from '@/hooks/useSystemSettings';
 import { useEnergyFlows } from '@/hooks/useEnergyFlows';
+import { useVirtualGrids } from '@/hooks/useVirtualGrids';
 import { Gauge, AlertTriangle, ArrowDown, ArrowUp } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const GtvMonitorWidget = () => {
   const { getSetting, isLoading: settingsLoading } = useSystemSettings();
-  const { flows, isLoading: flowsLoading, hasAnyLive } = useEnergyFlows();
+  const { flows, isLoading: flowsLoading } = useEnergyFlows();
+  const { data: grids, isLoading: gridsLoading } = useVirtualGrids();
 
-  const isLoading = settingsLoading || flowsLoading;
+  const isLoading = settingsLoading || flowsLoading || gridsLoading;
 
-  const gtvImport = Number(getSetting('gtv_import_kw')?.value ?? 150);
-  const gtvExport = Number(getSetting('gtv_export_kw')?.value ?? 150);
-  const warningPct = Number(getSetting('gtv_warning_pct')?.value ?? 80);
-  const gridOperator = getSetting('gtv_grid_operator')?.value ?? 'Onbekend';
+  // Prefer the customer's own (RLS-scoped) virtual grid over global system settings
+  const primaryGrid = useMemo(() => (grids ?? []).find(g => g.enabled) ?? grids?.[0], [grids]);
+  const gridConfig = (primaryGrid?.config ?? {}) as Record<string, any>;
+
+  const gtvImport = Number(
+    gridConfig.gtv_import_kw ?? primaryGrid?.gtv_limit_kw ?? getSetting('gtv_import_kw')?.value ?? 0
+  );
+  const gtvExport = Number(
+    gridConfig.gtv_export_kw ?? primaryGrid?.gtv_limit_kw ?? getSetting('gtv_export_kw')?.value ?? 0
+  );
+  const contractGtv = Number(gridConfig.contract_gtv_kw ?? 0);
+  const warningPct = Number(gridConfig.gtv_warning_pct ?? getSetting('gtv_warning_pct')?.value ?? 80);
+  const gridOperator = gridConfig.grid_operator ?? '';
+
 
   const gridFlow = flows.find(f => f.type === 'grid');
   const currentPowerKw = gridFlow?.totalPowerKw ?? 0;
@@ -62,7 +74,11 @@ const GtvMonitorWidget = () => {
         <div className="flex items-center gap-2">
           {status === 'critical' && <AlertTriangle className="h-3.5 w-3.5 text-destructive animate-pulse" />}
           {status === 'warning' && <AlertTriangle className="h-3.5 w-3.5 text-warning" />}
-          <span className="text-[10px] text-muted-foreground">{gridOperator}</span>
+          {gridOperator && <span className="text-[10px] text-muted-foreground">{gridOperator}</span>}
+          {primaryGrid && <span className="text-[10px] text-muted-foreground">· {primaryGrid.name}</span>}
+          {contractGtv > 0 && (
+            <span className="text-[10px] text-muted-foreground">· Contract {contractGtv} kW</span>
+          )}
         </div>
       </div>
 

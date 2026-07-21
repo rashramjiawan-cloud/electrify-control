@@ -59,14 +59,17 @@ const LoadBalanceStatusWidget = () => {
       });
       if (fnError) throw fnError;
       const batch = data as BatchResponse;
-      setResults(batch.results || []);
+      // Scope to the customer's own grids (RLS-scoped list from useVirtualGrids)
+      const allowedIds = new Set(enabledGrids.map(g => g.id));
+      const scoped = (batch.results || []).filter(r => allowedIds.has(r.grid_id));
+      setResults(scoped);
       setLastUpdated(new Date());
     } catch (e: any) {
       setError(e?.message || 'Kon load balance status niet ophalen');
     } finally {
       setLoading(false);
     }
-  }, [enabledGrids.length]);
+  }, [enabledGrids]);
 
   // Auto-fetch on mount and every 5 minutes
   useEffect(() => {
