@@ -21,10 +21,11 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const functionSecret = Deno.env.get("CHARGER_STATUS_INGEST_KEY") ?? "";
   const supabase = createClient(supabaseUrl, serviceKey);
 
   try {
-    const caller = await getCallerScope(req, supabase, supabaseUrl, anonKey, serviceKey);
+    const caller = await getCallerScope(req, supabase, supabaseUrl, anonKey, serviceKey, functionSecret);
     if (!caller.isAuthenticated && !caller.isInternal) {
       return jsonRes({ error: "Unauthorized" }, 401);
     }
@@ -191,7 +192,13 @@ async function getCallerScope(
   supabaseUrl: string,
   anonKey: string,
   serviceKey: string,
+  functionSecret: string,
 ): Promise<CallerScope> {
+  const functionKey = req.headers.get("x-api-key") || new URL(req.url).searchParams.get("api_key") || "";
+  if (functionSecret && functionKey === functionSecret) {
+    return { isInternal: true, isAuthenticated: false, isPrivileged: true, customerId: null };
+  }
+
   const authHeader = req.headers.get("Authorization") || "";
   if (!authHeader.startsWith("Bearer ")) {
     return { isInternal: false, isAuthenticated: false, isPrivileged: false, customerId: null };
