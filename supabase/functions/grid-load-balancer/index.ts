@@ -25,56 +25,34 @@ interface BalanceResult {
   percentage: number;
 }
 
+interface CallerScope {
+  isInternal: boolean;
+  isAuthenticated: boolean;
+  isPrivileged: boolean;
+  customerId: string | null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabase = createClient(supabaseUrl, serviceKey);
 
-    // ---- Server-side authorization scoping ----
-    // Determine caller identity via the incoming JWT (if any).
-    // - Admin/manager: sees all grids (unchanged behavior)
-    // - Authenticated user: only their own customer's grids
-    // - No JWT (cron / service_role internal): process all grids, no response scoping
-    const authHeader = req.headers.get("Authorization") || "";
-    let callerCustomerId: string | null = null;
-    let callerIsPrivileged = false;
-    let callerIsAuthenticatedUser = false;
+    const caller = await getCallerScope(req, supabase, supabaseUrl, anonKey, serviceKey);
 
-    if (authHeader.startsWith("Bearer ")) {
-      const token = authHeader.replace("Bearer ", "");
-      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-      // If the caller passed the service role key itself, treat as internal/privileged.
-      if (token === serviceKey) {
-        callerIsPrivileged = true;
-      } else {
-        const userClient = createClient(
-          Deno.env.get("SUPABASE_URL")!,
-          Deno.env.get("SUPABASE_ANON_KEY")!,
-          { global: { headers: { Authorization: authHeader } } }
-        );
-        const { data: userData } = await userClient.auth.getUser();
-        const uid = userData?.user?.id;
-        if (uid) {
-          callerIsAuthenticatedUser = true;
-          // Check role via security-definer helper
-          const { data: isPriv } = await supabase.rpc("is_admin_or_manager", { _uid: uid });
-          callerIsPrivileged = !!isPriv;
-          if (!callerIsPrivileged) {
-            const { data: prof } = await supabase
-              .from("profiles")
-              .select("customer_id")
-              .eq("user_id", uid)
-              .maybeSingle();
-            callerCustomerId = prof?.customer_id ?? null;
-          }
-        }
-      }
+    // Fail closed for public/browser calls. Only a validated user JWT or the
+    // service-role token may execute this function. This prevents accidental
+    // unscoped responses when a client sends only the anon key or no JWT.
+    if (!caller.isAuthenticated && !caller.isInternal) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const body = await req.json().catch(() => ({}));
@@ -83,15 +61,17 @@ Deno.serve(async (req) => {
     // If no grid_id provided, process ALL enabled grids (batch/cron mode)
     if (!grid_id) {
       let gridsQuery = supabase.from("virtual_grids").select("*").eq("enabled", true);
-      // Scope for regular authenticated users
-      if (callerIsAuthenticatedUser && !callerIsPrivileged) {
-        if (!callerCustomerId) {
+      // Scope for regular authenticated users. Admin/manager and service-role
+      // internal runs remain unscoped; all other users are restricted before
+      // any grid is balanced or returned.
+      if (caller.isAuthenticated && !caller.isPrivileged) {
+        if (!caller.customerId) {
           return new Response(
             JSON.stringify({ mode: "batch", grids_processed: 0, results: [] }),
             { headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
-        gridsQuery = gridsQuery.eq("customer_id", callerCustomerId);
+        gridsQuery = gridsQuery.eq("customer_id", caller.customerId);
       }
       const { data: grids, error: gridsErr } = await gridsQuery;
       if (gridsErr) throw gridsErr;
@@ -104,7 +84,7 @@ Deno.serve(async (req) => {
         await applyChargingProfiles(supabase, result);
       }
 
-      console.log(`[auto-balance] Processed ${results.length} grids (scoped=${callerIsAuthenticatedUser && !callerIsPrivileged})`);
+      console.log(`[auto-balance] Processed ${results.length} grids (scoped=${caller.isAuthenticated && !caller.isPrivileged})`);
 
       return new Response(JSON.stringify({ mode: "batch", grids_processed: results.length, results }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -126,8 +106,8 @@ Deno.serve(async (req) => {
     }
 
     // Server-side authorization check for single-grid mode
-    if (callerIsAuthenticatedUser && !callerIsPrivileged) {
-      if (!callerCustomerId || grid.customer_id !== callerCustomerId) {
+    if (caller.isAuthenticated && !caller.isPrivileged) {
+      if (!caller.customerId || grid.customer_id !== caller.customerId) {
         return new Response(JSON.stringify({ error: "Forbidden" }), {
           status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -149,6 +129,50 @@ Deno.serve(async (req) => {
     });
   }
 });
+
+async function getCallerScope(
+  req: Request,
+  supabase: any,
+  supabaseUrl: string,
+  anonKey: string,
+  serviceKey: string,
+): Promise<CallerScope> {
+  const authHeader = req.headers.get("Authorization") || "";
+  if (!authHeader.startsWith("Bearer ")) {
+    return { isInternal: false, isAuthenticated: false, isPrivileged: false, customerId: null };
+  }
+
+  const token = authHeader.replace("Bearer ", "").trim();
+  if (token === serviceKey) {
+    return { isInternal: true, isAuthenticated: false, isPrivileged: true, customerId: null };
+  }
+
+  const userClient = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data: userData, error: userError } = await userClient.auth.getUser();
+  const uid = userData?.user?.id;
+  if (userError || !uid) {
+    return { isInternal: false, isAuthenticated: false, isPrivileged: false, customerId: null };
+  }
+
+  const { data: isPriv } = await supabase.rpc("is_admin_or_manager", { _uid: uid });
+  const isPrivileged = !!isPriv;
+  if (isPrivileged) {
+    return { isInternal: false, isAuthenticated: true, isPrivileged: true, customerId: null };
+  }
+
+  const { data: customerId } = await supabase.rpc("get_my_customer_id", undefined, {
+    headers: { Authorization: authHeader },
+  });
+
+  return {
+    isInternal: false,
+    isAuthenticated: true,
+    isPrivileged: false,
+    customerId: customerId ?? null,
+  };
+}
 
 async function balanceGrid(supabase: any, grid: any, overridePower?: number) {
   // Fetch enabled members
