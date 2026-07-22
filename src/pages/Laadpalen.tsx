@@ -25,6 +25,7 @@ import MqttStatusBadge from '@/components/MqttStatusBadge';
 import MqttConfigDialog from '@/components/MqttConfigDialog';
 import ChargePointLoadBalance from '@/components/ChargePointLoadBalance';
 import OcppProxyStatusBar from '@/components/OcppProxyStatusBar';
+import ConnectorRow from '@/components/ConnectorRow';
 import { useMqttConfigForAsset } from '@/hooks/useMqttConfigurations';
 import { useCustomers } from '@/hooks/useUsers';
 import { useAuth } from '@/hooks/useAuth';
