@@ -795,70 +795,13 @@ const Laadpalen = () => {
 
                   {/* Connectors */}
                   <div className="mt-4 space-y-2">
-                    {cp.connectors.map((conn: any) => {
-                      const connStatus = conn.status as string;
-                      const connBg = connStatus === 'Charging' ? 'bg-primary/10 border border-primary/30'
-                        : connStatus === 'Available' ? 'bg-success/10 border border-success/30'
-                        : connStatus === 'Preparing' || connStatus === 'SuspendedEV' || connStatus === 'Finishing' ? 'bg-warning/10 border border-warning/30'
-                        : connStatus === 'Faulted' ? 'bg-destructive/10 border border-destructive/30'
-                        : 'bg-muted/50 border border-border';
-                      const connIconColor = connStatus === 'Charging' ? 'text-primary'
-                        : connStatus === 'Available' ? 'text-success'
-                        : connStatus === 'Preparing' || connStatus === 'SuspendedEV' || connStatus === 'Finishing' ? 'text-warning'
-                        : connStatus === 'Faulted' ? 'text-destructive'
-                        : 'text-muted-foreground';
-                      const isCharging = connStatus === 'Charging';
-                      const maxKw = Number(cp.max_power) || 22;
-                      const kw = Number(conn.current_power) || 0;
-                      const pct = Math.min(100, Math.max(0, (kw / maxKw) * 100));
-                      return (
-                      <div key={conn.connector_id} className={`relative overflow-hidden rounded-lg px-4 py-2.5 ${connBg}`}>
-                        {isCharging && (
-                          <>
-                            <div
-                              className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary/30 via-primary/20 to-primary/40 transition-all duration-1000 ease-out"
-                              style={{ width: `${pct}%` }}
-                            />
-                            <div
-                              className="absolute inset-y-0 left-0 bg-gradient-to-r from-transparent via-primary/40 to-transparent animate-[shimmer_2s_linear_infinite]"
-                              style={{ width: `${pct}%`, backgroundSize: '200% 100%' }}
-                            />
-                          </>
-                        )}
-                        <div className="relative flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <Plug className={`h-3.5 w-3.5 ${connIconColor} ${isCharging ? 'animate-pulse' : ''}`} />
-                            <span className="font-mono text-xs text-muted-foreground">Connector {conn.connector_id}</span>
-                            <StatusBadge status={conn.status as ChargePointStatus} />
-                          </div>
-                          <div className="flex items-center gap-4">
-                            {isCharging && (
-                              <div className="flex items-center gap-1.5">
-                                <span className="relative flex h-2 w-2">
-                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
-                                </span>
-                                <span className="font-mono text-sm text-primary font-bold tabular-nums">
-                                  {kw.toFixed(1)} kW
-                                </span>
-                                <span className="font-mono text-[10px] text-muted-foreground">
-                                  / {maxKw} kW
-                                </span>
-                              </div>
-                            )}
-                            {!isCharging && kw > 0 && (
-                              <span className="font-mono text-sm text-primary font-medium">{kw} kW</span>
-                            )}
-                            {conn.activeTransaction && (
-                              <span className="font-mono text-xs text-muted-foreground">
-                                TX #{conn.activeTransaction.id} · {conn.activeTransaction.idTag}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      );
-                    })}
+                    {cp.connectors.map((conn: any) => (
+                      <ConnectorRow
+                        key={conn.connector_id}
+                        connector={conn}
+                        maxKw={Number(cp.max_power) || 22}
+                      />
+                    ))}
                   </div>
                 </div>
               </div>
