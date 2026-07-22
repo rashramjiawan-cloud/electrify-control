@@ -159,7 +159,6 @@ const EMS = () => {
 
       {/* Grid Details Panel */}
       <div className="mt-8">
-        <GridDetailsPanel />
       </div>
 
       {/* Meter History Chart */}
