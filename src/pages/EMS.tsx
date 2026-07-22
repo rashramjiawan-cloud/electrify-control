@@ -157,9 +157,6 @@ const EMS = () => {
         <LoadBalanceHistoryWidget />
       </div>
 
-      {/* Grid Details Panel */}
-      <div className="mt-8">
-      </div>
 
       {/* Meter History Chart */}
       <div className="mt-8">
