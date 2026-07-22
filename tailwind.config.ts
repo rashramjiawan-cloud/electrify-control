@@ -96,6 +96,10 @@ export default {
           "80%": { opacity: "1" },
           "100%": { transform: "translateY(8px)", opacity: "0" },
         },
+        "shimmer": {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(100%)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
